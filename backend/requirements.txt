@@ -1,1 +1,20 @@
-fastapi==0.109.0 uvicorn==0.27.0 sqlalchemy==2.0.25 pydantic==2.5.3 python-jose[cryptography]==3.3.0 passlib[bcrypt]==1.7.4 python-multipart==0.0.6 apscheduler==3.10.4 requests==2.31.0 bcrypt==4.1.2a
+# --- Core Web Framework ---
+fastapi==0.109.0            # High-performance API framework for building the backend
+uvicorn==0.27.0             # Lightning-fast ASGI server to run the FastAPI application
+
+# --- Database & Data Models ---
+sqlalchemy==2.0.25          # The database toolkit and Object Relational Mapper (ORM)
+pydantic==2.5.3             # Data validation library (used for Schemas and API inputs)
+
+# --- Authentication & Security ---
+python-jose[cryptography]==3.3.0  # Library to generate and verify JWT (JSON Web Tokens)
+passlib[bcrypt]==1.7.4      # Password hashing library to securely store user passwords
+bcrypt==4.1.2               # Underlying hashing utility required by Passlib
+
+# --- Background Tasks & Networking ---
+apscheduler==3.10.4         # Advanced Scheduler to run background jobs (like Ntfy alerts)
+requests==2.31.0            # Standard HTTP library (used to send requests to Ntfy.sh)
+
+# --- Data Parsing ---
+python-multipart==0.0.6     # Required by FastAPI to parse form data (e.g., login forms)
+```
