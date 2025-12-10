@@ -7,27 +7,39 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
 # --- User ---
-class UserCreate(BaseModel):
+class UserBase(BaseModel):
     username: str
+    full_name: Optional[str] = None
+
+class UserCreate(UserBase):
     password: str
-    full_name: str
-    age: int
-    gender: str
+
+class User(UserBase):
+    id: int
+    class Config:
+        from_attributes = True
 
 # --- Card ---
-class CardCreate(BaseModel):
+class CardBase(BaseModel):
     name: str
     bank: str
     network: str
     total_limit: float
-    manual_limit: float
+    manual_limit: Optional[float] = None
     statement_date: int
     payment_due_date: int
 
-class Card(CardCreate):
+class CardCreate(CardBase):
+    pass
+
+class Card(CardBase):
     id: int
     last_4: Optional[str] = None
+    owner_id: int
     class Config:
         from_attributes = True
 
@@ -37,7 +49,7 @@ class TransactionBase(BaseModel):
     amount: float
     type: str
     card_id: int
-    tag_name: Optional[str] = None # Frontend sends this
+    tag_name: Optional[str] = None 
 
 class Transaction(BaseModel):
     id: int
