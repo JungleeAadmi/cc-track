@@ -28,6 +28,7 @@ class CardBase(BaseModel):
     name: str
     bank: str
     network: str
+    currency: str = "USD" # NEW
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
@@ -40,6 +41,10 @@ class Card(CardBase):
     id: int
     last_4: Optional[str] = None
     owner_id: int
+    # Calculated fields (not in DB, computed on fly)
+    spent: float = 0.0 
+    available: float = 0.0
+    
     class Config:
         from_attributes = True
 
