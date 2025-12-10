@@ -14,9 +14,15 @@ class TokenData(BaseModel):
 class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
+    currency: Optional[str] = "USD"
 
 class UserCreate(UserBase):
     password: str
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    currency: Optional[str] = None
+    password: Optional[str] = None
 
 class User(UserBase):
     id: int
@@ -28,20 +34,25 @@ class CardBase(BaseModel):
     name: str
     bank: str
     network: str
-    currency: str = "USD" # NEW
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
     payment_due_date: int
+    image_front: Optional[str] = None # Base64 string
+    image_back: Optional[str] = None  # Base64 string
 
 class CardCreate(CardBase):
     pass
+
+class CardUpdate(BaseModel):
+    name: Optional[str] = None
+    total_limit: Optional[float] = None
+    manual_limit: Optional[float] = None
 
 class Card(CardBase):
     id: int
     last_4: Optional[str] = None
     owner_id: int
-    # Calculated fields (not in DB, computed on fly)
     spent: float = 0.0 
     available: float = 0.0
     

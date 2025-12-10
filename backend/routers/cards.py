@@ -18,29 +18,25 @@ def create_card(card: schemas.CardCreate, db: Session = Depends(database.get_db)
 def read_cards(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     cards = db.query(models.Card).filter(models.Card.owner_id == current_user.id).offset(skip).limit(limit).all()
     
-    # Calculate Real-Time Stats for each card
     for card in cards:
-        # Sum of Debits (Spends)
-        debits = db.query(func.sum(models.Transaction.amount)).filter(
-            models.Transaction.card_id == card.id, 
-            models.Transaction.type == "DEBIT"
-        ).scalar() or 0.0
+        debits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "DEBIT").scalar() or 0.0
+        credits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "CREDIT").scalar() or 0.0
         
-        # Sum of Credits (Payments)
-        credits = db.query(func.sum(models.Transaction.amount)).filter(
-            models.Transaction.card_id == card.id, 
-            models.Transaction.type == "CREDIT"
-        ).scalar() or 0.0
-        
-        # Current Balance = Debits - Credits
         current_balance = debits - credits
-        if current_balance < 0: current_balance = 0 # Safety check
+        if current_balance < 0: current_balance = 0
         
-        # Determine Limit to use (Manual overrides Total)
         active_limit = card.manual_limit if (card.manual_limit and card.manual_limit > 0) else card.total_limit
         
-        # Assign to card object (Pydantic will pick this up)
         card.spent = current_balance
         card.available = active_limit - current_balance
 
     return cards
+
+@router.delete("/{card_id}")
+def delete_card(card_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    db.delete(card)
+    db.commit()
+    return {"message": "Card deleted"}

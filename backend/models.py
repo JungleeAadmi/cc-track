@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, DateTime, LargeBinary
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, DateTime, Text
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -10,12 +10,14 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     full_name = Column(String)
     hashed_password = Column(String)
-    # Removed unused fields to prevent schema errors
+    currency = Column(String, default="USD") # Moved Currency here
+    
+    # Removed unused fields
     age = Column(Integer, default=0)
     gender = Column(String, default="Not Specified")
 
-    cards = relationship("Card", back_populates="owner")
-    tags = relationship("Tag", back_populates="owner")
+    cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
+    tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
 
 class Card(Base):
     __tablename__ = "cards"
@@ -25,7 +27,10 @@ class Card(Base):
     bank = Column(String) 
     network = Column(String) 
     last_4 = Column(String, nullable=True)
-    currency = Column(String, default="USD") # NEW FIELD
+    
+    # Storing Base64 strings for images (simple solution)
+    image_front = Column(Text, nullable=True)
+    image_back = Column(Text, nullable=True)
     
     total_limit = Column(Float, default=0.0)
     manual_limit = Column(Float, nullable=True) 
@@ -35,7 +40,7 @@ class Card(Base):
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="cards")
-    transactions = relationship("Transaction", back_populates="card")
+    transactions = relationship("Transaction", back_populates="card", cascade="all, delete-orphan")
 
 class Tag(Base):
     __tablename__ = "tags"
