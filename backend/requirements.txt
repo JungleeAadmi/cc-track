@@ -17,4 +17,3 @@ requests==2.31.0            # Standard HTTP library (used to send requests to Nt
 
 # --- Data Parsing ---
 python-multipart==0.0.6     # Required by FastAPI to parse form data (e.g., login forms)
-```
