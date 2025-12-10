@@ -5,7 +5,10 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      // You can add custom colors here if needed, 
+      // but we are currently using standard Tailwind colors (red-900, neutral-950)
+    },
   },
   plugins: [],
 }
