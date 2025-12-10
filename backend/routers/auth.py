@@ -21,25 +21,22 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.post("/signup", response_model=schemas.User)
+@router.post("/signup")
 def create_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     
     hashed_pwd = auth.get_password_hash(user.password)
+    
     new_user = models.User(
         username=user.username,
         full_name=user.full_name,
-        age=user.age,
-        gender=user.gender,
-        hashed_password=hashed_pwd
+        hashed_password=hashed_pwd,
+        age=0, # Defaults
+        gender="Not Specified" # Defaults
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
-
-@router.get("/users/me", response_model=schemas.User)
-async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
-    return current_user
+    return {"message": "User created successfully"}
