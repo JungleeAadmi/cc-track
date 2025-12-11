@@ -13,7 +13,13 @@ class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
     currency: Optional[str] = "USD"
-    ntfy_topic: Optional[str] = None # NEW
+    ntfy_topic: Optional[str] = None
+    ntfy_server: Optional[str] = "https://ntfy.sh"
+    notify_card_add: bool = True
+    notify_txn_add: bool = True
+    notify_card_del: bool = True
+    notify_statement: bool = True
+    notify_due_dates: bool = True
 
 class UserCreate(UserBase):
     password: str
@@ -21,8 +27,14 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     currency: Optional[str] = None
-    ntfy_topic: Optional[str] = None # NEW
+    ntfy_topic: Optional[str] = None
+    ntfy_server: Optional[str] = None
     password: Optional[str] = None
+    notify_card_add: Optional[bool] = None
+    notify_txn_add: Optional[bool] = None
+    notify_card_del: Optional[bool] = None
+    notify_statement: Optional[bool] = None
+    notify_due_dates: Optional[bool] = None
 
 class User(UserBase):
     id: int

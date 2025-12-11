@@ -10,7 +10,17 @@ class User(Base):
     full_name = Column(String)
     hashed_password = Column(String)
     currency = Column(String, default="USD")
-    ntfy_topic = Column(String, nullable=True) # NEW FIELD
+    
+    # --- NTFY CONFIG ---
+    ntfy_topic = Column(String, nullable=True)
+    ntfy_server = Column(String, default="https://ntfy.sh") # Custom Server URL
+    
+    # --- NOTIFICATION PREFERENCES ---
+    notify_card_add = Column(Boolean, default=True)
+    notify_txn_add = Column(Boolean, default=True)
+    notify_card_del = Column(Boolean, default=True)
+    notify_statement = Column(Boolean, default=True)
+    notify_due_dates = Column(Boolean, default=True) # 5-day warning
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")

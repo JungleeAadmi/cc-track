@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import models, schemas, auth, database
+from utils import send_ntfy_alert
 
 router = APIRouter(prefix="/cards", tags=["Cards"])
 
@@ -12,6 +13,16 @@ def create_card(card: schemas.CardCreate, db: Session = Depends(database.get_db)
     db.add(new_card)
     db.commit()
     db.refresh(new_card)
+    
+    # Notify
+    if current_user.notify_card_add:
+        send_ntfy_alert(
+            current_user,
+            "Card Added",
+            f"Successfully added {new_card.bank} - {new_card.name}",
+            tags="credit_card,plus"
+        )
+        
     return new_card
 
 @router.get("/", response_model=List[schemas.Card])
@@ -26,7 +37,6 @@ def read_cards(skip: int = 0, limit: int = 100, db: Session = Depends(database.g
         if current_balance < 0: current_balance = 0
         
         active_limit = card.manual_limit if (card.manual_limit and card.manual_limit > 0) else card.total_limit
-        
         card.spent = current_balance
         card.available = active_limit - current_balance
 
@@ -37,6 +47,19 @@ def delete_card(card_id: int, db: Session = Depends(database.get_db), current_us
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
+        
+    card_name = card.name
     db.delete(card)
     db.commit()
+    
+    # Notify
+    if current_user.notify_card_del:
+        send_ntfy_alert(
+            current_user,
+            "Card Deleted",
+            f"Removed {card_name} from your wallet.",
+            priority="low",
+            tags="wastebasket"
+        )
+        
     return {"message": "Card deleted"}
