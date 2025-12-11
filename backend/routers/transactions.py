@@ -36,10 +36,11 @@ def create_transaction(
         description=txn.description,
         amount=txn.amount,
         type=txn.type,
-        mode=txn.mode, # NEW
+        mode=txn.mode,
+        is_emi=txn.is_emi,       # NEW
+        emi_tenure=txn.emi_tenure, # NEW
         card_id=txn.card_id,
         tag_id=tag_id,
-        # Use provided date or default to now
         date=txn.date if txn.date else datetime.utcnow()
     )
     db.add(new_txn)
@@ -48,10 +49,11 @@ def create_transaction(
     
     if current_user.notify_txn_add:
         emoji = "money_with_wings" if txn.type == "DEBIT" else "moneybag"
+        extra = f"(EMI: {txn.emi_tenure}mo)" if txn.is_emi else ""
         send_ntfy_alert(
             current_user,
             f"New {txn.type}",
-            f"{card.name}: {current_user.currency} {txn.amount} at {txn.description} ({txn.mode})",
+            f"{card.name}: {current_user.currency} {txn.amount} at {txn.description} {extra}",
             tags=emoji
         )
         
@@ -64,8 +66,7 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Header - Added Mode
-    writer.writerow(["Date", "Card", "Type", "Mode", "Description", "Amount", "Currency", "Tag"])
+    writer.writerow(["Date", "Card", "Type", "Mode", "Description", "Amount", "Currency", "Tag", "Is EMI", "Tenure"])
     
     for t in txns:
         tag_name = t.tag.name if t.tag else ""
@@ -73,11 +74,13 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
             t.date.strftime("%Y-%m-%d %H:%M"),
             t.card.name,
             t.type,
-            t.mode or "Online", # Handle legacy records
+            t.mode or "Online",
             t.description,
             t.amount,
             current_user.currency,
-            tag_name
+            tag_name,
+            "Yes" if t.is_emi else "No",
+            f"{t.emi_tenure} Months" if t.is_emi else ""
         ])
     
     output.seek(0)

@@ -70,8 +70,12 @@ class TransactionBase(BaseModel):
     description: str
     amount: float
     type: str
-    mode: str = "Online" # NEW
-    date: Optional[datetime] = None # NEW
+    mode: str = "Online"
+    date: Optional[datetime] = None
+    # NEW EMI FIELDS
+    is_emi: bool = False
+    emi_tenure: Optional[int] = None
+    
     card_id: int
     tag_name: Optional[str] = None 
 

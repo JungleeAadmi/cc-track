@@ -64,7 +64,11 @@ class Transaction(Base):
     description = Column(String)
     amount = Column(Float)
     type = Column(String)
-    mode = Column(String, default="Online") # NEW FIELD
+    mode = Column(String, default="Online")
+    
+    # NEW EMI FIELDS
+    is_emi = Column(Boolean, default=False)
+    emi_tenure = Column(Integer, nullable=True) # Months
     
     card_id = Column(Integer, ForeignKey("cards.id"))
     tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)

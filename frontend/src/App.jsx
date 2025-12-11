@@ -28,6 +28,7 @@ const getNextDate = (dayOfMonth) => {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
+  
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -221,7 +222,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
          <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
          <form onSubmit={handleUpdate} className="space-y-6 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
              
-             {/* General */}
              <div className="grid md:grid-cols-2 gap-4">
                  <div>
                     <label className="text-xs text-neutral-500 font-bold uppercase">Display Name</label>
@@ -237,7 +237,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                  </div>
              </div>
 
-             {/* CSV Export */}
              <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800 flex items-center justify-between">
                 <div>
                     <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2">
@@ -250,7 +249,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                 </button>
              </div>
 
-             {/* Ntfy Config */}
              <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800">
                 <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2 mb-4">
                   <Bell size={14} className="text-red-500"/> Notifications (Ntfy)
@@ -390,7 +388,12 @@ const AuthenticatedApp = () => {
       statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
       card_type: 'Credit Card', expiry_date: '' 
   });
-  const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', date: '', mode: 'Online', custom_mode: '' });
+  const [newTxn, setNewTxn] = useState({ 
+      description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', 
+      date: new Date().toISOString().split('T')[0], // Default today
+      mode: 'Online', custom_mode: '',
+      is_emi: false, emi_tenure: 3 
+  });
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
@@ -472,7 +475,6 @@ const AuthenticatedApp = () => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     
-    // Determine the mode: use select value, or custom input if "Others" is selected
     let finalMode = newTxn.mode;
     if (newTxn.mode === "Others") {
         if (!newTxn.custom_mode.trim()) {
@@ -490,17 +492,18 @@ const AuthenticatedApp = () => {
         card_id: parseInt(newTxn.card_id),
         date: newTxn.date ? new Date(newTxn.date).toISOString() : new Date().toISOString(),
         tag_name: newTxn.tag,
-        mode: finalMode // Send correct mode
+        mode: finalMode,
+        is_emi: newTxn.is_emi,
+        emi_tenure: newTxn.is_emi ? parseInt(newTxn.emi_tenure) : null
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddTxn(false);
       fetchData();
       alert('Transaction logged');
-      // Reset form (keeping card/type/mode defaults for convenience)
-      setNewTxn(prev => ({ ...prev, description: '', amount: '', date: '', custom_mode: '' }));
+      // Reset
+      setNewTxn({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', date: new Date().toISOString().split('T')[0], mode: 'Online', custom_mode: '', is_emi: false, emi_tenure: 3 });
     } catch (err) { alert('Failed to add transaction: ' + (err.response?.data?.detail || err.message)); }
   };
 
-  // Nav Button Helper
   const NavButton = ({ label, icon: Icon, active, onClick }) => (
     <button onClick={onClick} className={`flex flex-col items-center justify-center w-16 gap-1 transition-colors ${active ? 'text-red-500' : 'text-neutral-500 hover:text-neutral-300'}`}>
       <Icon size={24} strokeWidth={active ? 2.5 : 2} />
@@ -675,7 +678,7 @@ const AuthenticatedApp = () => {
       {showAddTxn && (
         <Modal title="Add Transaction" onClose={() => setShowAddTxn(false)}>
            <form onSubmit={handleAddTxn} className="space-y-4">
-              <div>
+              <div className="col-span-2">
                  <label className="text-xs text-neutral-500 uppercase font-bold">Select Card</label>
                  <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
                     value={newTxn.card_id} onChange={e => setNewTxn({...newTxn, card_id: e.target.value})} required>
@@ -683,7 +686,7 @@ const AuthenticatedApp = () => {
                     {cards.map(c => <option key={c.id} value={c.id}>{c.name} ({c.last_4 || 'XXXX'})</option>)}
                  </select>
               </div>
-              <div>
+              <div className="col-span-2">
                  <label className="text-xs text-neutral-500 uppercase font-bold">Description</label>
                  <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
                     placeholder="Starbucks, AWS, etc." value={newTxn.description} onChange={e => setNewTxn({...newTxn, description: e.target.value})} required />
@@ -728,6 +731,29 @@ const AuthenticatedApp = () => {
                     </select>
                   </div>
               </div>
+
+              {/* Payment Style (EMI vs Full) */}
+              <div className="grid grid-cols-2 gap-4">
+                   <div>
+                       <label className="text-xs text-neutral-500 uppercase font-bold">Payment Style</label>
+                       <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                           value={newTxn.is_emi ? "EMI" : "Full"} 
+                           onChange={e => setNewTxn({...newTxn, is_emi: e.target.value === "EMI"})}>
+                           <option value="Full">Full Swipe</option>
+                           <option value="EMI">EMI</option>
+                       </select>
+                   </div>
+                   {newTxn.is_emi && (
+                       <div>
+                           <label className="text-xs text-neutral-500 uppercase font-bold">Tenure (Months)</label>
+                           <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                               value={newTxn.emi_tenure} onChange={e => setNewTxn({...newTxn, emi_tenure: e.target.value})}>
+                               {[3, 6, 9, 12, 18, 24, 36, 48].map(m => <option key={m} value={m}>{m} Months</option>)}
+                           </select>
+                       </div>
+                   )}
+              </div>
+
               <div>
                  <label className="text-xs text-neutral-500 uppercase font-bold flex items-center gap-2"><Tag size={12}/> Tag (Auto-saved)</label>
                  <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
