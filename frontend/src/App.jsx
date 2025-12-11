@@ -8,28 +8,31 @@ import {
 
 const API_URL = '/api';
 
-// --- CONFIGURATION ---
+// --- 1. CONFIGURATION ---
 axios.interceptors.response.use(
   response => response,
   error => {
-    // Only logout on 401, ignore other errors to keep session alive during blips
+    // Only logout on 401 (Unauthorized) from the API
     if (error.response && error.response.status === 401) {
+      console.warn("Session expired.");
       localStorage.removeItem('token');
-      localStorage.removeItem('username');
+      // Do not remove username so it pre-fills or stays for UX
       if (window.location.pathname !== '/') window.location.href = '/';
     }
     return Promise.reject(error);
   }
 );
 
-// --- UTILS ---
+// --- 2. UTILITIES ---
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
+  
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
   
+  // If the date has passed this month, show next month's date
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -84,7 +87,8 @@ const processImage = (file) => {
   });
 };
 
-// --- COMPONENTS ---
+// --- 3. UI COMPONENTS ---
+
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -120,6 +124,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                 <p className="text-white font-mono">{formData.last_4 || 'N/A'}</p>
               </div>
            </div>
+           
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
@@ -132,14 +137,22 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
-                <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
+                <div className="relative group">
+                  <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
+                </div>
+              ) : (
+                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
+              )}
            </div>
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? (
-                <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
+                <div className="relative group">
+                  <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
+                </div>
+              ) : (
+                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
+              )}
            </div>
         </div>
       )}
@@ -254,7 +267,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
-                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800 p-5 rounded-2xl shadow-lg border border-neutral-700 hover:border-red-500/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
                     <div className="relative z-10 flex items-start justify-between mb-4">
                         <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
                             <NetworkLogo network={card.network} />
@@ -404,6 +417,14 @@ const AuthenticatedApp = () => {
     } catch (err) { alert('Failed to add transaction: ' + (err.response?.data?.detail || err.message)); }
   };
 
+  // Nav Button Helper
+  const NavButton = ({ label, icon: Icon, active, onClick }) => (
+    <button onClick={onClick} className={`flex flex-col items-center justify-center w-16 gap-1 transition-colors ${active ? 'text-red-500' : 'text-neutral-500 hover:text-neutral-300'}`}>
+      <Icon size={24} strokeWidth={active ? 2.5 : 2} />
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-neutral-950 pb-[calc(env(safe-area-inset-bottom)+5rem)] md:pb-0 md:pl-64 text-neutral-200 font-sans">
       <aside className="fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-red-900/20 hidden md:flex flex-col z-20">
@@ -418,13 +439,13 @@ const AuthenticatedApp = () => {
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
             {[
-              { name: 'Dashboard', icon: <LayoutDashboard size={20}/> },
-              { name: 'My Cards', icon: <CreditCard size={20}/> },
-              { name: 'Analytics', icon: <TrendingUp size={20}/> },
-              { name: 'Settings', icon: <Settings size={20}/> }
+              { name: 'Dashboard', icon: LayoutDashboard },
+              { name: 'My Cards', icon: CreditCard },
+              { name: 'Analytics', icon: TrendingUp },
+              { name: 'Settings', icon: Settings }
             ].map((item) => (
                <button key={item.name} onClick={() => setActiveView(item.name)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === item.name ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
-                {item.icon} {item.name}
+                <item.icon size={20} /> {item.name}
             </button> 
             ))}
         </nav>
@@ -465,25 +486,10 @@ const AuthenticatedApp = () => {
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
-        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeView==='Dashboard'?'text-red-500':'text-neutral-500 hover:text-neutral-300'}`}>
-            <Home size={24} strokeWidth={activeView==='Dashboard'? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Home</span>
-        </button>
-        
-        <button onClick={() => setShowAddCard(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white transition-colors">
-            <CreditCard size={24} />
-            <span className="text-[10px] font-medium">Add Card</span>
-        </button>
-        
-        <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white transition-colors">
-            <Plus size={24} />
-            <span className="text-[10px] font-medium">Add Txn</span>
-        </button>
-        
-        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeView==='Settings'?'text-red-500':'text-neutral-500 hover:text-neutral-300'}`}>
-            <Settings size={24} strokeWidth={activeView==='Settings'? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Settings</span>
-        </button>
+        <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
+        <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
+        <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
+        <NavButton label="Settings" icon={Settings} active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
       </nav>
 
       {/* --- MODALS --- */}
@@ -667,7 +673,6 @@ const Login = () => {
       if (isLogin) {
         const response = await axios.post(`${API_URL}/token`, formData);
         localStorage.setItem('token', response.data.access_token);
-        // CRITICAL: Save username for instant load
         localStorage.setItem('username', username);
         window.location.href = '/dashboard';
       } else {
