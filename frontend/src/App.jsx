@@ -519,6 +519,73 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
   );
 };
 
+// --- AUTH WRAPPER (This was missing!) ---
+const AuthenticatedApp = () => {
+  const [activeView, setActiveView] = useState('Dashboard');
+  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
+  
+  const fetchUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+        setCurrentUser(res.data);
+      } catch (err) { console.error(err); }
+  };
+
+  useEffect(() => { fetchUser(); }, []);
+
+  const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
+
+  return (
+    <div className="min-h-screen bg-neutral-950 pb-24 md:pb-0 md:pl-64 text-neutral-200 font-sans">
+      <aside className="fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-red-900/20 hidden md:flex flex-col z-20">
+        <div className="p-6 flex items-center gap-3">
+             <div className="bg-gradient-to-br from-red-700 to-red-900 p-2 rounded-lg shadow-lg shadow-red-900/20">
+                 <img src="/logo.png" alt="Icon" className="w-6 h-6 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} />
+             </div>
+             <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-2">
+            {[
+              { name: 'Dashboard', icon: <LayoutDashboard size={20}/> },
+              { name: 'My Cards', icon: <CreditCard size={20}/> },
+              { name: 'Analytics', icon: <TrendingUp size={20}/> },
+              { name: 'Settings', icon: <Settings size={20}/> }
+            ].map((item) => (
+               <button key={item.name} onClick={() => setActiveView(item.name)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === item.name ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
+                {item.icon} {item.name}
+            </button> 
+            ))}
+        </nav>
+        <div className="p-4 border-t border-neutral-800">
+            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 text-neutral-500 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-colors">
+                <LogOut size={20} /> Terminate Session
+            </button>
+        </div>
+      </aside>
+
+      <header className="md:hidden bg-neutral-900 border-b border-red-900/20 p-4 sticky top-0 z-10 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+             <div className="bg-red-800 p-1.5 rounded-lg"><Wallet className="text-white w-5 h-5" /></div>
+             <span className="font-bold text-lg text-white lowercase">cc-track</span>
+          </div>
+          <button onClick={handleLogout} className="text-neutral-500"><LogOut size={24} /></button>
+      </header>
+
+      <main className="max-w-6xl mx-auto p-4 md:p-8">
+         <Dashboard activeView={activeView} currentUser={currentUser} onUpdateUser={setCurrentUser} />
+      </main>
+
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 z-30 pb-safe">
+        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}><LayoutDashboard size={24} /><span className="text-[10px]">Home</span></button>
+        <button className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-red-700 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><Plus size={24} className="text-white"/></div></button>
+        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}><Settings size={24} /><span className="text-[10px]">Settings</span></button>
+      </nav>
+    </div>
+  );
+}
+
 // --- MAIN ROUTER ---
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
