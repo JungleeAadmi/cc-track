@@ -3,38 +3,73 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
-  TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save, RotateCcw
+  TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// --- HELPER: Image Resizer & Compressor ---
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
+          <div className="bg-neutral-900 p-4 rounded border border-red-900 font-mono text-sm max-w-2xl overflow-auto text-left">
+            <p className="font-bold border-b border-red-900/30 pb-2 mb-2">Error Details:</p>
+            {this.state.error?.toString()}
+          </div>
+          <button onClick={() => window.location.reload()} className="mt-8 bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">
+            Reboot System
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// --- HELPER: Image Resizer ---
 const processImage = (file) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = new Image();
       img.src = event.target.result;
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        // Max dimension 800px to keep size small (~50-100KB)
-        const MAX_WIDTH = 800;
-        const scaleSize = MAX_WIDTH / img.width;
-        canvas.width = MAX_WIDTH;
-        canvas.height = img.height * scaleSize;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Compress to JPEG 70% quality
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; 
+          const scaleSize = MAX_WIDTH / img.width;
+          // Only scale down if image is larger than MAX_WIDTH
+          if (img.width > MAX_WIDTH) {
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+          } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+          }
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } catch (e) {
+          reject(e);
+        }
       };
+      img.onerror = (err) => reject(err);
     };
+    reader.onerror = (err) => reject(err);
   });
 };
 
-// --- SHARED COMPONENTS ---
+// --- SHARED: Modal ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -47,8 +82,8 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
-// --- SETTINGS COMPONENT ---
-const SettingsPage = ({ onClose, onUpdateUser }) => {
+// --- PAGE: Settings ---
+const SettingsPage = ({ onUpdateUser }) => {
   const [user, setUser] = useState({ full_name: '', currency: 'USD' });
   const [password, setPassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -56,6 +91,7 @@ const SettingsPage = ({ onClose, onUpdateUser }) => {
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem('token');
+      if (!token) return;
       try {
         const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
         setUser(res.data);
@@ -73,8 +109,7 @@ const SettingsPage = ({ onClose, onUpdateUser }) => {
         currency: user.currency,
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
-      
-      onUpdateUser(res.data); // Update global state
+      onUpdateUser(res.data);
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
   };
@@ -107,7 +142,7 @@ const SettingsPage = ({ onClose, onUpdateUser }) => {
                 </select>
              </div>
              <div>
-                <label className="text-xs text-neutral-500 font-bold uppercase">New Password (Optional)</label>
+                <label className="text-xs text-neutral-500 font-bold uppercase">New Password</label>
                 <input type="password" className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1" 
                    value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" />
              </div>
@@ -116,7 +151,6 @@ const SettingsPage = ({ onClose, onUpdateUser }) => {
              </button>
          </form>
        </div>
-
        <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
           <h3 className="text-red-500 font-bold mb-2 flex items-center gap-2"><Trash2 size={20}/> Danger Zone</h3>
           <p className="text-neutral-400 text-sm mb-4">Type DELETE to confirm account removal.</p>
@@ -133,7 +167,7 @@ const SettingsPage = ({ onClose, onUpdateUser }) => {
   );
 };
 
-// --- LOGIN ---
+// --- PAGE: Login ---
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -146,7 +180,6 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       const formData = new FormData();
       formData.append('username', username);
@@ -162,7 +195,12 @@ const Login = () => {
         localStorage.setItem('token', loginRes.data.access_token);
         window.location.href = '/dashboard';
       }
-    } catch (err) { setError(err.response?.data?.detail || 'Authentication failed.'); } finally { setLoading(false); }
+    } catch (err) { 
+        console.error(err);
+        setError(err.response?.data?.detail || 'Authentication failed. Check your connection.'); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   return (
@@ -209,7 +247,7 @@ const Login = () => {
   );
 };
 
-// --- DASHBOARD ---
+// --- PAGE: Dashboard ---
 const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -228,6 +266,7 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
 
   const fetchCards = async () => {
     const token = localStorage.getItem('token');
+    if (!token) return;
     try {
       const res = await axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } });
       setCards(res.data);
@@ -236,20 +275,14 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
 
   useEffect(() => { fetchCards(); }, []);
 
-  // NEW: Image processing with compression
   const handleImageUpload = async (e, side) => {
     const file = e.target.files[0];
     if (file) {
-      // 5MB limit check (pre-compression)
-      if(file.size > 5 * 1024 * 1024) {
-         alert("Original image too large. Attempting to compress...");
-      }
+      if(file.size > 5 * 1024 * 1024) alert("Original image large. Compressing...");
       try {
         const compressedBase64 = await processImage(file);
         setNewCard(prev => ({ ...prev, [side]: compressedBase64 }));
-      } catch (err) {
-        alert("Failed to process image.");
-      }
+      } catch (err) { alert("Failed to process image."); }
     }
   };
 
@@ -270,9 +303,8 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
       fetchCards();
-      // Reset form
       setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '' });
-    } catch (err) { alert('Failed to add card. Try taking a lower resolution photo if problem persists.'); }
+    } catch (err) { alert('Failed to add card. Try taking a lower resolution photo.'); }
   };
 
   const handleAddTxn = async (e) => {
@@ -330,57 +362,48 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
             </div>
         </div>
 
-        <div>
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Active Cards</h3>
-            </div>
-            {loading ? <div className="text-center py-12 text-neutral-600 animate-pulse">Loading...</div> : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {cards.map(card => (
-                        <div key={card.id} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden">
-                            <button onClick={() => handleDeleteCard(card.id)} className="absolute top-2 right-2 text-neutral-600 hover:text-red-500 z-20"><Trash2 size={16}/></button>
-                            <div className="relative z-10 flex items-start justify-between mb-6">
-                                <div className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
-                                    <CreditCard className="text-red-500 w-6 h-6" />
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold bg-neutral-800 text-neutral-400 px-2 py-1 rounded-md border border-neutral-700 block mb-1">{card.network}</span>
-                                </div>
-                            </div>
-                            <div className="relative z-10">
-                                <h4 className="font-bold text-white text-lg tracking-wide mb-1">{card.name}</h4>
-                                <p className="text-sm text-neutral-500 mb-4">{card.bank} •••• {card.last_4 || 'XXXX'}</p>
-                                
-                                <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
-                                  <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-neutral-400">Spent</span>
-                                    <span className="text-white font-medium">{currentUser.currency} {card.spent?.toLocaleString()}</span>
-                                  </div>
-                                  <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-                                     <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
-                                  </div>
-                                </div>
-                                <div className="flex justify-between items-end text-xs text-neutral-500">
-                                    <div>Limit: {card.total_limit.toLocaleString()}</div>
-                                    <div>Due: {card.payment_due_date}th</div>
-                                </div>
-                                {/* Image Preview Indicator */}
-                                {(card.image_front || card.image_back) && (
-                                   <div className="absolute bottom-2 right-2">
-                                     <ImageIcon size={14} className="text-neutral-600" />
-                                   </div>
-                                )}
-                            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cards.map(card => (
+                <div key={card.id} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden">
+                    <button onClick={() => handleDeleteCard(card.id)} className="absolute top-2 right-2 text-neutral-600 hover:text-red-500 z-20"><Trash2 size={16}/></button>
+                    <div className="relative z-10 flex items-start justify-between mb-6">
+                        <div className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
+                            <CreditCard className="text-red-500 w-6 h-6" />
                         </div>
-                    ))}
+                        <div className="text-right">
+                          <span className="text-xs font-bold bg-neutral-800 text-neutral-400 px-2 py-1 rounded-md border border-neutral-700 block mb-1">{card.network}</span>
+                        </div>
+                    </div>
+                    <div className="relative z-10">
+                        <h4 className="font-bold text-white text-lg tracking-wide mb-1">{card.name}</h4>
+                        <p className="text-sm text-neutral-500 mb-4">{card.bank} •••• {card.last_4 || 'XXXX'}</p>
+                        
+                        <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-neutral-400">Spent</span>
+                            <span className="text-white font-medium">{currentUser.currency} {card.spent?.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-end text-xs text-neutral-500">
+                            <div>Limit: {card.total_limit.toLocaleString()}</div>
+                            <div>Due: {card.payment_due_date}th</div>
+                        </div>
+                        {(card.image_front || card.image_back) && (
+                           <div className="absolute bottom-2 right-2">
+                             <ImageIcon size={14} className="text-neutral-600" />
+                           </div>
+                        )}
+                    </div>
                 </div>
-            )}
+            ))}
         </div>
 
         {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
            <form onSubmit={handleAddCard} className="space-y-4">
-              {/* Dotted Capture Area UI */}
               <div className="flex gap-2 mb-4">
                 <button type="button" onClick={() => frontInputRef.current.click()} className={`flex-1 p-4 rounded-xl border-2 border-dashed ${newCard.image_front ? 'border-red-500 bg-red-900/20' : 'border-neutral-600 bg-neutral-800'} text-neutral-400 hover:text-white flex flex-col items-center gap-2 transition-colors`}>
                    <div className="w-12 h-8 border border-neutral-500 rounded flex items-center justify-center">
@@ -497,81 +520,22 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
   );
 };
 
-// --- AUTH WRAPPER ---
-const AuthenticatedApp = () => {
-  const [activeView, setActiveView] = useState('Dashboard');
-  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
-  
-  // Fetch user globally so settings updates reflect everywhere
-  const fetchUser = async () => {
-      const token = localStorage.getItem('token');
-      try {
-        const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
-        setCurrentUser(res.data);
-      } catch (err) { console.error(err); }
-  };
-
-  useEffect(() => { fetchUser(); }, []);
-
-  const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
-
-  return (
-    <div className="min-h-screen bg-neutral-950 pb-24 md:pb-0 md:pl-64 text-neutral-200 font-sans">
-      <aside className="fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-red-900/20 hidden md:flex flex-col z-20">
-        <div className="p-6 flex items-center gap-3">
-             <div className="bg-gradient-to-br from-red-700 to-red-900 p-2 rounded-lg shadow-lg shadow-red-900/20">
-                 <img src="/logo.png" alt="Icon" className="w-6 h-6 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} />
-             </div>
-             <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
-        </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
-            {[
-              { name: 'Dashboard', icon: <LayoutDashboard size={20}/> },
-              { name: 'My Cards', icon: <CreditCard size={20}/> },
-              { name: 'Analytics', icon: <TrendingUp size={20}/> },
-              { name: 'Settings', icon: <Settings size={20}/> }
-            ].map((item) => (
-               <button key={item.name} onClick={() => setActiveView(item.name)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === item.name ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
-                {item.icon} {item.name}
-            </button> 
-            ))}
-        </nav>
-        <div className="p-4 border-t border-neutral-800">
-            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 text-neutral-500 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-colors">
-                <LogOut size={20} /> Terminate Session
-            </button>
-        </div>
-      </aside>
-
-      <header className="md:hidden bg-neutral-900 border-b border-red-900/20 p-4 sticky top-0 z-10 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-             <div className="bg-red-800 p-1.5 rounded-lg"><Wallet className="text-white w-5 h-5" /></div>
-             <span className="font-bold text-lg text-white lowercase">cc-track</span>
-          </div>
-          <button onClick={handleLogout} className="text-neutral-500"><LogOut size={24} /></button>
-      </header>
-
-      <main className="max-w-6xl mx-auto p-4 md:p-8">
-         <Dashboard activeView={activeView} currentUser={currentUser} onUpdateUser={setCurrentUser} />
-      </main>
-
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 z-30 pb-safe">
-        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}><LayoutDashboard size={24} /><span className="text-[10px]">Home</span></button>
-        <button className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-red-700 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><Plus size={24} className="text-white"/></div></button>
-        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}><Settings size={24} /><span className="text-[10px]">Settings</span></button>
-      </nav>
-    </div>
-  );
-}
+// --- MAIN ROUTER ---
+const PrivateRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  return token ? children : <Navigate to="/" />;
+};
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<PrivateRoute><AuthenticatedApp /></PrivateRoute>} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/dashboard" element={<PrivateRoute><AuthenticatedApp /></PrivateRoute>} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
