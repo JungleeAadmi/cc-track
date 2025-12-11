@@ -10,6 +10,7 @@ class User(Base):
     full_name = Column(String)
     hashed_password = Column(String)
     currency = Column(String, default="USD")
+    ntfy_topic = Column(String, nullable=True) # NEW FIELD
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
@@ -21,8 +22,8 @@ class Card(Base):
     bank = Column(String) 
     network = Column(String) 
     last_4 = Column(String, nullable=True)
-    image_front = Column(Text, nullable=True) # Base64 string
-    image_back = Column(Text, nullable=True)  # Base64 string
+    image_front = Column(Text, nullable=True)
+    image_back = Column(Text, nullable=True)
     total_limit = Column(Float, default=0.0)
     manual_limit = Column(Float, nullable=True) 
     statement_date = Column(Integer) 
@@ -47,7 +48,7 @@ class Transaction(Base):
     date = Column(DateTime, default=datetime.utcnow)
     description = Column(String)
     amount = Column(Float)
-    type = Column(String) # "DEBIT" or "CREDIT"
+    type = Column(String)
     card_id = Column(Integer, ForeignKey("cards.id"))
     tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     

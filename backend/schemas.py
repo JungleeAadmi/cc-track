@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
-# --- Token ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -10,11 +9,11 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
-# --- User ---
 class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
     currency: Optional[str] = "USD"
+    ntfy_topic: Optional[str] = None # NEW
 
 class UserCreate(UserBase):
     password: str
@@ -22,6 +21,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     currency: Optional[str] = None
+    ntfy_topic: Optional[str] = None # NEW
     password: Optional[str] = None
 
 class User(UserBase):
@@ -29,7 +29,6 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-# --- Card ---
 class CardBase(BaseModel):
     name: str
     bank: str
@@ -53,7 +52,6 @@ class Card(CardBase):
     class Config:
         from_attributes = True
 
-# --- Transaction ---
 class TransactionBase(BaseModel):
     description: str
     amount: float
