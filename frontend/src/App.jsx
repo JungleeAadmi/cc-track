@@ -5,8 +5,13 @@ import {
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  PieChart, Pie, Cell 
+} from 'recharts';
 
 const API_URL = '/api';
+const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 
 // --- CONFIGURATION ---
 axios.interceptors.response.use(
@@ -28,7 +33,6 @@ const getNextDate = (dayOfMonth) => {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
-  
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -290,6 +294,80 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
        </div>
     </div>
   );
+};
+
+const AnalyticsPage = ({ currentUser }) => {
+    const [data, setData] = useState({ monthly: [], category: [] });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAnalytics = async () => {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await axios.get(`${API_URL}/transactions/analytics`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setData(res.data);
+            } catch (err) { console.error(err); } finally { setLoading(false); }
+        };
+        fetchAnalytics();
+    }, []);
+
+    if (loading) return <div className="text-center py-20 text-neutral-600 animate-pulse">Analyzing data...</div>;
+    
+    if (data.monthly.length === 0 && data.category.length === 0) {
+        return (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <TrendingUp className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No data yet</h3>
+                <p className="text-neutral-500">Log some transactions to see insights.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Monthly Spending</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.monthly}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                            <XAxis dataKey="name" stroke="#666" fontSize={12} />
+                            <YAxis stroke="#666" fontSize={12} />
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
+                            <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.category}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {data.category.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
@@ -568,7 +646,21 @@ const AuthenticatedApp = () => {
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
-         {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
+         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} />}
+         {activeView === 'My Cards' && (
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cards.map(card => (
+                  <div key={card.id} onClick={() => setEditingCard(card)} className="cursor-pointer">
+                    {/* Reuse the dashboard card UI here if desired, or simpler list */}
+                    <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 hover:border-red-900">
+                        <p className="font-bold text-white">{card.name}</p>
+                        <p className="text-xs text-neutral-500">{card.bank} •••• {card.last_4}</p>
+                    </div>
+                  </div>
+              ))}
+              {cards.length === 0 && <p className="text-center text-neutral-500 col-span-full">No cards found.</p>}
+           </div>
+         )}
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
@@ -676,7 +768,7 @@ const AuthenticatedApp = () => {
       )}
 
       {showAddTxn && (
-        <Modal title="Add Transaction" onClose={() => setShowAddTxn(false)}>
+        <Modal title="Log Transaction" onClose={() => setShowAddTxn(false)}>
            <form onSubmit={handleAddTxn} className="space-y-4">
               <div className="col-span-2">
                  <label className="text-xs text-neutral-500 uppercase font-bold">Select Card</label>

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 import models, schemas, auth, database
 from utils import send_ntfy_alert
@@ -37,8 +38,8 @@ def create_transaction(
         amount=txn.amount,
         type=txn.type,
         mode=txn.mode,
-        is_emi=txn.is_emi,       # NEW
-        emi_tenure=txn.emi_tenure, # NEW
+        is_emi=txn.is_emi,
+        emi_tenure=txn.emi_tenure,
         card_id=txn.card_id,
         tag_id=tag_id,
         date=txn.date if txn.date else datetime.utcnow()
@@ -62,12 +63,9 @@ def create_transaction(
 @router.get("/export")
 def export_transactions(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     txns = db.query(models.Transaction).join(models.Card).filter(models.Card.owner_id == current_user.id).all()
-    
     output = io.StringIO()
     writer = csv.writer(output)
-    
     writer.writerow(["Date", "Card", "Type", "Mode", "Description", "Amount", "Currency", "Tag", "Is EMI", "Tenure"])
-    
     for t in txns:
         tag_name = t.tag.name if t.tag else ""
         writer.writerow([
@@ -82,11 +80,48 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
             "Yes" if t.is_emi else "No",
             f"{t.emi_tenure} Months" if t.is_emi else ""
         ])
-    
     output.seek(0)
-    
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode()),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=transactions_{datetime.now().strftime('%Y%m%d')}.csv"}
     )
+
+@router.get("/analytics")
+def get_analytics(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # 1. Monthly Spending (Group by Month YYYY-MM)
+    monthly_query = db.query(
+        func.strftime("%Y-%m", models.Transaction.date).label("month"),
+        func.sum(models.Transaction.amount).label("total")
+    ).join(models.Card).filter(
+        models.Card.owner_id == current_user.id,
+        models.Transaction.type == "DEBIT"
+    ).group_by("month").order_by("month").all()
+    
+    monthly_data = [{"name": row.month, "amount": row.total} for row in monthly_query]
+
+    # 2. Spending by Tag
+    tag_query = db.query(
+        models.Tag.name,
+        func.sum(models.Transaction.amount).label("total")
+    ).join(models.Transaction.tag).join(models.Transaction.card).filter(
+        models.Card.owner_id == current_user.id,
+        models.Transaction.type == "DEBIT"
+    ).group_by(models.Tag.name).all()
+    
+    tag_data = [{"name": row.name, "value": row.total} for row in tag_query]
+    
+    # 3. Uncategorized
+    untagged_total = db.query(func.sum(models.Transaction.amount)).join(models.Card).filter(
+        models.Card.owner_id == current_user.id,
+        models.Transaction.type == "DEBIT",
+        models.Transaction.tag_id == None
+    ).scalar() or 0
+    
+    if untagged_total > 0:
+        tag_data.append({"name": "Uncategorized", "value": untagged_total})
+
+    return {
+        "monthly": monthly_data,
+        "category": tag_data
+    }
