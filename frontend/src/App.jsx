@@ -48,7 +48,6 @@ const processImage = (file) => {
           const canvas = document.createElement('canvas');
           const MAX_WIDTH = 800; 
           const scaleSize = MAX_WIDTH / img.width;
-          // Only scale down if image is larger than MAX_WIDTH
           if (img.width > MAX_WIDTH) {
               canvas.width = MAX_WIDTH;
               canvas.height = img.height * scaleSize;
