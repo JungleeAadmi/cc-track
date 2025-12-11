@@ -33,9 +33,8 @@ class Card(Base):
     network = Column(String) 
     last_4 = Column(String, nullable=True)
     
-    # New Fields
-    card_type = Column(String, default="Credit Card") # Credit, Debit, Gift
-    expiry_date = Column(String, nullable=True) # MM/YY
+    card_type = Column(String, default="Credit Card")
+    expiry_date = Column(String, nullable=True)
     
     image_front = Column(Text, nullable=True)
     image_back = Column(Text, nullable=True)
@@ -65,6 +64,8 @@ class Transaction(Base):
     description = Column(String)
     amount = Column(Float)
     type = Column(String)
+    mode = Column(String, default="Online") # NEW FIELD
+    
     card_id = Column(Integer, ForeignKey("cards.id"))
     tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     

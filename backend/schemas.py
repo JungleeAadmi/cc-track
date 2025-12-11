@@ -45,8 +45,8 @@ class CardBase(BaseModel):
     name: str
     bank: str
     network: str
-    card_type: str = "Credit Card" # NEW
-    expiry_date: Optional[str] = None # NEW
+    card_type: str = "Credit Card"
+    expiry_date: Optional[str] = None
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
@@ -70,6 +70,8 @@ class TransactionBase(BaseModel):
     description: str
     amount: float
     type: str
+    mode: str = "Online" # NEW
+    date: Optional[datetime] = None # NEW
     card_id: int
     tag_name: Optional[str] = None 
 

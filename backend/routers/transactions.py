@@ -36,9 +36,11 @@ def create_transaction(
         description=txn.description,
         amount=txn.amount,
         type=txn.type,
+        mode=txn.mode, # NEW
         card_id=txn.card_id,
         tag_id=tag_id,
-        date=datetime.utcnow()
+        # Use provided date or default to now
+        date=txn.date if txn.date else datetime.utcnow()
     )
     db.add(new_txn)
     db.commit()
@@ -49,7 +51,7 @@ def create_transaction(
         send_ntfy_alert(
             current_user,
             f"New {txn.type}",
-            f"{card.name}: {current_user.currency} {txn.amount} at {txn.description}",
+            f"{card.name}: {current_user.currency} {txn.amount} at {txn.description} ({txn.mode})",
             tags=emoji
         )
         
@@ -57,24 +59,21 @@ def create_transaction(
 
 @router.get("/export")
 def export_transactions(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # 1. Fetch all transactions for this user (via their cards)
-    # Join Transaction -> Card -> User
     txns = db.query(models.Transaction).join(models.Card).filter(models.Card.owner_id == current_user.id).all()
     
-    # 2. Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Header
-    writer.writerow(["Date", "Card", "Type", "Description", "Amount", "Currency", "Tag"])
+    # Header - Added Mode
+    writer.writerow(["Date", "Card", "Type", "Mode", "Description", "Amount", "Currency", "Tag"])
     
-    # Rows
     for t in txns:
         tag_name = t.tag.name if t.tag else ""
         writer.writerow([
             t.date.strftime("%Y-%m-%d %H:%M"),
             t.card.name,
             t.type,
+            t.mode or "Online", # Handle legacy records
             t.description,
             t.amount,
             current_user.currency,
@@ -83,7 +82,6 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
     
     output.seek(0)
     
-    # 3. Stream response
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode()),
         media_type="text/csv",

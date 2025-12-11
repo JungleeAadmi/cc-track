@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download, Gift, Landmark
+  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -28,7 +28,6 @@ const getNextDate = (dayOfMonth) => {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
-  
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -43,6 +42,7 @@ const CURRENCIES = [
 ];
 
 const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
+const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
 const NetworkLogo = ({ network }) => {
   const style = "h-6 w-10 object-contain";
@@ -183,7 +183,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
     try {
         const response = await axios.get(`${API_URL}/transactions/export`, {
             headers: { Authorization: `Bearer ${token}` },
-            responseType: 'blob', // Important for file download
+            responseType: 'blob', 
         });
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
@@ -390,7 +390,7 @@ const AuthenticatedApp = () => {
       statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
       card_type: 'Credit Card', expiry_date: '' 
   });
-  const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '' });
+  const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', date: '', mode: 'Online', custom_mode: '' });
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
@@ -471,21 +471,36 @@ const AuthenticatedApp = () => {
   const handleAddTxn = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
+    
+    // Determine the mode: use select value, or custom input if "Others" is selected
+    let finalMode = newTxn.mode;
+    if (newTxn.mode === "Others") {
+        if (!newTxn.custom_mode.trim()) {
+            alert("Please enter the mode manually.");
+            return;
+        }
+        finalMode = newTxn.custom_mode;
+    }
+
     try {
       await axios.post(`${API_URL}/transactions/`, {
         description: newTxn.description,
         amount: parseFloat(newTxn.amount),
         type: newTxn.type,
         card_id: parseInt(newTxn.card_id),
-        date: new Date().toISOString(),
-        tag_name: newTxn.tag
+        date: newTxn.date ? new Date(newTxn.date).toISOString() : new Date().toISOString(),
+        tag_name: newTxn.tag,
+        mode: finalMode // Send correct mode
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddTxn(false);
       fetchData();
       alert('Transaction logged');
+      // Reset form (keeping card/type/mode defaults for convenience)
+      setNewTxn(prev => ({ ...prev, description: '', amount: '', date: '', custom_mode: '' }));
     } catch (err) { alert('Failed to add transaction: ' + (err.response?.data?.detail || err.message)); }
   };
 
+  // Nav Button Helper
   const NavButton = ({ label, icon: Icon, active, onClick }) => (
     <button onClick={onClick} className={`flex flex-col items-center justify-center w-16 gap-1 transition-colors ${active ? 'text-red-500' : 'text-neutral-500 hover:text-neutral-300'}`}>
       <Icon size={24} strokeWidth={active ? 2.5 : 2} />
@@ -658,7 +673,7 @@ const AuthenticatedApp = () => {
       )}
 
       {showAddTxn && (
-        <Modal title="Log Transaction" onClose={() => setShowAddTxn(false)}>
+        <Modal title="Add Transaction" onClose={() => setShowAddTxn(false)}>
            <form onSubmit={handleAddTxn} className="space-y-4">
               <div>
                  <label className="text-xs text-neutral-500 uppercase font-bold">Select Card</label>
@@ -673,6 +688,31 @@ const AuthenticatedApp = () => {
                  <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
                     placeholder="Starbucks, AWS, etc." value={newTxn.description} onChange={e => setNewTxn({...newTxn, description: e.target.value})} required />
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Date</label>
+                    <input type="date" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
+                        value={newTxn.date} onChange={e => setNewTxn({...newTxn, date: e.target.value})} required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Mode</label>
+                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                        value={newTxn.mode} onChange={e => setNewTxn({...newTxn, mode: e.target.value})}>
+                        {TXN_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+              </div>
+
+              {/* Conditional Input for "Others" Mode */}
+              {newTxn.mode === 'Others' && (
+                <div>
+                   <label className="text-xs text-neutral-500 uppercase font-bold">Specify Mode</label>
+                   <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
+                      placeholder="e.g. Bank Transfer" value={newTxn.custom_mode} onChange={e => setNewTxn({...newTxn, custom_mode: e.target.value})} required />
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-neutral-500 uppercase font-bold">Amount</label>
@@ -693,7 +733,7 @@ const AuthenticatedApp = () => {
                  <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
                     placeholder="Dining, Travel, Utilities..." value={newTxn.tag} onChange={e => setNewTxn({...newTxn, tag: e.target.value})} />
               </div>
-              <button type="submit" className="w-full bg-red-700 text-white font-bold py-3 rounded-xl hover:bg-red-600 mt-2">Execute Log</button>
+              <button type="submit" className="w-full bg-red-700 text-white font-bold py-3 rounded-xl hover:bg-red-600 mt-2">Add Transaction</button>
            </form>
         </Modal>
       )}
