@@ -57,7 +57,6 @@ const getNextDate = (dayOfMonth) => {
   
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
   
-  // If date passed, move to next month
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -85,7 +84,6 @@ const NetworkLogo = ({ network }) => {
   if (net === 'amex') return (
     <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>
   );
-  
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -202,7 +200,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       onUpdateUser(res.data);
       alert('Settings updated!');
-    } catch (err) { alert('Failed to update'); }
+    } catch (err) { alert('Failed to update: ' + (err.response?.data?.detail || err.message)); }
   };
 
   const handleDeleteAccount = async () => {
@@ -212,7 +210,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
       await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
       localStorage.removeItem('token');
       window.location.href = '/';
-    } catch (err) { alert('Failed to delete'); }
+    } catch (err) { alert('Failed to delete: ' + (err.response?.data?.detail || err.message)); }
   };
 
   return (
@@ -266,12 +264,11 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAddCard, onAddTx
     <div className="space-y-8 animate-in fade-in duration-500">
         <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-            {/* Mobile-Friendly Buttons in Header */}
+            {/* Desktop Buttons */}
             <div className="flex gap-2">
-                <button onClick={onAddCard} className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-medium border border-neutral-700 transition-all">
-                    <CreditCard size={18} /> <span className="hidden sm:inline">Add Card</span>
+                <button onClick={onAddCard} className="hidden md:flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-medium border border-neutral-700 transition-all">
+                    <CreditCard size={18} /> Add Card
                 </button>
-                {/* Desktop-only Add Txn (Mobile uses bottom FAB) */}
                 <button onClick={onAddTxn} className="hidden md:flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
                     <Plus size={18} /> Add Txn
                 </button>
@@ -300,7 +297,6 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAddCard, onAddTx
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
                 <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800 p-5 rounded-2xl shadow-lg border border-neutral-700 hover:border-red-500/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
-                    {/* Header */}
                     <div className="relative z-10 flex items-start justify-between mb-4">
                         <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
                             <NetworkLogo network={card.network} />
@@ -377,7 +373,7 @@ const AuthenticatedApp = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000); // Auto-refresh every 5s
+    const interval = setInterval(fetchData, 5000); 
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -389,7 +385,7 @@ const AuthenticatedApp = () => {
       try {
         const compressedBase64 = await processImage(file);
         setNewCard(prev => ({ ...prev, [side]: compressedBase64 }));
-      } catch (err) { alert("Failed to process image."); }
+      } catch (err) { alert("Failed to process image: " + err); }
     }
   };
 
@@ -412,15 +408,20 @@ const AuthenticatedApp = () => {
       setShowAddCard(false);
       fetchData(); 
       setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
-    } catch (err) { alert('Failed to add card.'); }
+    } catch (err) { 
+        console.error(err);
+        alert(`Failed to add card: ${err.response?.data?.detail || err.message}\n(Tip: If this is your first time adding a card, please reset the database to apply schema changes)`);
+    }
   };
 
   const handleDeleteCard = async (id) => {
       if(!confirm("Delete this card and all its transactions?")) return;
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/cards/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      setEditingCard(null);
-      fetchData();
+      try {
+        await axios.delete(`${API_URL}/cards/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        setEditingCard(null);
+        fetchData();
+      } catch(err) { alert("Failed to delete card"); }
   }
 
   const handleAddTxn = async (e) => {
@@ -438,7 +439,7 @@ const AuthenticatedApp = () => {
       setShowAddTxn(false);
       fetchData();
       alert('Transaction logged');
-    } catch (err) { alert('Failed to add transaction'); }
+    } catch (err) { alert('Failed to add transaction: ' + (err.response?.data?.detail || err.message)); }
   };
 
   return (
@@ -490,8 +491,8 @@ const AuthenticatedApp = () => {
                 loading={loading} 
                 currentUser={currentUser} 
                 onEditCard={setEditingCard}
-                onAddCard={() => setShowAddCard(true)} // Passed down to Dashboard
-                onAddTxn={() => setShowAddTxn(true)}   // Passed down to Dashboard
+                onAddCard={() => setShowAddCard(true)}
+                onAddTxn={() => setShowAddTxn(true)}
             />
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
@@ -500,7 +501,11 @@ const AuthenticatedApp = () => {
 
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
         <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}><LayoutDashboard size={24} /><span className="text-[10px]">Home</span></button>
+        {/* ADD CARD BUTTON (Mobile Only) */}
+        <button onClick={() => setShowAddCard(true)} className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-neutral-800 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><CreditCard size={24} className="text-white"/></div></button>
+        {/* ADD TXN BUTTON (Mobile Only) */}
         <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-red-700 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><Plus size={24} className="text-white"/></div></button>
+        
         <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}><Settings size={24} /><span className="text-[10px]">Settings</span></button>
       </nav>
 
