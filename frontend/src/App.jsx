@@ -3,16 +3,18 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell
+  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// --- CONFIGURATION ---
+// --- 1. CONFIGURATION ---
 axios.interceptors.response.use(
   response => response,
   error => {
+    // Only logout on 401 (Unauthorized) from the API
     if (error.response && error.response.status === 401) {
+      console.warn("Session expired.");
       localStorage.removeItem('token');
       localStorage.removeItem('username');
       if (window.location.pathname !== '/') window.location.href = '/';
@@ -21,14 +23,16 @@ axios.interceptors.response.use(
   }
 );
 
-// --- UTILS ---
+// --- 2. UTILITIES ---
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
+  
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
   
+  // If the date has passed this month, show next month's date
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -49,6 +53,7 @@ const NetworkLogo = ({ network }) => {
   if (net === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
   if (net === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
   if (net === 'amex') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>;
+  
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -82,7 +87,8 @@ const processImage = (file) => {
   });
 };
 
-// --- UI COMPONENTS ---
+// --- 3. UI COMPONENTS ---
+
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -134,7 +140,9 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                 <div className="relative group">
                   <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
                 </div>
-              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
+              ) : (
+                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
+              )}
            </div>
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
@@ -142,7 +150,9 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                 <div className="relative group">
                   <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
                 </div>
-              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
+              ) : (
+                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
+              )}
            </div>
         </div>
       )}
