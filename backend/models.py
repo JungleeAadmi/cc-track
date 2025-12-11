@@ -13,14 +13,14 @@ class User(Base):
     
     # --- NTFY CONFIG ---
     ntfy_topic = Column(String, nullable=True)
-    ntfy_server = Column(String, default="https://ntfy.sh") # Custom Server URL
+    ntfy_server = Column(String, default="https://ntfy.sh")
     
     # --- NOTIFICATION PREFERENCES ---
     notify_card_add = Column(Boolean, default=True)
     notify_txn_add = Column(Boolean, default=True)
     notify_card_del = Column(Boolean, default=True)
     notify_statement = Column(Boolean, default=True)
-    notify_due_dates = Column(Boolean, default=True) # 5-day warning
+    notify_due_dates = Column(Boolean, default=True)
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
@@ -32,14 +32,20 @@ class Card(Base):
     bank = Column(String) 
     network = Column(String) 
     last_4 = Column(String, nullable=True)
+    
+    # New Fields
+    card_type = Column(String, default="Credit Card") # Credit, Debit, Gift
+    expiry_date = Column(String, nullable=True) # MM/YY
+    
     image_front = Column(Text, nullable=True)
     image_back = Column(Text, nullable=True)
+    
     total_limit = Column(Float, default=0.0)
     manual_limit = Column(Float, nullable=True) 
     statement_date = Column(Integer) 
     payment_due_date = Column(Integer) 
-    owner_id = Column(Integer, ForeignKey("users.id"))
     
+    owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="cards")
     transactions = relationship("Transaction", back_populates="card", cascade="all, delete-orphan")
 

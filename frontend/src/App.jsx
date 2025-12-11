@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, CheckSquare, Square
+  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download, Gift, Landmark
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -28,6 +28,7 @@ const getNextDate = (dayOfMonth) => {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
+  
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -40,6 +41,8 @@ const CURRENCIES = [
   { code: 'CAD', label: '$ CAD' }, { code: 'CNY', label: '¥ CNY' }, { code: 'AED', label: 'د.إ AED' },
   { code: 'SAR', label: '﷼ SAR' }, { code: 'SGD', label: '$ SGD' },
 ];
+
+const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
 
 const NetworkLogo = ({ network }) => {
   const style = "h-6 w-10 object-contain";
@@ -107,14 +110,15 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
         <div className="space-y-4">
            <div className="bg-neutral-800 p-4 rounded-lg mb-4 flex justify-between items-center">
               <div>
-                <p className="text-xs text-neutral-500 uppercase">Total Limit</p>
-                <p className="text-white font-bold">{formData.total_limit.toLocaleString()}</p>
+                <p className="text-xs text-neutral-500 uppercase">Card Type</p>
+                <p className="text-white font-bold">{formData.card_type}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-500 uppercase">Last 4</p>
-                <p className="text-white font-mono">{formData.last_4 || 'N/A'}</p>
+                <p className="text-xs text-neutral-500 uppercase">Exp Date</p>
+                <p className="text-white font-mono">{formData.expiry_date || 'N/A'}</p>
               </div>
            </div>
+           
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
@@ -173,6 +177,23 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
       alert('Notification sent!');
     } catch (err) { alert('Failed to send test: ' + (err.response?.data?.detail || err.message)); }
   };
+  
+  const handleDownloadCSV = async () => {
+    const token = localStorage.getItem('token');
+    try {
+        const response = await axios.get(`${API_URL}/transactions/export`, {
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: 'blob', // Important for file download
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (err) { alert("Failed to download CSV"); }
+  };
 
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== 'DELETE') return; 
@@ -199,6 +220,8 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
        <div>
          <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
          <form onSubmit={handleUpdate} className="space-y-6 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
+             
+             {/* General */}
              <div className="grid md:grid-cols-2 gap-4">
                  <div>
                     <label className="text-xs text-neutral-500 font-bold uppercase">Display Name</label>
@@ -214,6 +237,20 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                  </div>
              </div>
 
+             {/* CSV Export */}
+             <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800 flex items-center justify-between">
+                <div>
+                    <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2">
+                        <Tag size={14} className="text-blue-500"/> Data Export
+                    </label>
+                    <p className="text-xs text-neutral-500 mt-1">Download all transaction history.</p>
+                </div>
+                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-neutral-700">
+                    <Download size={14} /> Download CSV
+                </button>
+             </div>
+
+             {/* Ntfy Config */}
              <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800">
                 <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2 mb-4">
                   <Bell size={14} className="text-red-500"/> Notifications (Ntfy)
@@ -235,12 +272,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                    <Toggle label="Due Date Warning (5 Days)" checked={formData.notify_due_dates} field="notify_due_dates" />
                 </div>
              </div>
-
-             <div>
-                <label className="text-xs text-neutral-500 font-bold uppercase">New Password</label>
-                <input type="password" className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1" 
-                   value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" />
-             </div>
+             
              <button type="submit" className="w-full flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-3 rounded-lg font-medium transition-colors">
                 <Save size={16}/> Save Changes
              </button>
@@ -299,7 +331,8 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
                             <NetworkLogo network={card.network} />
                         </div>
                         <div className="text-right">
-                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold">•••• {card.last_4 || 'XXXX'}</span>
+                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold block">•••• {card.last_4 || 'XXXX'}</span>
+                          <span className="text-[10px] text-neutral-500 uppercase">{card.card_type}</span>
                         </div>
                     </div>
 
@@ -351,7 +384,12 @@ const AuthenticatedApp = () => {
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
 
-  const [newCard, setNewCard] = useState({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
+  // Forms
+  const [newCard, setNewCard] = useState({ 
+      name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
+      statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
+      card_type: 'Credit Card', expiry_date: '' 
+  });
   const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '' });
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
@@ -402,6 +440,8 @@ const AuthenticatedApp = () => {
         name: newCard.name,
         bank: newCard.bank,
         network: newCard.network,
+        card_type: newCard.card_type,
+        expiry_date: newCard.expiry_date,
         total_limit: parseFloat(newCard.limit),
         manual_limit: newCard.manual_limit ? parseFloat(newCard.manual_limit) : parseFloat(newCard.limit),
         statement_date: parseInt(newCard.statement_day),
@@ -412,7 +452,11 @@ const AuthenticatedApp = () => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
       fetchData(); 
-      setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
+      setNewCard({ 
+          name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
+          statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
+          card_type: 'Credit Card', expiry_date: '' 
+      });
     } catch (err) { alert(`Failed to add card: ${err.response?.data?.detail || err.message}`); }
   };
 
@@ -565,6 +609,21 @@ const AuthenticatedApp = () => {
                     <label className="text-xs text-neutral-500 uppercase font-bold">Manual Limit</label>
                     <input type="number" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
                         placeholder="Optional" value={newCard.manual_limit} onChange={e => setNewCard({...newCard, manual_limit: e.target.value})} />
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Card Type</label>
+                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                        value={newCard.card_type} onChange={e => setNewCard({...newCard, card_type: e.target.value})}>
+                        {CARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Expiry (MM/YY)</label>
+                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
+                        placeholder="12/28" value={newCard.expiry_date} onChange={e => setNewCard({...newCard, expiry_date: e.target.value})} />
                   </div>
               </div>
 

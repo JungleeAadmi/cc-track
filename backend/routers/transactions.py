@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 import models, schemas, auth, database
 from utils import send_ntfy_alert
+import io
+import csv
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -41,7 +44,6 @@ def create_transaction(
     db.commit()
     db.refresh(new_txn)
     
-    # Notify
     if current_user.notify_txn_add:
         emoji = "money_with_wings" if txn.type == "DEBIT" else "moneybag"
         send_ntfy_alert(
@@ -52,3 +54,38 @@ def create_transaction(
         )
         
     return new_txn
+
+@router.get("/export")
+def export_transactions(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # 1. Fetch all transactions for this user (via their cards)
+    # Join Transaction -> Card -> User
+    txns = db.query(models.Transaction).join(models.Card).filter(models.Card.owner_id == current_user.id).all()
+    
+    # 2. Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(["Date", "Card", "Type", "Description", "Amount", "Currency", "Tag"])
+    
+    # Rows
+    for t in txns:
+        tag_name = t.tag.name if t.tag else ""
+        writer.writerow([
+            t.date.strftime("%Y-%m-%d %H:%M"),
+            t.card.name,
+            t.type,
+            t.description,
+            t.amount,
+            current_user.currency,
+            tag_name
+        ])
+    
+    output.seek(0)
+    
+    # 3. Stream response
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=transactions_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )

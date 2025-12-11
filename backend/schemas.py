@@ -45,6 +45,8 @@ class CardBase(BaseModel):
     name: str
     bank: str
     network: str
+    card_type: str = "Credit Card" # NEW
+    expiry_date: Optional[str] = None # NEW
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
