@@ -45,17 +45,11 @@ class CardBase(BaseModel):
 class CardCreate(CardBase):
     pass
 
-class CardUpdate(BaseModel):
-    name: Optional[str] = None
-    total_limit: Optional[float] = None
-    manual_limit: Optional[float] = None
-
 class Card(CardBase):
     id: int
     owner_id: int
     spent: float = 0.0 
     available: float = 0.0
-    
     class Config:
         from_attributes = True
 

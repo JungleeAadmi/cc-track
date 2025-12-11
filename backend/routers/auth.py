@@ -33,7 +33,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)
         username=user.username,
         full_name=user.full_name,
         hashed_password=hashed_pwd,
-        currency="USD" # Default Currency
+        currency="USD" # Default
     )
     db.add(new_user)
     db.commit()

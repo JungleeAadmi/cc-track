@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import models, schemas, auth, database
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+@router.get("/me", response_model=schemas.User)
+def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
+    return current_user
+
 @router.put("/me", response_model=schemas.User)
-def update_user(
-    user_update: schemas.UserUpdate, 
-    db: Session = Depends(database.get_db), 
-    current_user: models.User = Depends(auth.get_current_user)
-):
+def update_user(user_update: schemas.UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if user_update.full_name:
         current_user.full_name = user_update.full_name
     if user_update.currency:
@@ -22,10 +22,7 @@ def update_user(
     return current_user
 
 @router.delete("/me")
-def delete_user(
-    db: Session = Depends(database.get_db), 
-    current_user: models.User = Depends(auth.get_current_user)
-):
+def delete_user(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     db.delete(current_user)
     db.commit()
     return {"message": "Account deleted successfully"}

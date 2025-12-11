@@ -19,7 +19,6 @@ def read_cards(skip: int = 0, limit: int = 100, db: Session = Depends(database.g
     cards = db.query(models.Card).filter(models.Card.owner_id == current_user.id).offset(skip).limit(limit).all()
     
     for card in cards:
-        # Calculate Spent
         debits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "DEBIT").scalar() or 0.0
         credits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "CREDIT").scalar() or 0.0
         
@@ -28,7 +27,6 @@ def read_cards(skip: int = 0, limit: int = 100, db: Session = Depends(database.g
         
         active_limit = card.manual_limit if (card.manual_limit and card.manual_limit > 0) else card.total_limit
         
-        # Inject calculated fields
         card.spent = current_balance
         card.available = active_limit - current_balance
 

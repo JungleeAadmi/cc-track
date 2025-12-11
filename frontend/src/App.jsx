@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp
+  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Tag
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -12,11 +12,10 @@ const API_URL = '/api';
 axios.interceptors.response.use(
   response => response,
   error => {
-    // Only logout on 401 (Unauthorized) from the API
     if (error.response && error.response.status === 401) {
-      console.warn("Session expired.");
+      // Only logout on 401 Unauthorized
       localStorage.removeItem('token');
-      // Do not remove username so it pre-fills or stays for UX
+      localStorage.removeItem('user_currency'); // Clear cached currency
       if (window.location.pathname !== '/') window.location.href = '/';
     }
     return Promise.reject(error);
@@ -32,7 +31,6 @@ const getNextDate = (dayOfMonth) => {
   
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
   
-  // If the date has passed this month, show next month's date
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -87,8 +85,7 @@ const processImage = (file) => {
   });
 };
 
-// --- 3. UI COMPONENTS ---
-
+// --- COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -137,22 +134,14 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
-                <div className="relative group">
-                  <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-                </div>
-              ) : (
-                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
-              )}
+                <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
+              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? (
-                <div className="relative group">
-                  <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-                </div>
-              ) : (
-                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
-              )}
+                <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
+              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
         </div>
       )}
@@ -178,6 +167,8 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
       onUpdateUser(res.data);
+      // Persist to local storage immediately
+      localStorage.setItem('user_currency', res.data.currency);
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
   };
@@ -315,7 +306,8 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ 
-    currency: 'USD', 
+    // Load currency from localStorage if available, else default to USD
+    currency: localStorage.getItem('user_currency') || 'USD', 
     username: localStorage.getItem('username') || 'User' 
   });
   const [cards, setCards] = useState([]);
@@ -342,8 +334,11 @@ const AuthenticatedApp = () => {
         ]);
         setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(userRes.data) ? userRes.data : prev);
         setCards(prev => JSON.stringify(prev) !== JSON.stringify(cardsRes.data) ? cardsRes.data : prev);
-        // Persist username for next reload
+        
+        // Persist data for instant reload
         localStorage.setItem('username', userRes.data.username);
+        localStorage.setItem('user_currency', userRes.data.currency);
+        
       } catch (err) { console.error(err); } finally { setLoading(false); }
   }, []);
 
@@ -356,6 +351,7 @@ const AuthenticatedApp = () => {
   const handleLogout = () => { 
     localStorage.removeItem('token'); 
     localStorage.removeItem('username');
+    localStorage.removeItem('user_currency');
     window.location.href = '/'; 
   };
 
@@ -673,13 +669,13 @@ const Login = () => {
       if (isLogin) {
         const response = await axios.post(`${API_URL}/token`, formData);
         localStorage.setItem('token', response.data.access_token);
-        localStorage.setItem('username', username);
+        localStorage.setItem('username', username); // Save for next load
         window.location.href = '/dashboard';
       } else {
         await axios.post(`${API_URL}/signup`, { username, password, full_name: fullName });
         const loginRes = await axios.post(`${API_URL}/token`, formData);
         localStorage.setItem('token', loginRes.data.access_token);
-        localStorage.setItem('username', username);
+        localStorage.setItem('username', username); // Save for next load
         window.location.href = '/dashboard';
       }
     } catch (err) { 
