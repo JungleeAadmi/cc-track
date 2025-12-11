@@ -3,35 +3,52 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
-  TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save
+  TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save, RotateCcw
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// --- HELPER: Base64 Converter ---
-const convertToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    const fileReader = new FileReader();
-    fileReader.readAsDataURL(file);
-    fileReader.onload = () => resolve(fileReader.result);
-    fileReader.onerror = (error) => reject(error);
+// --- HELPER: Image Resizer & Compressor ---
+const processImage = (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Max dimension 800px to keep size small (~50-100KB)
+        const MAX_WIDTH = 800;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Compress to JPEG 70% quality
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    };
   });
 };
 
+// --- SHARED COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-    <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-      <div className="flex justify-between items-center p-4 border-b border-neutral-800 bg-neutral-900">
+    <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
+      <div className="flex justify-between items-center p-4 border-b border-neutral-800 bg-neutral-900 shrink-0">
         <h3 className="text-white font-bold text-lg">{title}</h3>
         <button onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20}/></button>
       </div>
-      <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
+      <div className="p-6 overflow-y-auto">{children}</div>
     </div>
   </div>
 );
 
 // --- SETTINGS COMPONENT ---
-const SettingsPage = ({ onClose }) => {
+const SettingsPage = ({ onClose, onUpdateUser }) => {
   const [user, setUser] = useState({ full_name: '', currency: 'USD' });
   const [password, setPassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -51,18 +68,19 @@ const SettingsPage = ({ onClose }) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     try {
-      await axios.put(`${API_URL}/users/me`, {
+      const res = await axios.put(`${API_URL}/users/me`, {
         full_name: user.full_name,
         currency: user.currency,
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
+      
+      onUpdateUser(res.data); // Update global state
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE' && deleteConfirm !== 'DELETE DELETE') return; 
-    // Just simple double check logic or require typing 'DELETE' twice
+    if (deleteConfirm !== 'DELETE') return; 
     const token = localStorage.getItem('token');
     try {
       await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
@@ -72,7 +90,7 @@ const SettingsPage = ({ onClose }) => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in slide-in-from-right duration-300">
        <div>
          <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
          <form onSubmit={handleUpdate} className="space-y-4 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
@@ -101,10 +119,10 @@ const SettingsPage = ({ onClose }) => {
 
        <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
           <h3 className="text-red-500 font-bold mb-2 flex items-center gap-2"><Trash2 size={20}/> Danger Zone</h3>
-          <p className="text-neutral-400 text-sm mb-4">This action cannot be undone.</p>
+          <p className="text-neutral-400 text-sm mb-4">Type DELETE to confirm account removal.</p>
           <div className="flex gap-4">
              <input className="bg-neutral-950 border border-red-900/50 rounded-lg p-3 text-white text-sm flex-1" 
-               placeholder="Type DELETE to confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
+               placeholder="DELETE" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'DELETE'} 
                className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-bold">
                Delete Account
@@ -152,8 +170,7 @@ const Login = () => {
       <div className="w-full max-w-md bg-neutral-900/80 border border-red-900/30 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden">
         <div className="bg-gradient-to-b from-red-900 to-red-950 p-8 text-center border-b border-red-800/50">
             <div className="mx-auto w-20 h-20 flex items-center justify-center mb-4">
-                 {/* Update this to your custom logo.png */}
-                 <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" onError={(e) => e.target.src='/android-chrome-192x192.png'} />
+                 <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" onError={(e) => e.target.src='/favicon.ico'} />
             </div>
             <h2 className="text-2xl font-bold text-white tracking-wide lowercase">cc-track</h2>
         </div>
@@ -193,43 +210,46 @@ const Login = () => {
 };
 
 // --- DASHBOARD ---
-const Dashboard = ({ activeView }) => {
+const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
   
   // Data State
   const [newCard, setNewCard] = useState({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '' });
   const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '' });
 
-  // Refs for File Inputs
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
   const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
 
-  const fetchData = async () => {
+  const fetchCards = async () => {
     const token = localStorage.getItem('token');
     try {
-      const [cardsRes, userRes] = await Promise.all([
-         axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } }),
-         axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      setCards(cardsRes.data);
-      setCurrentUser(userRes.data);
+      const res = await axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } });
+      setCards(res.data);
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchCards(); }, []);
 
+  // NEW: Image processing with compression
   const handleImageUpload = async (e, side) => {
     const file = e.target.files[0];
     if (file) {
-        const base64 = await convertToBase64(file);
-        setNewCard(prev => ({ ...prev, [side]: base64 }));
+      // 5MB limit check (pre-compression)
+      if(file.size > 5 * 1024 * 1024) {
+         alert("Original image too large. Attempting to compress...");
+      }
+      try {
+        const compressedBase64 = await processImage(file);
+        setNewCard(prev => ({ ...prev, [side]: compressedBase64 }));
+      } catch (err) {
+        alert("Failed to process image.");
+      }
     }
   };
 
@@ -249,8 +269,10 @@ const Dashboard = ({ activeView }) => {
         image_back: newCard.image_back
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
-      fetchData();
-    } catch (err) { alert('Failed to add card. Check inputs.'); }
+      fetchCards();
+      // Reset form
+      setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '' });
+    } catch (err) { alert('Failed to add card. Try taking a lower resolution photo if problem persists.'); }
   };
 
   const handleAddTxn = async (e) => {
@@ -266,7 +288,7 @@ const Dashboard = ({ activeView }) => {
         tag_name: newTxn.tag
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddTxn(false);
-      fetchData();
+      fetchCards();
       alert('Transaction logged');
     } catch (err) { alert('Failed to add transaction'); }
   };
@@ -275,13 +297,13 @@ const Dashboard = ({ activeView }) => {
       if(!confirm("Delete this card?")) return;
       const token = localStorage.getItem('token');
       await axios.delete(`${API_URL}/cards/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      fetchData();
+      fetchCards();
   }
 
-  if (activeView === 'Settings') return <SettingsPage />;
+  if (activeView === 'Settings') return <SettingsPage onUpdateUser={onUpdateUser} />;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-white">Dashboard</h1>
@@ -327,7 +349,8 @@ const Dashboard = ({ activeView }) => {
                             </div>
                             <div className="relative z-10">
                                 <h4 className="font-bold text-white text-lg tracking-wide mb-1">{card.name}</h4>
-                                <p className="text-sm text-neutral-500 mb-4">{card.bank}</p>
+                                <p className="text-sm text-neutral-500 mb-4">{card.bank} •••• {card.last_4 || 'XXXX'}</p>
+                                
                                 <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
                                   <div className="flex justify-between text-sm mb-1">
                                     <span className="text-neutral-400">Spent</span>
@@ -341,6 +364,12 @@ const Dashboard = ({ activeView }) => {
                                     <div>Limit: {card.total_limit.toLocaleString()}</div>
                                     <div>Due: {card.payment_due_date}th</div>
                                 </div>
+                                {/* Image Preview Indicator */}
+                                {(card.image_front || card.image_back) && (
+                                   <div className="absolute bottom-2 right-2">
+                                     <ImageIcon size={14} className="text-neutral-600" />
+                                   </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -351,16 +380,21 @@ const Dashboard = ({ activeView }) => {
         {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
            <form onSubmit={handleAddCard} className="space-y-4">
+              {/* Dotted Capture Area UI */}
               <div className="flex gap-2 mb-4">
-                <button type="button" onClick={() => frontInputRef.current.click()} className="flex-1 bg-neutral-800 p-3 rounded-xl border border-dashed border-neutral-600 text-neutral-400 hover:text-white hover:border-red-500 flex flex-col items-center gap-1">
-                   <Camera size={20} />
-                   <span className="text-xs">{newCard.image_front ? 'Front Saved' : 'Scan Front'}</span>
-                   <input type="file" ref={frontInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
+                <button type="button" onClick={() => frontInputRef.current.click()} className={`flex-1 p-4 rounded-xl border-2 border-dashed ${newCard.image_front ? 'border-red-500 bg-red-900/20' : 'border-neutral-600 bg-neutral-800'} text-neutral-400 hover:text-white flex flex-col items-center gap-2 transition-colors`}>
+                   <div className="w-12 h-8 border border-neutral-500 rounded flex items-center justify-center">
+                     {newCard.image_front ? <ImageIcon size={16} className="text-red-500"/> : <Camera size={16}/>}
+                   </div>
+                   <span className="text-xs font-bold">{newCard.image_front ? 'Front Saved' : 'Scan Front'}</span>
+                   <input type="file" ref={frontInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
                 </button>
-                <button type="button" onClick={() => backInputRef.current.click()} className="flex-1 bg-neutral-800 p-3 rounded-xl border border-dashed border-neutral-600 text-neutral-400 hover:text-white hover:border-red-500 flex flex-col items-center gap-1">
-                   <ImageIcon size={20} />
-                   <span className="text-xs">{newCard.image_back ? 'Back Saved' : 'Upload Back'}</span>
-                   <input type="file" ref={backInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'image_back')} className="hidden" />
+                <button type="button" onClick={() => backInputRef.current.click()} className={`flex-1 p-4 rounded-xl border-2 border-dashed ${newCard.image_back ? 'border-red-500 bg-red-900/20' : 'border-neutral-600 bg-neutral-800'} text-neutral-400 hover:text-white flex flex-col items-center gap-2 transition-colors`}>
+                   <div className="w-12 h-8 border border-neutral-500 rounded flex items-center justify-center">
+                     {newCard.image_back ? <ImageIcon size={16} className="text-red-500"/> : <ImageIcon size={16}/>}
+                   </div>
+                   <span className="text-xs font-bold">{newCard.image_back ? 'Back Saved' : 'Scan Back'}</span>
+                   <input type="file" ref={backInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_back')} className="hidden" />
                 </button>
               </div>
 
@@ -463,14 +497,22 @@ const Dashboard = ({ activeView }) => {
   );
 };
 
-// --- APP ROUTER ---
-const PrivateRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/" />;
-};
-
+// --- AUTH WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
+  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
+  
+  // Fetch user globally so settings updates reflect everywhere
+  const fetchUser = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+        setCurrentUser(res.data);
+      } catch (err) { console.error(err); }
+  };
+
+  useEffect(() => { fetchUser(); }, []);
+
   const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
 
   return (
@@ -510,7 +552,7 @@ const AuthenticatedApp = () => {
       </header>
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
-         <Dashboard activeView={activeView} />
+         <Dashboard activeView={activeView} currentUser={currentUser} onUpdateUser={setCurrentUser} />
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 z-30 pb-safe">
