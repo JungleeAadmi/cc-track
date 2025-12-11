@@ -3,27 +3,27 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight
+  Camera, Image as ImageIcon, X, ChevronRight, Home
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// --- 1. CONFIGURATION & UTILS ---
-
-// Prevent aggressive logout on transient network errors
+// --- CONFIGURATION ---
+// Prevent logout on simple network errors
 axios.interceptors.response.use(
   response => response,
   error => {
-    // Only logout if 401 comes from a verified API endpoint, not random network flakes
+    // Only logout if the server explicitly says the token is invalid (401)
     if (error.response && error.response.status === 401) {
-      console.warn("Session expired or invalid token.");
-      // Optional: Logic to refresh token could go here
-      // For now, we assume strict logout only on persistent failure
+      console.warn("Session invalid.");
+      localStorage.removeItem('token');
+      if (window.location.pathname !== '/') window.location.href = '/';
     }
     return Promise.reject(error);
   }
 );
 
+// --- UTILS ---
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
@@ -61,28 +61,53 @@ const processImage = (file) => {
       const img = new Image();
       img.src = event.target.result;
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800; 
-        const scaleSize = MAX_WIDTH / img.width;
-        if (img.width > MAX_WIDTH) {
-            canvas.width = MAX_WIDTH;
-            canvas.height = img.height * scaleSize;
-        } else {
-            canvas.width = img.width;
-            canvas.height = img.height;
-        }
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; 
+          const scaleSize = MAX_WIDTH / img.width;
+          if (img.width > MAX_WIDTH) {
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+          } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+          }
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } catch (e) { reject(e); }
       };
-      img.onerror = reject;
+      img.onerror = (err) => reject(err);
     };
-    reader.onerror = reject;
+    reader.onerror = (err) => reject(err);
   });
 };
 
-// --- 2. UI COMPONENTS ---
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
+          <p className="mb-4 text-white">Something went wrong. Please reload.</p>
+          <button onClick={() => window.location.reload()} className="bg-red-700 text-white px-6 py-3 rounded-xl font-bold">
+            Reload App
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
+// --- SHARED COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -118,25 +143,26 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                 <p className="text-white font-mono">{formData.last_4 || 'N/A'}</p>
               </div>
            </div>
+           
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
-           <p className="text-center text-xs text-neutral-600 mt-2">To edit, delete and re-add.</p>
+           <p className="text-center text-xs text-neutral-600 mt-2">To edit details, delete and re-add.</p>
         </div>
       )}
 
       {tab === 'images' && (
         <div className="space-y-6">
            <div className="space-y-2">
-              <label className="text-xs text-neutral-500 uppercase font-bold">Front</label>
+              <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
-                <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700"/>
+                <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
               ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
            <div className="space-y-2">
-              <label className="text-xs text-neutral-500 uppercase font-bold">Back</label>
+              <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? (
-                <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700"/>
+                <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
               ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
         </div>
@@ -226,7 +252,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-white">Dashboard</h1>
         </div>
 
@@ -295,10 +321,10 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   );
 };
 
-// --- 3. AUTHENTICATED WRAPPER ---
+// --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
-  const [currentUser, setCurrentUser] = useState({ currency: 'USD', username: '' });
+  const [currentUser, setCurrentUser] = useState({ currency: 'USD', username: 'User' });
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -313,7 +339,6 @@ const AuthenticatedApp = () => {
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
-  // Poll Data
   const fetchData = useCallback(async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -406,18 +431,16 @@ const AuthenticatedApp = () => {
              <p className="text-xs text-neutral-500 pl-1 font-mono">@{currentUser.username}</p>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
-            <button onClick={() => setActiveView('Dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === 'Dashboard' ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
-                <LayoutDashboard size={20} /> Dashboard
-            </button>
-            <button onClick={() => setShowAddCard(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-neutral-400 hover:bg-neutral-800 hover:text-white">
-                <CreditCard size={20} /> Add Card
-            </button>
-            <button onClick={() => setShowAddTxn(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-neutral-400 hover:bg-neutral-800 hover:text-white">
-                <Plus size={20} /> Add Transaction
-            </button>
-            <button onClick={() => setActiveView('Settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === 'Settings' ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
-                <Settings size={20} /> Settings
-            </button>
+            {[
+              { name: 'Dashboard', icon: <LayoutDashboard size={20}/> },
+              { name: 'My Cards', icon: <CreditCard size={20}/> },
+              { name: 'Analytics', icon: <TrendingUp size={20}/> },
+              { name: 'Settings', icon: <Settings size={20}/> }
+            ].map((item) => (
+               <button key={item.name} onClick={() => setActiveView(item.name)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === item.name ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
+                {item.icon} {item.name}
+            </button> 
+            ))}
         </nav>
         <div className="p-4 border-t border-neutral-800">
             <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 text-neutral-500 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-colors">
@@ -439,34 +462,37 @@ const AuthenticatedApp = () => {
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
-            <Dashboard 
-                cards={cards} 
-                loading={loading} 
-                currentUser={currentUser} 
-                onEditCard={setEditingCard}
-                onAddCard={() => setShowAddCard(true)}
-                onAddTxn={() => setShowAddTxn(true)}
-            />
+            <>
+              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6 hidden md:flex">
+                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
+                    <CreditCard size={18} /> Add Card
+                </button>
+                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
+                    <Plus size={18} /> Add Txn
+                </button>
+              </div>
+              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} />
+            </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
+         {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
       </main>
 
-      {/* --- MOBILE BOTTOM NAV --- */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
-        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}>
-            <LayoutDashboard size={24} />
+        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 w-16 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}>
+            <Home size={22} />
             <span className="text-[10px] font-medium">Home</span>
         </button>
-        <button onClick={() => setShowAddCard(true)} className="flex flex-col items-center gap-1 text-neutral-500 hover:text-white">
-            <CreditCard size={24} />
-            <span className="text-[10px] font-medium">Add Card</span>
+        <button onClick={() => setShowAddCard(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white">
+            <CreditCard size={22} />
+            <span className="text-[10px] font-medium">Card</span>
         </button>
-        <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 text-neutral-500 hover:text-white">
-            <Plus size={24} />
-            <span className="text-[10px] font-medium">Add Txn</span>
+        <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white">
+            <Plus size={24} className="bg-red-700 rounded-full p-0.5 text-white" />
+            <span className="text-[10px] font-medium">Txn</span>
         </button>
-        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}>
-            <Settings size={24} />
+        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 w-16 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}>
+            <Settings size={22} />
             <span className="text-[10px] font-medium">Settings</span>
         </button>
       </nav>
@@ -605,33 +631,7 @@ const AuthenticatedApp = () => {
   );
 };
 
-// --- 4. LOGIN & ERROR BOUNDARY WRAPPERS ---
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
-          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
-          <div className="bg-neutral-900 p-4 rounded border border-red-900 font-mono text-sm max-w-2xl overflow-auto text-left">
-            <p className="font-bold border-b border-red-900/30 pb-2 mb-2">Error Details:</p>
-            {this.state.error?.toString()}
-          </div>
-          <button onClick={() => window.location.reload()} className="mt-8 bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">
-            Reboot System
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
+// --- LOGIN ---
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -711,6 +711,7 @@ const Login = () => {
   );
 };
 
+// --- MAIN ROUTER ---
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/" />;
