@@ -3,34 +3,35 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight, Home
+  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// --- CONFIGURATION ---
-// Prevent logout on simple network errors
+// --- 1. CONFIGURATION ---
 axios.interceptors.response.use(
   response => response,
   error => {
-    // Only logout if the server explicitly says the token is invalid (401)
+    // Only logout on 401 (Unauthorized), ignore other errors to prevent auto-logout on network blips
     if (error.response && error.response.status === 401) {
-      console.warn("Session invalid.");
       localStorage.removeItem('token');
+      localStorage.removeItem('username');
       if (window.location.pathname !== '/') window.location.href = '/';
     }
     return Promise.reject(error);
   }
 );
 
-// --- UTILS ---
+// --- 2. UTILITIES ---
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
+  
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
   
+  // If the date has passed this month, show next month's date
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -47,10 +48,12 @@ const CURRENCIES = [
 const NetworkLogo = ({ network }) => {
   const style = "h-6 w-10 object-contain";
   const net = network ? network.toLowerCase() : '';
+  
   if (net === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
   if (net === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
   if (net === 'amex') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>;
-  return <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{network}</span>;
+  
+  return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
 const processImage = (file) => {
@@ -83,31 +86,8 @@ const processImage = (file) => {
   });
 };
 
-// --- ERROR BOUNDARY ---
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
-          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
-          <p className="mb-4 text-white">Something went wrong. Please reload.</p>
-          <button onClick={() => window.location.reload()} className="bg-red-700 text-white px-6 py-3 rounded-xl font-bold">
-            Reload App
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+// --- 3. UI COMPONENTS ---
 
-// --- SHARED COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -147,7 +127,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
-           <p className="text-center text-xs text-neutral-600 mt-2">To edit details, delete and re-add.</p>
+           <p className="text-center text-xs text-neutral-600 mt-2">To edit limits or dates, please delete and re-add.</p>
         </div>
       )}
 
@@ -188,6 +168,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
         currency: formData.currency,
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
+      
       onUpdateUser(res.data);
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
@@ -199,6 +180,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
     try {
       await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
       localStorage.removeItem('token');
+      localStorage.removeItem('username');
       window.location.href = '/';
     } catch (err) { alert('Failed to delete'); }
   };
@@ -257,11 +239,11 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30">
+             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30 shadow-lg">
                 <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
                 <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
-             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
+             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md">
                 <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Total Spent</p>
                 <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
             </div>
@@ -278,6 +260,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
                 <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800 p-5 rounded-2xl shadow-lg border border-neutral-700 hover:border-red-500/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                    {/* Header */}
                     <div className="relative z-10 flex items-start justify-between mb-4">
                         <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
                             <NetworkLogo network={card.network} />
@@ -324,7 +307,11 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 // --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
-  const [currentUser, setCurrentUser] = useState({ currency: 'USD', username: 'User' });
+  // Load username immediately from storage to prevent "flash of undefined"
+  const [currentUser, setCurrentUser] = useState({ 
+    currency: 'USD', 
+    username: localStorage.getItem('username') || 'User' 
+  });
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -358,7 +345,11 @@ const AuthenticatedApp = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
+  const handleLogout = () => { 
+    localStorage.removeItem('token'); 
+    localStorage.removeItem('username');
+    window.location.href = '/'; 
+  };
 
   const handleImageUpload = async (e, side) => {
     const file = e.target.files[0];
@@ -462,37 +453,36 @@ const AuthenticatedApp = () => {
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
-            <>
-              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6 hidden md:flex">
-                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
-                    <CreditCard size={18} /> Add Card
-                </button>
-                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
-                    <Plus size={18} /> Add Txn
-                </button>
-              </div>
-              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} />
-            </>
+            <Dashboard 
+                cards={cards} 
+                loading={loading} 
+                currentUser={currentUser} 
+                onEditCard={setEditingCard}
+            />
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
          {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
       </main>
 
+      {/* --- UNIFIED MOBILE NAV (FIXED) --- */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
-        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 w-16 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}>
-            <Home size={22} />
+        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeView==='Dashboard'?'text-red-500':'text-neutral-500 hover:text-neutral-300'}`}>
+            <Home size={24} strokeWidth={activeView==='Dashboard'? 2.5 : 2} />
             <span className="text-[10px] font-medium">Home</span>
         </button>
-        <button onClick={() => setShowAddCard(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white">
-            <CreditCard size={22} />
-            <span className="text-[10px] font-medium">Card</span>
+        
+        <button onClick={() => setShowAddCard(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white transition-colors">
+            <CreditCard size={24} />
+            <span className="text-[10px] font-medium">Add Card</span>
         </button>
-        <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white">
-            <Plus size={24} className="bg-red-700 rounded-full p-0.5 text-white" />
-            <span className="text-[10px] font-medium">Txn</span>
+        
+        <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 w-16 text-neutral-500 hover:text-white transition-colors">
+            <Plus size={24} />
+            <span className="text-[10px] font-medium">Add Txn</span>
         </button>
-        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 w-16 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}>
-            <Settings size={22} />
+        
+        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeView==='Settings'?'text-red-500':'text-neutral-500 hover:text-neutral-300'}`}>
+            <Settings size={24} strokeWidth={activeView==='Settings'? 2.5 : 2} />
             <span className="text-[10px] font-medium">Settings</span>
         </button>
       </nav>
@@ -631,7 +621,33 @@ const AuthenticatedApp = () => {
   );
 };
 
-// --- LOGIN ---
+// --- 4. LOGIN & ERROR BOUNDARY WRAPPERS ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
+          <div className="bg-neutral-900 p-4 rounded border border-red-900 font-mono text-sm max-w-2xl overflow-auto text-left">
+            <p className="font-bold border-b border-red-900/30 pb-2 mb-2">Error Details:</p>
+            {this.state.error?.toString()}
+          </div>
+          <button onClick={() => window.location.reload()} className="mt-8 bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">
+            Reboot System
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -652,11 +668,14 @@ const Login = () => {
       if (isLogin) {
         const response = await axios.post(`${API_URL}/token`, formData);
         localStorage.setItem('token', response.data.access_token);
+        // CRITICAL: Save username for instant load
+        localStorage.setItem('username', username);
         window.location.href = '/dashboard';
       } else {
         await axios.post(`${API_URL}/signup`, { username, password, full_name: fullName });
         const loginRes = await axios.post(`${API_URL}/token`, formData);
         localStorage.setItem('token', loginRes.data.access_token);
+        localStorage.setItem('username', username);
         window.location.href = '/dashboard';
       }
     } catch (err) { 
