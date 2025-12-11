@@ -4,7 +4,7 @@ import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
   TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save, Eye,
-  Edit2, Calendar, AlertCircle
+  Calendar, AlertCircle
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -14,14 +14,9 @@ const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
   const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth(); // 0-11
+  const currentMonth = today.getMonth(); 
 
-  // Create a date object for the *current* month with the specific day
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
-
-  // If that date has already passed today (e.g. today is 18th, statement was 17th)
-  // then the "next" occurrence is next month.
-  // Note: We set hours to 23:59 to ensure "today" comparisons work intuitively
   const endOfToday = new Date(currentYear, currentMonth, today.getDate(), 23, 59, 59);
 
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
@@ -46,9 +41,8 @@ const CURRENCIES = [
 ];
 
 const NetworkLogo = ({ network }) => {
-  const style = "h-6 w-10 object-contain"; // Fixed height for alignment
+  const style = "h-6 w-10 object-contain";
   if (!network) return <CreditCard size={24} className="text-gray-400"/>;
-  
   switch (network.toLowerCase()) {
     case 'visa': return (
       <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>
@@ -93,8 +87,34 @@ const processImage = (file) => {
   });
 };
 
-// --- COMPONENTS ---
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
+          <div className="bg-neutral-900 p-4 rounded border border-red-900 font-mono text-sm max-w-2xl overflow-auto text-left">
+            <p className="font-bold border-b border-red-900/30 pb-2 mb-2">Error Details:</p>
+            {this.state.error?.toString()}
+          </div>
+          <button onClick={() => window.location.reload()} className="mt-8 bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">
+            Reboot System
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
+// --- SHARED COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -107,13 +127,12 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
-const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
+// --- COMPONENT: Edit Card Modal ---
+const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
   const [tab, setTab] = useState('details'); 
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
-
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleImageUpload = async (e, side) => {
     const file = e.target.files[0];
@@ -123,12 +142,6 @@ const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
         setFormData(prev => ({ ...prev, [side]: compressedBase64 }));
       } catch (err) { alert("Failed to process image."); }
     }
-  };
-
-  const handleSave = () => {
-    // This is a placeholder for update logic (requires PUT endpoint)
-    // For now we just close, user has to delete and re-add to "Edit" core details
-    alert("Edit mode: Please delete and re-add card to update core details.");
   };
 
   return (
@@ -143,11 +156,11 @@ const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
            <div className="bg-neutral-800 p-4 rounded-lg mb-4 flex justify-between items-center">
               <div>
                 <p className="text-xs text-neutral-500 uppercase">Total Limit</p>
-                <p className="text-white font-bold">{formData.total_limit}</p>
+                <p className="text-white font-bold">{formData.total_limit.toLocaleString()}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-neutral-500 uppercase">Last 4</p>
-                <p className="text-white font-mono">{formData.last_4}</p>
+                <p className="text-white font-mono">{formData.last_4 || 'N/A'}</p>
               </div>
            </div>
            
@@ -189,6 +202,7 @@ const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
   );
 };
 
+// --- SETTINGS PAGE ---
 const SettingsPage = ({ currentUser, onUpdateUser }) => {
   const [formData, setFormData] = useState({ 
     full_name: currentUser.full_name || '', 
@@ -265,6 +279,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
+// --- DASHBOARD COMPONENT ---
 const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
   const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
@@ -333,6 +348,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   );
 };
 
+// --- AUTHENTICATED APP WRAPPER (This is the one that was missing!) ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
@@ -476,7 +492,6 @@ const AuthenticatedApp = () => {
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
-         {/* Placeholders for other views */}
          {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
       </main>
 
@@ -495,7 +510,6 @@ const AuthenticatedApp = () => {
                    {newCard.image_front ? <img src={newCard.image_front} className="absolute inset-0 w-full h-full object-cover opacity-50"/> : null}
                    <Camera size={20} className="relative z-10"/>
                    <span className="text-[10px] uppercase font-bold relative z-10">{newCard.image_front ? 'Retake Front' : 'Front'}</span>
-                   {/* Crop Hint Overlay */}
                    <div className="absolute inset-4 border border-dashed border-white/30 pointer-events-none rounded opacity-50"></div>
                    <input type="file" ref={frontInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
                 </button>
