@@ -9,7 +9,34 @@ import {
 
 const API_URL = '/api';
 
-// --- AXIOS CONFIG ---
+// --- 1. ERROR BOUNDARY (Restored) ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
+          <div className="bg-neutral-900 p-4 rounded border border-red-900 font-mono text-sm max-w-2xl overflow-auto text-left">
+            <p className="font-bold border-b border-red-900/30 pb-2 mb-2">Error Details:</p>
+            {this.state.error?.toString()}
+          </div>
+          <button onClick={() => window.location.reload()} className="mt-8 bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">
+            Reboot System
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// --- 2. AXIOS CONFIG ---
 axios.interceptors.response.use(
   response => response,
   error => {
@@ -21,7 +48,7 @@ axios.interceptors.response.use(
   }
 );
 
-// --- UTILS ---
+// --- 3. UTILS ---
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
@@ -303,6 +330,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   );
 };
 
+// --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ currency: 'USD', username: '' });
@@ -320,7 +348,6 @@ const AuthenticatedApp = () => {
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
-  // Poll Data
   const fetchData = useCallback(async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
