@@ -173,7 +173,6 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'images' && (
         <div className="space-y-6">
-           {/* Front Image View */}
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
@@ -184,8 +183,6 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                 <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
               )}
            </div>
-           
-           {/* Back Image View */}
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? (
@@ -301,6 +298,14 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
             </div>
         </div>
 
+        {cards.length === 0 && !loading && (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <CreditCard className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No cards yet</h3>
+                <p className="text-neutral-500">Add your first credit card to start tracking.</p>
+            </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
                 <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
@@ -348,10 +353,10 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   );
 };
 
-// --- AUTHENTICATED APP WRAPPER (This is the one that was missing!) ---
+// --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
-  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
+  const [currentUser, setCurrentUser] = useState({ currency: 'USD', username: '' });
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -442,13 +447,16 @@ const AuthenticatedApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 pb-24 md:pb-0 md:pl-64 text-neutral-200 font-sans">
+    <div className="min-h-screen bg-neutral-950 pb-[calc(env(safe-area-inset-bottom)+4rem)] md:pb-0 md:pl-64 text-neutral-200 font-sans">
       <aside className="fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-red-900/20 hidden md:flex flex-col z-20">
-        <div className="p-6 flex items-center gap-3">
-             <div className="bg-gradient-to-br from-red-700 to-red-900 p-2 rounded-lg shadow-lg shadow-red-900/20">
-                 <img src="/logo.png" alt="Icon" className="w-6 h-6 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} />
+        <div className="p-6">
+             <div className="flex items-center gap-3 mb-2">
+               <div className="bg-gradient-to-br from-red-700 to-red-900 p-2 rounded-lg shadow-lg shadow-red-900/20">
+                   <img src="/logo.png" alt="Icon" className="w-6 h-6 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} />
+               </div>
+               <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
              </div>
-             <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
+             <p className="text-xs text-neutral-500 pl-1">@{currentUser.username || 'user'}</p>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
             {[
@@ -469,10 +477,13 @@ const AuthenticatedApp = () => {
         </div>
       </aside>
 
-      <header className="md:hidden bg-neutral-900 border-b border-red-900/20 p-4 sticky top-0 z-10 flex justify-between items-center">
+      <header className="md:hidden bg-neutral-900 border-b border-red-900/20 p-4 sticky top-0 z-10 flex justify-between items-center rounded-b-3xl shadow-lg">
           <div className="flex items-center gap-2">
              <div className="bg-red-800 p-1.5 rounded-lg"><img src="/logo.png" alt="Icon" className="w-5 h-5 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} /></div>
-             <span className="font-bold text-lg text-white lowercase">cc-track</span>
+             <div>
+                <span className="font-bold text-lg text-white lowercase block leading-none">cc-track</span>
+                <span className="text-[10px] text-neutral-400 block leading-none mt-0.5">@{currentUser.username}</span>
+             </div>
           </div>
           <button onClick={handleLogout} className="text-neutral-500"><LogOut size={24} /></button>
       </header>
@@ -480,7 +491,7 @@ const AuthenticatedApp = () => {
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
             <>
-              <div className="flex justify-end gap-3 mb-6">
+              <div className="flex justify-end gap-3 mb-6 hidden md:flex">
                 <button onClick={() => setShowAddCard(true)} className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
                     <CreditCard size={18} /> Add Card
                 </button>
@@ -495,7 +506,7 @@ const AuthenticatedApp = () => {
          {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 z-30 pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
         <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}><LayoutDashboard size={24} /><span className="text-[10px]">Home</span></button>
         <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-red-700 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><Plus size={24} className="text-white"/></div></button>
         <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}><Settings size={24} /><span className="text-[10px]">Settings</span></button>
