@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
-  TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save
+  TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save, Eye
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -252,9 +252,10 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
   const [loading, setLoading] = useState(true);
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
+  const [viewingCard, setViewingCard] = useState(null); // State for viewing images
   
   // Data State
-  const [newCard, setNewCard] = useState({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '' });
+  const [newCard, setNewCard] = useState({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
   const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '' });
 
   const frontInputRef = useRef(null);
@@ -298,12 +299,13 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
         statement_date: parseInt(newCard.statement_day),
         payment_due_date: parseInt(newCard.due_day),
         image_front: newCard.image_front,
-        image_back: newCard.image_back
+        image_back: newCard.image_back,
+        last_4: newCard.last_4 // Added field
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
       fetchCards();
-      setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '' });
-    } catch (err) { alert('Failed to add card. Try taking a lower resolution photo.'); }
+      setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
+    } catch (err) { alert('Failed to add card.'); }
   };
 
   const handleAddTxn = async (e) => {
@@ -365,17 +367,28 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
             {cards.map(card => (
                 <div key={card.id} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden">
                     <button onClick={() => handleDeleteCard(card.id)} className="absolute top-2 right-2 text-neutral-600 hover:text-red-500 z-20"><Trash2 size={16}/></button>
-                    <div className="relative z-10 flex items-start justify-between mb-6">
-                        <div className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
-                            <CreditCard className="text-red-500 w-6 h-6" />
+                    
+                    {/* Header: Icon, View Button, Network */}
+                    <div className="relative z-10 flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
+                                <CreditCard className="text-red-500 w-6 h-6" />
+                            </div>
+                            {/* View Image Button */}
+                            {(card.image_front || card.image_back) && (
+                                <button onClick={(e) => { e.stopPropagation(); setViewingCard(card); }} className="bg-neutral-800 p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-red-500 transition-colors" title="View Card Image">
+                                    <Eye size={16} />
+                                </button>
+                            )}
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-bold bg-neutral-800 text-neutral-400 px-2 py-1 rounded-md border border-neutral-700 block mb-1">{card.network}</span>
+                          <span className="text-[10px] font-bold bg-neutral-800 text-neutral-400 px-2 py-1 rounded border border-neutral-700 block mb-1 uppercase tracking-wide">{card.network}</span>
                         </div>
                     </div>
-                    <div className="relative z-10">
-                        <h4 className="font-bold text-white text-lg tracking-wide mb-1">{card.name}</h4>
-                        <p className="text-sm text-neutral-500 mb-4">{card.bank} •••• {card.last_4 || 'XXXX'}</p>
+
+                    <div className="relative z-10 pt-2">
+                        <h4 className="font-bold text-white text-lg tracking-wide leading-tight">{card.name}</h4>
+                        <p className="text-sm text-neutral-500 mb-4 font-mono mt-1">{card.bank} •••• {card.last_4 || 'XXXX'}</p>
                         
                         <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
                           <div className="flex justify-between text-sm mb-1">
@@ -386,19 +399,40 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
                              <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
                           </div>
                         </div>
-                        <div className="flex justify-between items-end text-xs text-neutral-500">
+                        <div className="flex justify-between items-end text-xs text-neutral-500 font-medium">
                             <div>Limit: {card.total_limit.toLocaleString()}</div>
                             <div>Due: {card.payment_due_date}th</div>
                         </div>
-                        {(card.image_front || card.image_back) && (
-                           <div className="absolute bottom-2 right-2">
-                             <ImageIcon size={14} className="text-neutral-600" />
-                           </div>
-                        )}
                     </div>
                 </div>
             ))}
         </div>
+
+        {/* View Image Modal */}
+        {viewingCard && (
+            <Modal title={viewingCard.name} onClose={() => setViewingCard(null)}>
+               <div className="space-y-6">
+                  {viewingCard.image_front && (
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-2 uppercase font-bold tracking-wider">Front Side</p>
+                      <img src={viewingCard.image_front} alt="Front" className="w-full rounded-xl border border-neutral-700 shadow-lg" />
+                    </div>
+                  )}
+                  {viewingCard.image_back && (
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-2 uppercase font-bold tracking-wider">Back Side</p>
+                      <img src={viewingCard.image_back} alt="Back" className="w-full rounded-xl border border-neutral-700 shadow-lg" />
+                    </div>
+                  )}
+                  {!viewingCard.image_front && !viewingCard.image_back && (
+                    <div className="text-center py-8 text-neutral-500">
+                        <ImageIcon size={48} className="mx-auto mb-2 opacity-20"/>
+                        <p>No images saved for this card.</p>
+                    </div>
+                  )}
+               </div>
+            </Modal>
+        )}
 
         {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
@@ -433,11 +467,9 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
                         placeholder="Chase" value={newCard.bank} onChange={e => setNewCard({...newCard, bank: e.target.value})} required />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
-                        <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
-                    </select>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Last 4 Digits</label>
+                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
+                        placeholder="1234" maxLength="4" value={newCard.last_4} onChange={e => setNewCard({...newCard, last_4: e.target.value})} />
                   </div>
               </div>
 
@@ -456,19 +488,26 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
 
               <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
+                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
+                        <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="text-xs text-neutral-500 uppercase font-bold">Statement Day</label>
                     <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
                         value={newCard.statement_day} onChange={e => setNewCard({...newCard, statement_day: e.target.value})}>
                         {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Due Day</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newCard.due_day} onChange={e => setNewCard({...newCard, due_day: e.target.value})}>
-                        {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
-                    </select>
-                  </div>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-500 uppercase font-bold">Due Day</label>
+                <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                    value={newCard.due_day} onChange={e => setNewCard({...newCard, due_day: e.target.value})}>
+                    {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                </select>
               </div>
               <button type="submit" className="w-full bg-red-700 text-white font-bold py-3 rounded-xl hover:bg-red-600 mt-2">Save Card</button>
            </form>
@@ -519,7 +558,7 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
   );
 };
 
-// --- AUTH WRAPPER (This was missing!) ---
+// --- AUTH WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
