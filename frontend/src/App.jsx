@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
@@ -8,6 +8,20 @@ import {
 } from 'lucide-react';
 
 const API_URL = '/api';
+
+// --- AXIOS CONFIG (Auto-Logout on 401) ---
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // --- UTILS ---
 const getNextDate = (dayOfMonth) => {
@@ -173,6 +187,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'images' && (
         <div className="space-y-6">
+           {/* Front Image View */}
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
@@ -371,7 +386,8 @@ const AuthenticatedApp = () => {
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
-  const fetchData = async () => {
+  // FETCH DATA WITH AUTO-SYNC
+  const fetchData = useCallback(async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
@@ -379,12 +395,21 @@ const AuthenticatedApp = () => {
             axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
             axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
-        setCurrentUser(userRes.data);
-        setCards(cardsRes.data);
+        // Update user (if changed)
+        setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(userRes.data) ? userRes.data : prev);
+        
+        // Update cards (if changed)
+        setCards(prev => JSON.stringify(prev) !== JSON.stringify(cardsRes.data) ? cardsRes.data : prev);
+        
       } catch (err) { console.error(err); } finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  // Set up polling interval (Real-time Sync)
+  useEffect(() => {
+    fetchData(); // Initial load
+    const intervalId = setInterval(fetchData, 5000); // Poll every 5s
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, [fetchData]);
 
   const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
 
@@ -415,7 +440,7 @@ const AuthenticatedApp = () => {
         last_4: newCard.last_4 
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
-      fetchData();
+      fetchData(); // Immediate refresh
       setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
     } catch (err) { alert('Failed to add card.'); }
   };
@@ -441,7 +466,7 @@ const AuthenticatedApp = () => {
         tag_name: newTxn.tag
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddTxn(false);
-      fetchData();
+      fetchData(); // Immediate refresh
       alert('Transaction logged');
     } catch (err) { alert('Failed to add transaction'); }
   };
@@ -456,7 +481,8 @@ const AuthenticatedApp = () => {
                </div>
                <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
              </div>
-             <p className="text-xs text-neutral-500 pl-1">@{currentUser.username || 'user'}</p>
+             {/* Uses actual USERNAME from backend */}
+             <p className="text-xs text-neutral-500 pl-1">@{currentUser.username}</p>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
             {[
@@ -491,11 +517,12 @@ const AuthenticatedApp = () => {
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
             <>
-              <div className="flex justify-end gap-3 mb-6 hidden md:flex">
-                <button onClick={() => setShowAddCard(true)} className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
+              {/* BUTTONS VISIBLE ON MOBILE NOW */}
+              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6">
+                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-3 md:py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
                     <CreditCard size={18} /> Add Card
                 </button>
-                <button onClick={() => setShowAddTxn(true)} className="flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
+                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-3 md:py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
                     <Plus size={18} /> Add Txn
                 </button>
               </div>
