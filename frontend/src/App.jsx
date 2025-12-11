@@ -4,12 +4,12 @@ import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
   TrendingUp, Tag, X, Camera, Image as ImageIcon, Settings, Trash2, Save, Eye,
-  Calendar, AlertCircle
+  Calendar, AlertCircle, ChevronRight
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// --- 1. ERROR BOUNDARY (Restored) ---
+// --- 1. ERROR BOUNDARY ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -54,10 +54,14 @@ const getNextDate = (dayOfMonth) => {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
+  
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
+  
+  // If date passed, move to next month
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
+  
   return targetDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 };
 
@@ -70,19 +74,19 @@ const CURRENCIES = [
 
 const NetworkLogo = ({ network }) => {
   const style = "h-6 w-10 object-contain";
-  if (!network) return <CreditCard size={24} className="text-gray-400"/>;
-  switch (network.toLowerCase()) {
-    case 'visa': return (
-      <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>
-    );
-    case 'mastercard': return (
-      <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>
-    );
-    case 'amex': return (
-      <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>
-    );
-    default: return <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{network}</span>;
-  }
+  const net = network ? network.toLowerCase() : '';
+  
+  if (net === 'visa') return (
+    <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>
+  );
+  if (net === 'mastercard') return (
+    <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>
+  );
+  if (net === 'amex') return (
+    <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>
+  );
+  
+  return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
 const processImage = (file) => {
@@ -155,7 +159,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
-           <p className="text-center text-xs text-neutral-600 mt-2">To edit details, delete and re-add.</p>
+           <p className="text-center text-xs text-neutral-600 mt-2">To edit card details, please delete and re-add.</p>
         </div>
       )}
 
@@ -254,22 +258,32 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
+const Dashboard = ({ cards, loading, currentUser, onEditCard, onAddCard, onAddTxn }) => {
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
   const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+            {/* Mobile-Friendly Buttons in Header */}
+            <div className="flex gap-2">
+                <button onClick={onAddCard} className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-medium border border-neutral-700 transition-all">
+                    <CreditCard size={18} /> <span className="hidden sm:inline">Add Card</span>
+                </button>
+                {/* Desktop-only Add Txn (Mobile uses bottom FAB) */}
+                <button onClick={onAddTxn} className="hidden md:flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
+                    <Plus size={18} /> Add Txn
+                </button>
+            </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30">
+             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30 shadow-lg">
                 <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
                 <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
-             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
+             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md">
                 <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Total Spent</p>
                 <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
             </div>
@@ -285,10 +299,10 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
-                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800 p-5 rounded-2xl shadow-lg border border-neutral-700 hover:border-red-500/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
                     {/* Header */}
                     <div className="relative z-10 flex items-start justify-between mb-4">
-                        <div className="bg-black/40 p-2 rounded-lg border border-white/5">
+                        <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
                             <NetworkLogo network={card.network} />
                         </div>
                         <div className="text-right">
@@ -363,7 +377,7 @@ const AuthenticatedApp = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 5000); // Auto-refresh every 5s
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -396,7 +410,7 @@ const AuthenticatedApp = () => {
         last_4: newCard.last_4 
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
-      fetchData(); // Force immediate update
+      fetchData(); 
       setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
     } catch (err) { alert('Failed to add card.'); }
   };
@@ -437,7 +451,7 @@ const AuthenticatedApp = () => {
                </div>
                <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
              </div>
-             <p className="text-xs text-neutral-500 pl-1">@{currentUser.username}</p>
+             <p className="text-xs text-neutral-500 pl-1 font-mono">@{currentUser.username}</p>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
             {[
@@ -471,17 +485,14 @@ const AuthenticatedApp = () => {
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
-            <>
-              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6 hidden md:flex">
-                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
-                    <CreditCard size={18} /> Add Card
-                </button>
-                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
-                    <Plus size={18} /> Add Txn
-                </button>
-              </div>
-              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} />
-            </>
+            <Dashboard 
+                cards={cards} 
+                loading={loading} 
+                currentUser={currentUser} 
+                onEditCard={setEditingCard}
+                onAddCard={() => setShowAddCard(true)} // Passed down to Dashboard
+                onAddTxn={() => setShowAddTxn(true)}   // Passed down to Dashboard
+            />
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
          {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
