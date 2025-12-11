@@ -10,24 +10,27 @@ import {
 const API_URL = '/api';
 
 // --- UTILS ---
-// Smart Date Calculator
 const getNextDate = (dayOfMonth) => {
+  if (!dayOfMonth) return 'N/A';
   const today = new Date();
-  const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
-  
-  // Create date object for this month
+  const currentMonth = today.getMonth(); // 0-11
+
+  // Create a date object for the *current* month with the specific day
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
-  
-  // If the day has already passed this month, move to next month
-  if (targetDate < today) {
-    targetDate = new Date(currentYear, currentMonth + 1, dayOfMonth);
+
+  // If that date has already passed today (e.g. today is 18th, statement was 17th)
+  // then the "next" occurrence is next month.
+  // Note: We set hours to 23:59 to ensure "today" comparisons work intuitively
+  const endOfToday = new Date(currentYear, currentMonth, today.getDate(), 23, 59, 59);
+
+  if (targetDate < today && targetDate.getDate() !== today.getDate()) {
+     targetDate.setMonth(currentMonth + 1);
   }
-  
+
   return targetDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 };
 
-// Comprehensive Currency List
 const CURRENCIES = [
   { code: 'USD', label: '$ USD' },
   { code: 'EUR', label: '€ EUR' },
@@ -39,14 +42,16 @@ const CURRENCIES = [
   { code: 'CNY', label: '¥ CNY' },
   { code: 'AED', label: 'د.إ AED' },
   { code: 'SAR', label: '﷼ SAR' },
+  { code: 'SGD', label: '$ SGD' },
 ];
 
-// Helper to get network logo (SVG)
 const NetworkLogo = ({ network }) => {
-  const style = "h-8 w-12 object-contain";
-  switch (network?.toLowerCase()) {
+  const style = "h-6 w-10 object-contain"; // Fixed height for alignment
+  if (!network) return <CreditCard size={24} className="text-gray-400"/>;
+  
+  switch (network.toLowerCase()) {
     case 'visa': return (
-      <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A1F71" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>
+      <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>
     );
     case 'mastercard': return (
       <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>
@@ -54,11 +59,10 @@ const NetworkLogo = ({ network }) => {
     case 'amex': return (
       <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>
     );
-    default: return <span className="text-xs font-bold text-gray-400 uppercase">{network}</span>;
+    default: return <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{network}</span>;
   }
 };
 
-// --- HELPER: Image Resizer ---
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -89,7 +93,8 @@ const processImage = (file) => {
   });
 };
 
-// --- SHARED COMPONENTS ---
+// --- COMPONENTS ---
+
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -102,10 +107,9 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
-// --- COMPONENT: Edit Card Modal ---
 const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [tab, setTab] = useState('details'); // details | images
+  const [tab, setTab] = useState('details'); 
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
@@ -122,14 +126,13 @@ const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
   };
 
   const handleSave = () => {
-    // In a real app, you'd send a PUT request here. For now we assume Add Card logic or implement Update
-    // Since we don't have a specific update endpoint in the provided snippets, 
-    // we'll focus on the UI flow. You might need to add PUT /api/cards/{id} to backend.
-    alert("Update feature requires backend implementation. For now, delete and re-add.");
+    // This is a placeholder for update logic (requires PUT endpoint)
+    // For now we just close, user has to delete and re-add to "Edit" core details
+    alert("Edit mode: Please delete and re-add card to update core details.");
   };
 
   return (
-    <Modal title={`Edit ${card.name}`} onClose={onClose}>
+    <Modal title={`Manage ${card.name}`} onClose={onClose}>
       <div className="flex gap-2 mb-4 border-b border-neutral-800 pb-2">
         <button onClick={() => setTab('details')} className={`flex-1 pb-2 text-sm font-medium ${tab==='details' ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>Details</button>
         <button onClick={() => setTab('images')} className={`flex-1 pb-2 text-sm font-medium ${tab==='images' ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>Images</button>
@@ -137,56 +140,48 @@ const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
 
       {tab === 'details' && (
         <div className="space-y-4">
-           <div>
-             <label className="text-xs text-neutral-500 uppercase font-bold">Nickname</label>
-             <input name="name" value={formData.name} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"/>
+           <div className="bg-neutral-800 p-4 rounded-lg mb-4 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-neutral-500 uppercase">Total Limit</p>
+                <p className="text-white font-bold">{formData.total_limit}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-neutral-500 uppercase">Last 4</p>
+                <p className="text-white font-mono">{formData.last_4}</p>
+              </div>
            </div>
-           <div className="grid grid-cols-2 gap-4">
-             <div>
-                <label className="text-xs text-neutral-500 uppercase font-bold">Limit</label>
-                <input name="total_limit" type="number" value={formData.total_limit} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"/>
-             </div>
-             <div>
-                <label className="text-xs text-neutral-500 uppercase font-bold">Last 4</label>
-                <input name="last_4" maxLength="4" value={formData.last_4 || ''} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"/>
-             </div>
-           </div>
+           
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
+           <p className="text-center text-xs text-neutral-600 mt-2">To edit limits or dates, please delete and re-add.</p>
         </div>
       )}
 
       {tab === 'images' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+           {/* Front Image View */}
            <div className="space-y-2">
-              <label className="text-xs text-neutral-500 uppercase font-bold">Front Image</label>
+              <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
-                <div className="relative">
-                  <img src={formData.image_front} className="w-full rounded-lg border border-neutral-700"/>
-                  <button onClick={() => setFormData({...formData, image_front: null})} className="absolute top-2 right-2 bg-black/50 p-1 rounded-full text-white"><X size={14}/></button>
+                <div className="relative group">
+                  <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
                 </div>
               ) : (
-                <button onClick={() => frontInputRef.current.click()} className="w-full h-32 border-2 border-dashed border-neutral-700 rounded-lg flex flex-col items-center justify-center text-neutral-500 hover:text-white hover:border-red-500">
-                  <Camera size={24}/> <span className="text-xs mt-1">Tap to Capture</span>
-                </button>
+                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
               )}
-              <input type="file" ref={frontInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
            </div>
            
+           {/* Back Image View */}
            <div className="space-y-2">
-              <label className="text-xs text-neutral-500 uppercase font-bold">Back Image</label>
+              <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? (
-                <div className="relative">
-                  <img src={formData.image_back} className="w-full rounded-lg border border-neutral-700"/>
-                  <button onClick={() => setFormData({...formData, image_back: null})} className="absolute top-2 right-2 bg-black/50 p-1 rounded-full text-white"><X size={14}/></button>
+                <div className="relative group">
+                  <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
                 </div>
               ) : (
-                <button onClick={() => backInputRef.current.click()} className="w-full h-32 border-2 border-dashed border-neutral-700 rounded-lg flex flex-col items-center justify-center text-neutral-500 hover:text-white hover:border-red-500">
-                  <Camera size={24}/> <span className="text-xs mt-1">Tap to Capture</span>
-                </button>
+                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
               )}
-              <input type="file" ref={backInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_back')} className="hidden" />
            </div>
         </div>
       )}
@@ -194,41 +189,31 @@ const EditCardModal = ({ card, onClose, onUpdate, onDelete }) => {
   );
 };
 
-// --- SETTINGS PAGE ---
-const SettingsPage = ({ onUpdateUser }) => {
-  const [user, setUser] = useState({ full_name: '', currency: 'USD' });
+const SettingsPage = ({ currentUser, onUpdateUser }) => {
+  const [formData, setFormData] = useState({ 
+    full_name: currentUser.full_name || '', 
+    currency: currentUser.currency || 'USD' 
+  });
   const [password, setPassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      try {
-        const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
-        setUser(res.data);
-      } catch (err) { console.error(err); }
-    };
-    fetchUser();
-  }, []);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     try {
       const res = await axios.put(`${API_URL}/users/me`, {
-        full_name: user.full_name,
-        currency: user.currency,
+        full_name: formData.full_name,
+        currency: formData.currency,
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
       
-      onUpdateUser(res.data); // CRITICAL: Updates global state instantly
+      onUpdateUser(res.data);
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE') return; 
+    if (deleteConfirm !== 'DELETE' && deleteConfirm !== 'DELETE DELETE') return; 
     const token = localStorage.getItem('token');
     try {
       await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
@@ -245,12 +230,12 @@ const SettingsPage = ({ onUpdateUser }) => {
              <div>
                 <label className="text-xs text-neutral-500 font-bold uppercase">Display Name</label>
                 <input className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1" 
-                  value={user.full_name || ''} onChange={e => setUser({...user, full_name: e.target.value})} />
+                  value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
              </div>
              <div>
                 <label className="text-xs text-neutral-500 font-bold uppercase">Default Currency</label>
                 <select className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1"
-                  value={user.currency || 'USD'} onChange={e => setUser({...user, currency: e.target.value})}>
+                  value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                 </select>
              </div>
@@ -280,114 +265,107 @@ const SettingsPage = ({ onUpdateUser }) => {
   );
 };
 
-// --- LOGIN ---
-const Login = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
-
-      if (isLogin) {
-        const response = await axios.post(`${API_URL}/token`, formData);
-        localStorage.setItem('token', response.data.access_token);
-        window.location.href = '/dashboard';
-      } else {
-        await axios.post(`${API_URL}/signup`, { username, password, full_name: fullName });
-        const loginRes = await axios.post(`${API_URL}/token`, formData);
-        localStorage.setItem('token', loginRes.data.access_token);
-        window.location.href = '/dashboard';
-      }
-    } catch (err) { 
-        console.error(err);
-        setError(err.response?.data?.detail || 'Authentication failed. Check your connection.'); 
-    } finally { 
-        setLoading(false); 
-    }
-  };
+const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
+  const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
+  const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-neutral-950 to-neutral-950">
-      <div className="w-full max-w-md bg-neutral-900/80 border border-red-900/30 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden">
-        <div className="bg-gradient-to-b from-red-900 to-red-950 p-8 text-center border-b border-red-800/50">
-            <div className="mx-auto w-20 h-20 flex items-center justify-center mb-4">
-                 <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" onError={(e) => e.target.src='/favicon.ico'} />
-            </div>
-            <h2 className="text-2xl font-bold text-white tracking-wide lowercase">cc-track</h2>
+    <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
         </div>
-        <div className="p-8">
-            {error && <div className="mb-6 bg-red-950/50 border-l-4 border-red-600 p-4 text-sm text-red-200">{error}</div>}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Username</label>
-                  <input type="text" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
-                    value={username} onChange={(e) => setUsername(e.target.value)} required />
-              </div>
-              {!isLogin && (
-                <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <input type="text" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
-                    value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30">
+                <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
+                <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
+            </div>
+             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
+                <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Total Spent</p>
+                <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cards.map(card => (
+                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                    {/* Header */}
+                    <div className="relative z-10 flex items-start justify-between mb-4">
+                        <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+                            <NetworkLogo network={card.network} />
+                        </div>
+                        <div className="text-right">
+                          <span className="text-neutral-500 font-mono tracking-widest text-sm">•••• {card.last_4 || 'XXXX'}</span>
+                        </div>
+                    </div>
+
+                    <div className="relative z-10">
+                        <h4 className="font-bold text-white text-lg tracking-wide leading-tight mb-1">{card.name}</h4>
+                        <p className="text-xs text-neutral-500 mb-4 uppercase tracking-wider">{card.bank}</p>
+                        
+                        <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-neutral-400 text-xs">Used</span>
+                            <span className="text-white font-medium text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-neutral-800/50 pt-3 mt-1">
+                            <div>
+                                <span className="block text-neutral-600 uppercase font-bold mb-0.5">Statement</span>
+                                <span className="text-white">{getNextDate(card.statement_date)}</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="block text-neutral-600 uppercase font-bold mb-0.5">Due Date</span>
+                                <span className="text-red-400 font-bold">{getNextDate(card.payment_due_date)}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              )}
-              <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Password</label>
-                  <input type="password" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
-                    value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-              <button type="submit" disabled={loading} className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-3.5 px-4 rounded-xl transition mt-4">
-                  {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
-              </button>
-            </form>
-            <div className="mt-6 text-center">
-              <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-neutral-500 hover:text-red-400 text-sm transition-colors">
-                {isLogin ? "New user? Create account" : "Have an account? Login"}
-              </button>
-            </div>
+            ))}
         </div>
-      </div>
+        
+        {loading && <div className="text-center py-12 text-neutral-600 animate-pulse">Syncing data...</div>}
     </div>
   );
 };
 
-// --- DASHBOARD ---
-const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
+const AuthenticatedApp = () => {
+  const [activeView, setActiveView] = useState('Dashboard');
+  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modals State
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
-  const [editingCard, setEditingCard] = useState(null); // For edit modal
-  
-  // Data State
+  const [editingCard, setEditingCard] = useState(null);
+
+  // Forms State
   const [newCard, setNewCard] = useState({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
   const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '' });
-
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
-  const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
-  const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
-
-  const fetchCards = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      const res = await axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } });
-      setCards(res.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+  const fetchData = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const [userRes, cardsRes] = await Promise.all([
+            axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
+            axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        setCurrentUser(userRes.data);
+        setCards(cardsRes.data);
+      } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchCards(); }, []);
+  useEffect(() => { fetchData(); }, []);
+
+  const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
 
   const handleImageUpload = async (e, side) => {
     const file = e.target.files[0];
@@ -416,10 +394,18 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
         last_4: newCard.last_4 
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
-      fetchCards();
+      fetchData();
       setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
-    } catch (err) { alert('Failed to add card. Try taking a lower resolution photo.'); }
+    } catch (err) { alert('Failed to add card.'); }
   };
+
+  const handleDeleteCard = async (id) => {
+      if(!confirm("Delete this card and all its transactions?")) return;
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/cards/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      setEditingCard(null);
+      fetchData();
+  }
 
   const handleAddTxn = async (e) => {
     e.preventDefault();
@@ -434,93 +420,74 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
         tag_name: newTxn.tag
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddTxn(false);
-      fetchCards();
+      fetchData();
       alert('Transaction logged');
     } catch (err) { alert('Failed to add transaction'); }
   };
-  
-  const handleDeleteCard = async (id) => {
-      if(!confirm("Delete this card and all its transactions?")) return;
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/cards/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      setEditingCard(null); // Close modal if open
-      fetchCards();
-  }
-
-  if (activeView === 'Settings') return <SettingsPage onUpdateUser={onUpdateUser} />;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-            <button onClick={() => setShowAddCard(true)} className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
-                <CreditCard size={18} /> Add Card
+    <div className="min-h-screen bg-neutral-950 pb-24 md:pb-0 md:pl-64 text-neutral-200 font-sans">
+      <aside className="fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-red-900/20 hidden md:flex flex-col z-20">
+        <div className="p-6 flex items-center gap-3">
+             <div className="bg-gradient-to-br from-red-700 to-red-900 p-2 rounded-lg shadow-lg shadow-red-900/20">
+                 <img src="/logo.png" alt="Icon" className="w-6 h-6 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} />
+             </div>
+             <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-2">
+            {[
+              { name: 'Dashboard', icon: <LayoutDashboard size={20}/> },
+              { name: 'My Cards', icon: <CreditCard size={20}/> },
+              { name: 'Analytics', icon: <TrendingUp size={20}/> },
+              { name: 'Settings', icon: <Settings size={20}/> }
+            ].map((item) => (
+               <button key={item.name} onClick={() => setActiveView(item.name)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === item.name ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
+                {item.icon} {item.name}
+            </button> 
+            ))}
+        </nav>
+        <div className="p-4 border-t border-neutral-800">
+            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 text-neutral-500 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-colors">
+                <LogOut size={20} /> Terminate Session
             </button>
         </div>
+      </aside>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30">
-                <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
-                <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
-            </div>
-             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
-                <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Total Spent</p>
-                <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
-            </div>
-        </div>
+      <header className="md:hidden bg-neutral-900 border-b border-red-900/20 p-4 sticky top-0 z-10 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+             <div className="bg-red-800 p-1.5 rounded-lg"><img src="/logo.png" alt="Icon" className="w-5 h-5 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} /></div>
+             <span className="font-bold text-lg text-white lowercase">cc-track</span>
+          </div>
+          <button onClick={handleLogout} className="text-neutral-500"><LogOut size={24} /></button>
+      </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cards.map(card => (
-                <div key={card.id} onClick={() => setEditingCard(card)} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden cursor-pointer">
-                    {/* Header */}
-                    <div className="relative z-10 flex items-start justify-between mb-4">
-                        <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-                            <NetworkLogo network={card.network} />
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs text-neutral-500 font-mono tracking-widest">•••• {card.last_4 || 'XXXX'}</span>
-                        </div>
-                    </div>
+      <main className="max-w-6xl mx-auto p-4 md:p-8">
+         {activeView === 'Dashboard' && (
+            <>
+              <div className="flex justify-end gap-3 mb-6">
+                <button onClick={() => setShowAddCard(true)} className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
+                    <CreditCard size={18} /> Add Card
+                </button>
+                <button onClick={() => setShowAddTxn(true)} className="flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
+                    <Plus size={18} /> Add Txn
+                </button>
+              </div>
+              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} />
+            </>
+         )}
+         {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
+         {/* Placeholders for other views */}
+         {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
+      </main>
 
-                    <div className="relative z-10">
-                        <h4 className="font-bold text-white text-lg tracking-wide leading-tight mb-1">{card.name}</h4>
-                        <p className="text-xs text-neutral-500 mb-4 uppercase tracking-wider">{card.bank}</p>
-                        
-                        <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-neutral-400 text-xs">Used</span>
-                            <span className="text-white font-medium text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
-                          </div>
-                          <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-neutral-800/50 pt-2 mt-2">
-                            <div>
-                                <span className="block text-neutral-600 uppercase">Statement</span>
-                                <span className="text-white">{getNextDate(card.statement_date)}</span>
-                            </div>
-                            <div className="text-right">
-                                <span className="block text-neutral-600 uppercase">Due Date</span>
-                                <span className="text-red-400 font-bold">{getNextDate(card.payment_due_date)}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 z-30 pb-safe">
+        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}><LayoutDashboard size={24} /><span className="text-[10px]">Home</span></button>
+        <button onClick={() => setShowAddTxn(true)} className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-red-700 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><Plus size={24} className="text-white"/></div></button>
+        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}><Settings size={24} /><span className="text-[10px]">Settings</span></button>
+      </nav>
 
-        {/* --- MODALS --- */}
-        {editingCard && (
-            <EditCardModal 
-                card={editingCard} 
-                onClose={() => setEditingCard(null)} 
-                onDelete={handleDeleteCard}
-            />
-        )}
-
-        {showAddCard && (
+      {/* --- MODALS --- */}
+      {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
            <form onSubmit={handleAddCard} className="space-y-4">
               <div className="flex gap-2 mb-4">
@@ -528,6 +495,7 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
                    {newCard.image_front ? <img src={newCard.image_front} className="absolute inset-0 w-full h-full object-cover opacity-50"/> : null}
                    <Camera size={20} className="relative z-10"/>
                    <span className="text-[10px] uppercase font-bold relative z-10">{newCard.image_front ? 'Retake Front' : 'Front'}</span>
+                   {/* Crop Hint Overlay */}
                    <div className="absolute inset-4 border border-dashed border-white/30 pointer-events-none rounded opacity-50"></div>
                    <input type="file" ref={frontInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
                 </button>
@@ -552,7 +520,7 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
                         placeholder="Chase" value={newCard.bank} onChange={e => setNewCard({...newCard, bank: e.target.value})} required />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Last 4</label>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Last 4 Digits</label>
                     <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
                         placeholder="1234" maxLength="4" value={newCard.last_4} onChange={e => setNewCard({...newCard, last_4: e.target.value})} />
                   </div>
@@ -641,81 +609,97 @@ const Dashboard = ({ activeView, currentUser, onUpdateUser }) => {
            </form>
         </Modal>
       )}
+
+      {editingCard && (
+        <EditCardModal 
+            card={editingCard} 
+            onClose={() => setEditingCard(null)} 
+            onDelete={handleDeleteCard}
+        />
+      )}
     </div>
   );
 };
 
-// --- AUTH WRAPPER ---
-const AuthenticatedApp = () => {
-  const [activeView, setActiveView] = useState('Dashboard');
-  const [currentUser, setCurrentUser] = useState({ currency: 'USD' });
-  const [showAddTxn, setShowAddTxn] = useState(false); // Global state for bottom button
-  
-  const fetchUser = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      try {
-        const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
-        setCurrentUser(res.data);
-      } catch (err) { console.error(err); }
+// --- LOGIN ---
+const Login = () => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('username', username);
+      formData.append('password', password);
+
+      if (isLogin) {
+        const response = await axios.post(`${API_URL}/token`, formData);
+        localStorage.setItem('token', response.data.access_token);
+        window.location.href = '/dashboard';
+      } else {
+        await axios.post(`${API_URL}/signup`, { username, password, full_name: fullName });
+        const loginRes = await axios.post(`${API_URL}/token`, formData);
+        localStorage.setItem('token', loginRes.data.access_token);
+        window.location.href = '/dashboard';
+      }
+    } catch (err) { 
+        console.error(err);
+        setError(err.response?.data?.detail || 'Authentication failed. Check your connection.'); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
-  useEffect(() => { fetchUser(); }, []);
-
-  const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
-
   return (
-    <div className="min-h-screen bg-neutral-950 pb-24 md:pb-0 md:pl-64 text-neutral-200 font-sans">
-      <aside className="fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-red-900/20 hidden md:flex flex-col z-20">
-        <div className="p-6 flex items-center gap-3">
-             <div className="bg-gradient-to-br from-red-700 to-red-900 p-2 rounded-lg shadow-lg shadow-red-900/20">
-                 <img src="/logo.png" alt="Icon" className="w-6 h-6 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} />
-             </div>
-             <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
+    <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-neutral-950 to-neutral-950">
+      <div className="w-full max-w-md bg-neutral-900/80 border border-red-900/30 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="bg-gradient-to-b from-red-900 to-red-950 p-8 text-center border-b border-red-800/50">
+            <div className="mx-auto w-20 h-20 flex items-center justify-center mb-4">
+                 <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" onError={(e) => e.target.src='/favicon.ico'} />
+            </div>
+            <h2 className="text-2xl font-bold text-white tracking-wide lowercase">cc-track</h2>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
-            {[
-              { name: 'Dashboard', icon: <LayoutDashboard size={20}/> },
-              { name: 'My Cards', icon: <CreditCard size={20}/> },
-              { name: 'Analytics', icon: <TrendingUp size={20}/> },
-              { name: 'Settings', icon: <Settings size={20}/> }
-            ].map((item) => (
-               <button key={item.name} onClick={() => setActiveView(item.name)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeView === item.name ? 'bg-red-900/20 text-red-500 border border-red-900/30' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'}`}>
-                {item.icon} {item.name}
-            </button> 
-            ))}
-        </nav>
-        <div className="p-4 border-t border-neutral-800">
-            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 text-neutral-500 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-colors">
-                <LogOut size={20} /> Terminate Session
-            </button>
+        <div className="p-8">
+            {error && <div className="mb-6 bg-red-950/50 border-l-4 border-red-600 p-4 text-sm text-red-200">{error}</div>}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Username</label>
+                  <input type="text" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
+                    value={username} onChange={(e) => setUsername(e.target.value)} required />
+              </div>
+              {!isLogin && (
+                <div>
+                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Full Name</label>
+                  <input type="text" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
+                    value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                </div>
+              )}
+              <div>
+                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Password</label>
+                  <input type="password" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
+                    value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </div>
+              <button type="submit" disabled={loading} className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-3.5 px-4 rounded-xl transition mt-4">
+                  {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
+              </button>
+            </form>
+            <div className="mt-6 text-center">
+              <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-neutral-500 hover:text-red-400 text-sm transition-colors">
+                {isLogin ? "New user? Create account" : "Have an account? Login"}
+              </button>
+            </div>
         </div>
-      </aside>
-
-      <header className="md:hidden bg-neutral-900 border-b border-red-900/20 p-4 sticky top-0 z-10 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-             <div className="bg-red-800 p-1.5 rounded-lg"><img src="/logo.png" alt="Icon" className="w-5 h-5 object-contain invert" onError={(e) => e.target.src='/favicon.ico'} /></div>
-             <span className="font-bold text-lg text-white lowercase">cc-track</span>
-          </div>
-          <button onClick={handleLogout} className="text-neutral-500"><LogOut size={24} /></button>
-      </header>
-
-      <main className="max-w-6xl mx-auto p-4 md:p-8">
-         {/* Pass showAddTxn controller to Dashboard if needed, but easier to keep internal */}
-         <Dashboard activeView={activeView} currentUser={currentUser} onUpdateUser={setCurrentUser} />
-      </main>
-
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around p-3 z-30 pb-safe">
-        <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 ${activeView==='Dashboard'?'text-red-500':'text-neutral-500'}`}><LayoutDashboard size={24} /><span className="text-[10px]">Home</span></button>
-        {/* Mobile FAB Trigger - We need to find a way to trigger the modal inside Dashboard. 
-            For simplicity in this structure, we let the Dashboard handle its own FAB, or we use Global Context. 
-            Here we will just navigate to Dashboard where the button exists. */}
-        <button onClick={() => setActiveView('Dashboard')} className="flex flex-col items-center gap-1 text-neutral-400 hover:text-white"><div className="bg-red-700 p-3 rounded-full -mt-8 border-4 border-neutral-950 shadow-lg"><Plus size={24} className="text-white"/></div></button>
-        <button onClick={() => setActiveView('Settings')} className={`flex flex-col items-center gap-1 ${activeView==='Settings'?'text-red-500':'text-neutral-500'}`}><Settings size={24} /><span className="text-[10px]">Settings</span></button>
-      </nav>
+      </div>
     </div>
   );
-}
+};
 
 // --- MAIN ROUTER ---
 const PrivateRoute = ({ children }) => {
