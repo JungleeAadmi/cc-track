@@ -10,9 +10,9 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     full_name = Column(String)
     hashed_password = Column(String)
-    currency = Column(String, default="USD") # Moved Currency here
+    currency = Column(String, default="USD")
     
-    # Removed unused fields
+    # Defaults to prevent errors if not provided
     age = Column(Integer, default=0)
     gender = Column(String, default="Not Specified")
 
@@ -28,7 +28,7 @@ class Card(Base):
     network = Column(String) 
     last_4 = Column(String, nullable=True)
     
-    # Storing Base64 strings for images (simple solution)
+    # Use Text for potentially long Base64 strings
     image_front = Column(Text, nullable=True)
     image_back = Column(Text, nullable=True)
     

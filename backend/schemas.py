@@ -34,14 +34,13 @@ class CardBase(BaseModel):
     name: str
     bank: str
     network: str
-    currency: str = "USD"
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
     payment_due_date: int
     image_front: Optional[str] = None
     image_back: Optional[str] = None
-    last_4: Optional[str] = None # Added to Base so it is accepted on Create
+    last_4: Optional[str] = None 
 
 class CardCreate(CardBase):
     pass

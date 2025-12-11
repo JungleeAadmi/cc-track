@@ -8,11 +8,11 @@ import {
 
 const API_URL = '/api';
 
-// --- 1. CONFIGURATION ---
+// --- CONFIGURATION ---
 axios.interceptors.response.use(
   response => response,
   error => {
-    // Only logout on 401 (Unauthorized), ignore other errors to prevent auto-logout on network blips
+    // Only logout on 401, ignore other errors to keep session alive during blips
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('username');
@@ -22,16 +22,14 @@ axios.interceptors.response.use(
   }
 );
 
-// --- 2. UTILITIES ---
+// --- UTILS ---
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
-  
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
   
-  // If the date has passed this month, show next month's date
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -86,8 +84,7 @@ const processImage = (file) => {
   });
 };
 
-// --- 3. UI COMPONENTS ---
-
+// --- COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -101,7 +98,7 @@ const Modal = ({ title, children, onClose }) => (
 );
 
 const EditCardModal = ({ card, onClose, onDelete }) => {
-  const [formData] = useState({ ...card });
+  const [formData, setFormData] = useState({ ...card });
   const [tab, setTab] = useState('details'); 
 
   return (
@@ -123,7 +120,6 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                 <p className="text-white font-mono">{formData.last_4 || 'N/A'}</p>
               </div>
            </div>
-           
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
@@ -168,7 +164,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
         currency: formData.currency,
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
-      
       onUpdateUser(res.data);
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
@@ -260,7 +255,6 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
                 <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800 p-5 rounded-2xl shadow-lg border border-neutral-700 hover:border-red-500/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
-                    {/* Header */}
                     <div className="relative z-10 flex items-start justify-between mb-4">
                         <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
                             <NetworkLogo network={card.network} />
@@ -307,7 +301,6 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 // --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
-  // Load username immediately from storage to prevent "flash of undefined"
   const [currentUser, setCurrentUser] = useState({ 
     currency: 'USD', 
     username: localStorage.getItem('username') || 'User' 
@@ -336,6 +329,8 @@ const AuthenticatedApp = () => {
         ]);
         setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(userRes.data) ? userRes.data : prev);
         setCards(prev => JSON.stringify(prev) !== JSON.stringify(cardsRes.data) ? cardsRes.data : prev);
+        // Persist username for next reload
+        localStorage.setItem('username', userRes.data.username);
       } catch (err) { console.error(err); } finally { setLoading(false); }
   }, []);
 
@@ -453,18 +448,22 @@ const AuthenticatedApp = () => {
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
-            <Dashboard 
-                cards={cards} 
-                loading={loading} 
-                currentUser={currentUser} 
-                onEditCard={setEditingCard}
-            />
+            <>
+              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6 hidden md:flex">
+                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
+                    <CreditCard size={18} /> Add Card
+                </button>
+                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
+                    <Plus size={18} /> Add Txn
+                </button>
+              </div>
+              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} />
+            </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
          {(activeView === 'My Cards' || activeView === 'Analytics') && <div className="text-center py-20 text-neutral-500">Coming Soon</div>}
       </main>
 
-      {/* --- UNIFIED MOBILE NAV (FIXED) --- */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
         <button onClick={() => setActiveView('Dashboard')} className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeView==='Dashboard'?'text-red-500':'text-neutral-500 hover:text-neutral-300'}`}>
             <Home size={24} strokeWidth={activeView==='Dashboard'? 2.5 : 2} />
