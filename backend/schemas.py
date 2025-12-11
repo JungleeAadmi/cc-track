@@ -34,12 +34,14 @@ class CardBase(BaseModel):
     name: str
     bank: str
     network: str
+    currency: str = "USD"
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
     payment_due_date: int
-    image_front: Optional[str] = None # Base64 string
-    image_back: Optional[str] = None  # Base64 string
+    image_front: Optional[str] = None
+    image_back: Optional[str] = None
+    last_4: Optional[str] = None # Added to Base so it is accepted on Create
 
 class CardCreate(CardBase):
     pass
@@ -51,7 +53,6 @@ class CardUpdate(BaseModel):
 
 class Card(CardBase):
     id: int
-    last_4: Optional[str] = None
     owner_id: int
     spent: float = 0.0 
     available: float = 0.0

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Wallet, User, 
@@ -9,15 +9,13 @@ import {
 
 const API_URL = '/api';
 
-// --- AXIOS CONFIG (Auto-Logout on 401) ---
+// --- AXIOS CONFIG ---
 axios.interceptors.response.use(
   response => response,
   error => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
-      if (window.location.pathname !== '/') {
-        window.location.href = '/';
-      }
+      if (window.location.pathname !== '/') window.location.href = '/';
     }
     return Promise.reject(error);
   }
@@ -29,29 +27,18 @@ const getNextDate = (dayOfMonth) => {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
-
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
-  const endOfToday = new Date(currentYear, currentMonth, today.getDate(), 23, 59, 59);
-
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
-
   return targetDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 };
 
 const CURRENCIES = [
-  { code: 'USD', label: '$ USD' },
-  { code: 'EUR', label: '€ EUR' },
-  { code: 'GBP', label: '£ GBP' },
-  { code: 'INR', label: '₹ INR' },
-  { code: 'JPY', label: '¥ JPY' },
-  { code: 'AUD', label: '$ AUD' },
-  { code: 'CAD', label: '$ CAD' },
-  { code: 'CNY', label: '¥ CNY' },
-  { code: 'AED', label: 'د.إ AED' },
-  { code: 'SAR', label: '﷼ SAR' },
-  { code: 'SGD', label: '$ SGD' },
+  { code: 'USD', label: '$ USD' }, { code: 'EUR', label: '€ EUR' }, { code: 'GBP', label: '£ GBP' },
+  { code: 'INR', label: '₹ INR' }, { code: 'JPY', label: '¥ JPY' }, { code: 'AUD', label: '$ AUD' },
+  { code: 'CAD', label: '$ CAD' }, { code: 'CNY', label: '¥ CNY' }, { code: 'AED', label: 'د.إ AED' },
+  { code: 'SAR', label: '﷼ SAR' }, { code: 'SGD', label: '$ SGD' },
 ];
 
 const NetworkLogo = ({ network }) => {
@@ -101,34 +88,7 @@ const processImage = (file) => {
   });
 };
 
-// --- ERROR BOUNDARY ---
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-neutral-950 text-red-500 p-8 flex flex-col items-center justify-center text-center">
-          <h1 className="text-3xl font-bold mb-4">System Malfunction</h1>
-          <div className="bg-neutral-900 p-4 rounded border border-red-900 font-mono text-sm max-w-2xl overflow-auto text-left">
-            <p className="font-bold border-b border-red-900/30 pb-2 mb-2">Error Details:</p>
-            {this.state.error?.toString()}
-          </div>
-          <button onClick={() => window.location.reload()} className="mt-8 bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">
-            Reboot System
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-// --- SHARED COMPONENTS ---
+// --- COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -141,22 +101,9 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
-// --- COMPONENT: Edit Card Modal ---
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
   const [tab, setTab] = useState('details'); 
-  const frontInputRef = useRef(null);
-  const backInputRef = useRef(null);
-
-  const handleImageUpload = async (e, side) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        const compressedBase64 = await processImage(file);
-        setFormData(prev => ({ ...prev, [side]: compressedBase64 }));
-      } catch (err) { alert("Failed to process image."); }
-    }
-  };
 
   return (
     <Modal title={`Manage ${card.name}`} onClose={onClose}>
@@ -181,32 +128,23 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
-           <p className="text-center text-xs text-neutral-600 mt-2">To edit limits or dates, please delete and re-add.</p>
+           <p className="text-center text-xs text-neutral-600 mt-2">To edit details, delete and re-add.</p>
         </div>
       )}
 
       {tab === 'images' && (
         <div className="space-y-6">
-           {/* Front Image View */}
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? (
-                <div className="relative group">
-                  <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-                </div>
-              ) : (
-                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
-              )}
+                <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
+              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? (
-                <div className="relative group">
-                  <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-                </div>
-              ) : (
-                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
-              )}
+                <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
+              ) : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
         </div>
       )}
@@ -214,7 +152,6 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
   );
 };
 
-// --- SETTINGS PAGE ---
 const SettingsPage = ({ currentUser, onUpdateUser }) => {
   const [formData, setFormData] = useState({ 
     full_name: currentUser.full_name || '', 
@@ -232,14 +169,13 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
         currency: formData.currency,
         password: password || undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
-      
       onUpdateUser(res.data);
       alert('Settings updated!');
     } catch (err) { alert('Failed to update'); }
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE' && deleteConfirm !== 'DELETE DELETE') return; 
+    if (deleteConfirm !== 'DELETE') return; 
     const token = localStorage.getItem('token');
     try {
       await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
@@ -291,7 +227,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-// --- DASHBOARD COMPONENT ---
 const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
   const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
@@ -323,38 +258,38 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(card => (
-                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-900 p-5 rounded-2xl shadow-lg border border-neutral-800 hover:border-red-900/50 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
                     {/* Header */}
                     <div className="relative z-10 flex items-start justify-between mb-4">
-                        <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+                        <div className="bg-black/40 p-2 rounded-lg border border-white/5">
                             <NetworkLogo network={card.network} />
                         </div>
                         <div className="text-right">
-                          <span className="text-neutral-500 font-mono tracking-widest text-sm">•••• {card.last_4 || 'XXXX'}</span>
+                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold">•••• {card.last_4 || 'XXXX'}</span>
                         </div>
                     </div>
 
                     <div className="relative z-10">
-                        <h4 className="font-bold text-white text-lg tracking-wide leading-tight mb-1">{card.name}</h4>
-                        <p className="text-xs text-neutral-500 mb-4 uppercase tracking-wider">{card.bank}</p>
+                        <h4 className="font-bold text-white text-xl tracking-wide leading-tight mb-1">{card.name}</h4>
+                        <p className="text-xs text-neutral-400 mb-4 uppercase tracking-wider font-semibold">{card.bank}</p>
                         
-                        <div className="bg-black/20 rounded-lg p-3 mb-3 border border-neutral-800/50">
+                        <div className="bg-black/30 rounded-lg p-3 mb-3 border border-white/5">
                           <div className="flex justify-between text-sm mb-1">
-                            <span className="text-neutral-400 text-xs">Used</span>
-                            <span className="text-white font-medium text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
+                            <span className="text-neutral-400 text-xs font-medium">Used</span>
+                            <span className="text-white font-bold text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
                           </div>
-                          <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                          <div className="w-full bg-neutral-700 h-1.5 rounded-full overflow-hidden">
                              <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-neutral-800/50 pt-3 mt-1">
+                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-white/5 pt-3 mt-1">
                             <div>
-                                <span className="block text-neutral-600 uppercase font-bold mb-0.5">Statement</span>
-                                <span className="text-white">{getNextDate(card.statement_date)}</span>
+                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Statement</span>
+                                <span className="text-neutral-200">{getNextDate(card.statement_date)}</span>
                             </div>
                             <div className="text-right">
-                                <span className="block text-neutral-600 uppercase font-bold mb-0.5">Due Date</span>
+                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Due Date</span>
                                 <span className="text-red-400 font-bold">{getNextDate(card.payment_due_date)}</span>
                             </div>
                         </div>
@@ -368,25 +303,24 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard }) => {
   );
 };
 
-// --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ currency: 'USD', username: '' });
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Modals State
+  // Modals
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
 
-  // Forms State
+  // Forms
   const [newCard, setNewCard] = useState({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
   const [newTxn, setNewTxn] = useState({ description: '', amount: '', type: 'DEBIT', card_id: '', tag: '' });
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
-  // FETCH DATA WITH AUTO-SYNC
+  // Poll Data
   const fetchData = useCallback(async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -395,20 +329,15 @@ const AuthenticatedApp = () => {
             axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
             axios.get(`${API_URL}/cards/`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
-        // Update user (if changed)
         setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(userRes.data) ? userRes.data : prev);
-        
-        // Update cards (if changed)
         setCards(prev => JSON.stringify(prev) !== JSON.stringify(cardsRes.data) ? cardsRes.data : prev);
-        
       } catch (err) { console.error(err); } finally { setLoading(false); }
   }, []);
 
-  // Set up polling interval (Real-time Sync)
   useEffect(() => {
-    fetchData(); // Initial load
-    const intervalId = setInterval(fetchData, 5000); // Poll every 5s
-    return () => clearInterval(intervalId); // Cleanup on unmount
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   const handleLogout = () => { localStorage.removeItem('token'); window.location.href = '/'; };
@@ -440,7 +369,7 @@ const AuthenticatedApp = () => {
         last_4: newCard.last_4 
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
-      fetchData(); // Immediate refresh
+      fetchData(); // Force immediate update
       setNewCard({ name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '' });
     } catch (err) { alert('Failed to add card.'); }
   };
@@ -466,7 +395,7 @@ const AuthenticatedApp = () => {
         tag_name: newTxn.tag
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddTxn(false);
-      fetchData(); // Immediate refresh
+      fetchData();
       alert('Transaction logged');
     } catch (err) { alert('Failed to add transaction'); }
   };
@@ -481,7 +410,6 @@ const AuthenticatedApp = () => {
                </div>
                <span className="font-bold text-xl text-white tracking-tight lowercase">cc<span className="text-red-600">track</span></span>
              </div>
-             {/* Uses actual USERNAME from backend */}
              <p className="text-xs text-neutral-500 pl-1">@{currentUser.username}</p>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
@@ -517,12 +445,11 @@ const AuthenticatedApp = () => {
       <main className="max-w-6xl mx-auto p-4 md:p-8">
          {activeView === 'Dashboard' && (
             <>
-              {/* BUTTONS VISIBLE ON MOBILE NOW */}
-              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6">
-                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-3 md:py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
+              <div className="flex flex-col md:flex-row justify-end gap-3 mb-6 hidden md:flex">
+                <button onClick={() => setShowAddCard(true)} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl font-medium border border-neutral-700 transition-all">
                     <CreditCard size={18} /> Add Card
                 </button>
-                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-3 md:py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
+                <button onClick={() => setShowAddTxn(true)} className="flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all">
                     <Plus size={18} /> Add Txn
                 </button>
               </div>
