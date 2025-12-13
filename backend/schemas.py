@@ -41,6 +41,20 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# NEW: Statement Schemas
+class StatementBase(BaseModel):
+    date: datetime
+    amount: float
+    card_id: int
+
+class StatementCreate(StatementBase):
+    pass
+
+class Statement(StatementBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 class CardBase(BaseModel):
     name: str
     bank: str
@@ -72,10 +86,8 @@ class TransactionBase(BaseModel):
     type: str
     mode: str = "Online"
     date: Optional[datetime] = None
-    # NEW EMI FIELDS
     is_emi: bool = False
     emi_tenure: Optional[int] = None
-    
     card_id: int
     tag_name: Optional[str] = None 
 

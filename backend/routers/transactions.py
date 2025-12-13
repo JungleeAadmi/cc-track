@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, extract
 from datetime import datetime
 import models, schemas, auth, database
 from utils import send_ntfy_alert
@@ -89,7 +89,6 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
 
 @router.get("/analytics")
 def get_analytics(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # 1. Monthly Spending (Group by Month YYYY-MM)
     monthly_query = db.query(
         func.strftime("%Y-%m", models.Transaction.date).label("month"),
         func.sum(models.Transaction.amount).label("total")
@@ -97,10 +96,8 @@ def get_analytics(db: Session = Depends(database.get_db), current_user: models.U
         models.Card.owner_id == current_user.id,
         models.Transaction.type == "DEBIT"
     ).group_by("month").order_by("month").all()
-    
     monthly_data = [{"name": row.month, "amount": row.total} for row in monthly_query]
 
-    # 2. Spending by Tag
     tag_query = db.query(
         models.Tag.name,
         func.sum(models.Transaction.amount).label("total")
@@ -108,20 +105,33 @@ def get_analytics(db: Session = Depends(database.get_db), current_user: models.U
         models.Card.owner_id == current_user.id,
         models.Transaction.type == "DEBIT"
     ).group_by(models.Tag.name).all()
-    
     tag_data = [{"name": row.name, "value": row.total} for row in tag_query]
     
-    # 3. Uncategorized
-    untagged_total = db.query(func.sum(models.Transaction.amount)).join(models.Card).filter(
+    untagged = db.query(func.sum(models.Transaction.amount)).join(models.Card).filter(
         models.Card.owner_id == current_user.id,
         models.Transaction.type == "DEBIT",
         models.Transaction.tag_id == None
     ).scalar() or 0
-    
-    if untagged_total > 0:
-        tag_data.append({"name": "Uncategorized", "value": untagged_total})
+    if untagged > 0: tag_data.append({"name": "Uncategorized", "value": untagged})
 
-    return {
-        "monthly": monthly_data,
-        "category": tag_data
-    }
+    return {"monthly": monthly_data, "category": tag_data}
+
+@router.get("/heatmap/{card_id}")
+def get_heatmap(card_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # 0 = All Cards
+    query = db.query(models.Statement).join(models.Card).filter(models.Card.owner_id == current_user.id)
+    if card_id != 0:
+        query = query.filter(models.Statement.card_id == card_id)
+        
+    statements = query.all()
+    
+    # Format: { "2025": [0,0,100,200,...] } (12 months)
+    data = {}
+    for s in statements:
+        year = str(s.date.year)
+        month_idx = s.date.month - 1 # 0-11
+        if year not in data:
+            data[year] = [0.0] * 12
+        data[year][month_idx] += s.amount
+        
+    return data

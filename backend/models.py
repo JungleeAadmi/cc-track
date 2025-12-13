@@ -32,21 +32,28 @@ class Card(Base):
     bank = Column(String) 
     network = Column(String) 
     last_4 = Column(String, nullable=True)
-    
     card_type = Column(String, default="Credit Card")
     expiry_date = Column(String, nullable=True)
-    
     image_front = Column(Text, nullable=True)
     image_back = Column(Text, nullable=True)
-    
     total_limit = Column(Float, default=0.0)
     manual_limit = Column(Float, nullable=True) 
     statement_date = Column(Integer) 
     payment_due_date = Column(Integer) 
-    
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
     owner = relationship("User", back_populates="cards")
     transactions = relationship("Transaction", back_populates="card", cascade="all, delete-orphan")
+    statements = relationship("Statement", back_populates="card", cascade="all, delete-orphan") # NEW
+
+class Statement(Base): # NEW TABLE
+    __tablename__ = "statements"
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(DateTime, default=datetime.utcnow) # The statement generation date
+    amount = Column(Float)
+    card_id = Column(Integer, ForeignKey("cards.id"))
+    
+    card = relationship("Card", back_populates="statements")
 
 class Tag(Base):
     __tablename__ = "tags"
@@ -65,11 +72,8 @@ class Transaction(Base):
     amount = Column(Float)
     type = Column(String)
     mode = Column(String, default="Online")
-    
-    # NEW EMI FIELDS
     is_emi = Column(Boolean, default=False)
-    emi_tenure = Column(Integer, nullable=True) # Months
-    
+    emi_tenure = Column(Integer, nullable=True)
     card_id = Column(Integer, ForeignKey("cards.id"))
     tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     

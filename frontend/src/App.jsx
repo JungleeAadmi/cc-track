@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
-  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download
+  Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
+  Receipt, Calendar
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -12,12 +13,12 @@ import {
 
 const API_URL = '/api';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // --- 1. CONFIGURATION ---
 axios.interceptors.response.use(
   response => response,
   error => {
-    // Only logout on 401 (Unauthorized) from the API
     if (error.response && error.response.status === 401) {
       console.warn("Session expired.");
       localStorage.removeItem('token');
@@ -34,10 +35,7 @@ const getNextDate = (dayOfMonth) => {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
-  
   let targetDate = new Date(currentYear, currentMonth, dayOfMonth);
-  
-  // If the date has passed this month, show next month's date
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
@@ -57,11 +55,9 @@ const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 const NetworkLogo = ({ network }) => {
   const style = "h-6 w-10 object-contain";
   const net = network ? network.toLowerCase() : '';
-  
   if (net === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
   if (net === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
   if (net === 'amex') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>;
-  
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -95,8 +91,7 @@ const processImage = (file) => {
   });
 };
 
-// --- 3. UI COMPONENTS ---
-
+// --- COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
     <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
@@ -111,13 +106,42 @@ const Modal = ({ title, children, onClose }) => (
 
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [tab, setTab] = useState('details'); 
+  const [tab, setTab] = useState('details'); // details | images | statements
+  const [statements, setStatements] = useState([]);
+  const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
+
+  useEffect(() => {
+    if (tab === 'statements') fetchStatements();
+  }, [tab]);
+
+  const fetchStatements = async () => {
+    const token = localStorage.getItem('token');
+    try {
+        const res = await axios.get(`${API_URL}/cards/${card.id}/statements`, { headers: { Authorization: `Bearer ${token}` } });
+        setStatements(res.data);
+    } catch(err) { console.error(err); }
+  };
+
+  const handleAddStatement = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    try {
+        await axios.post(`${API_URL}/cards/${card.id}/statements`, {
+            date: new Date(newStmt.date).toISOString(),
+            amount: parseFloat(newStmt.amount),
+            card_id: card.id
+        }, { headers: { Authorization: `Bearer ${token}` } });
+        fetchStatements();
+        setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' });
+    } catch(err) { alert("Failed to add statement"); }
+  };
 
   return (
     <Modal title={`Manage ${card.name}`} onClose={onClose}>
-      <div className="flex gap-2 mb-4 border-b border-neutral-800 pb-2">
-        <button onClick={() => setTab('details')} className={`flex-1 pb-2 text-sm font-medium ${tab==='details' ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>Details</button>
-        <button onClick={() => setTab('images')} className={`flex-1 pb-2 text-sm font-medium ${tab==='images' ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>Images</button>
+      <div className="flex gap-2 mb-4 border-b border-neutral-800 pb-2 overflow-x-auto">
+        {['details', 'images', 'statements'].map(t => (
+            <button key={t} onClick={() => setTab(t)} className={`flex-1 pb-2 text-sm font-medium capitalize ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>{t}</button>
+        ))}
       </div>
 
       {tab === 'details' && (
@@ -139,30 +163,49 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
            <p className="text-center text-xs text-neutral-600 mt-2">To edit limits or dates, please delete and re-add.</p>
         </div>
       )}
-
+      
       {tab === 'images' && (
         <div className="space-y-6">
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
-              {formData.image_front ? (
-                <div className="relative group">
-                  <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-                </div>
-              ) : (
-                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
-              )}
+              {formData.image_front ? <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
            <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
-              {formData.image_back ? (
-                <div className="relative group">
-                  <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/>
-                </div>
-              ) : (
-                <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>
-              )}
+              {formData.image_back ? <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
         </div>
+      )}
+
+      {tab === 'statements' && (
+          <div className="space-y-4">
+              <form onSubmit={handleAddStatement} className="flex gap-2 items-end bg-neutral-800 p-3 rounded-xl">
+                  <div className="flex-1">
+                      <label className="text-[10px] text-neutral-400 uppercase font-bold">Date</label>
+                      <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
+                         value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
+                  </div>
+                  <div className="flex-1">
+                      <label className="text-[10px] text-neutral-400 uppercase font-bold">Amount</label>
+                      <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
+                         placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
+                  </div>
+                  <button type="submit" className="bg-red-700 text-white p-2 rounded-lg hover:bg-red-600"><Plus size={16}/></button>
+              </form>
+              
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                  {statements.map(stmt => (
+                      <div key={stmt.id} className="flex justify-between items-center p-3 bg-neutral-800/50 rounded-lg border border-neutral-800">
+                          <div className="flex items-center gap-3">
+                              <Receipt size={16} className="text-neutral-500" />
+                              <span className="text-sm text-neutral-300">{new Date(stmt.date).toLocaleDateString()}</span>
+                          </div>
+                          <span className="font-bold text-white">{parseFloat(stmt.amount).toLocaleString()}</span>
+                      </div>
+                  ))}
+                  {statements.length === 0 && <p className="text-center text-xs text-neutral-500 py-4">No statements logged.</p>}
+              </div>
+          </div>
       )}
     </Modal>
   );
@@ -318,75 +361,75 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-const AnalyticsPage = ({ currentUser }) => {
-    const [data, setData] = useState({ monthly: [], category: [] });
-    const [loading, setLoading] = useState(true);
+const AnalyticsPage = ({ cards }) => {
+    const [heatmapData, setHeatmapData] = useState({});
+    const [selectedCard, setSelectedCard] = useState('0'); // 0 = All
 
     useEffect(() => {
-        const fetchAnalytics = async () => {
+        const fetchHeatmap = async () => {
             const token = localStorage.getItem('token');
             try {
-                const res = await axios.get(`${API_URL}/transactions/analytics`, {
+                const res = await axios.get(`${API_URL}/transactions/heatmap/${selectedCard}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setData(res.data);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
+                setHeatmapData(res.data);
+            } catch (err) { console.error(err); }
         };
-        fetchAnalytics();
-    }, []);
+        fetchHeatmap();
+    }, [selectedCard]);
 
-    if (loading) return <div className="text-center py-20 text-neutral-600 animate-pulse">Analyzing data...</div>;
-    
-    if (data.monthly.length === 0 && data.category.length === 0) {
-        return (
-            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
-                <TrendingUp className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
-                <h3 className="text-lg font-medium text-white">No data yet</h3>
-                <p className="text-neutral-500">Log some transactions to see insights.</p>
-            </div>
-        );
-    }
+    const getColor = (val) => {
+        if (!val) return 'bg-neutral-800';
+        if (val < 1000) return 'bg-red-900/40';
+        if (val < 5000) return 'bg-red-800/60';
+        if (val < 10000) return 'bg-red-700/80';
+        return 'bg-red-600';
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h2 className="text-xl font-bold text-white mb-4">Monthly Spending</h2>
-                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.monthly}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                            <XAxis dataKey="name" stroke="#666" fontSize={12} />
-                            <YAxis stroke="#666" fontSize={12} />
-                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
-                            <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white">Statement Heatmap</h2>
+                <select className="bg-neutral-800 border border-neutral-700 text-white p-2 rounded-lg text-sm outline-none"
+                    value={selectedCard} onChange={e => setSelectedCard(e.target.value)}>
+                    <option value="0">All Cards</option>
+                    {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
             </div>
 
-            <div>
-                <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
-                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data.category}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={80}
-                                paddingAngle={5}
-                                dataKey="value"
-                            >
-                                {data.category.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
+            <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 overflow-x-auto">
+                <div className="min-w-[600px]">
+                    {/* Header Row */}
+                    <div className="grid grid-cols-13 gap-2 mb-2 text-xs text-neutral-500 font-bold uppercase text-center">
+                        <div className="w-12">Year</div>
+                        {MONTHS.map(m => <div key={m}>{m}</div>)}
+                    </div>
+                    {/* Data Rows */}
+                    {Object.keys(heatmapData).sort().reverse().map(year => (
+                        <div key={year} className="grid grid-cols-13 gap-2 mb-2 items-center">
+                            <div className="text-xs text-neutral-400 font-mono w-12">{year}</div>
+                            {heatmapData[year].map((val, idx) => (
+                                <div key={idx} className={`h-8 rounded-md ${getColor(val)} flex items-center justify-center group relative cursor-default`}>
+                                    {val > 0 && (
+                                        <div className="absolute bottom-full mb-2 bg-black border border-neutral-700 text-white text-xs p-2 rounded whitespace-nowrap hidden group-hover:block z-10">
+                                            {val.toLocaleString()}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                    {Object.keys(heatmapData).length === 0 && (
+                        <div className="text-center py-10 text-neutral-600">No statement history found.</div>
+                    )}
                 </div>
+            </div>
+            
+            <div className="flex gap-4 text-xs text-neutral-500 items-center justify-center">
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-neutral-800 rounded"></div> 0</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-900/40 rounded"></div> &lt; 1k</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-700/80 rounded"></div> &lt; 10k</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-600 rounded"></div> 10k+</div>
             </div>
         </div>
     );
@@ -676,7 +719,7 @@ const AuthenticatedApp = () => {
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
-         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} />}
+         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} cards={cards} />}
          {activeView === 'My Cards' && (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map(card => (
@@ -694,9 +737,7 @@ const AuthenticatedApp = () => {
 
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
-        {/* ADD CARD BUTTON (Mobile Only - Readded per request) */}
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
-        {/* ADD TXN BUTTON (Mobile Only - Readded per request) */}
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
         <NavButton label="Analytics" icon={TrendingUp} active={activeView === 'Analytics'} onClick={() => setActiveView('Analytics')} />
         <NavButton label="Settings" icon={Settings} active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />

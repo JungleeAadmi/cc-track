@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, desc
 import models, schemas, auth, database
 from utils import send_ntfy_alert
 
@@ -14,7 +14,6 @@ def create_card(card: schemas.CardCreate, db: Session = Depends(database.get_db)
     db.commit()
     db.refresh(new_card)
     
-    # Notify
     if current_user.notify_card_add:
         send_ntfy_alert(
             current_user,
@@ -22,7 +21,6 @@ def create_card(card: schemas.CardCreate, db: Session = Depends(database.get_db)
             f"Successfully added {new_card.bank} - {new_card.name}",
             tags="credit_card,plus"
         )
-        
     return new_card
 
 @router.get("/", response_model=List[schemas.Card])
@@ -32,10 +30,8 @@ def read_cards(skip: int = 0, limit: int = 100, db: Session = Depends(database.g
     for card in cards:
         debits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "DEBIT").scalar() or 0.0
         credits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "CREDIT").scalar() or 0.0
-        
         current_balance = debits - credits
         if current_balance < 0: current_balance = 0
-        
         active_limit = card.manual_limit if (card.manual_limit and card.manual_limit > 0) else card.total_limit
         card.spent = current_balance
         card.available = active_limit - current_balance
@@ -47,19 +43,46 @@ def delete_card(card_id: int, db: Session = Depends(database.get_db), current_us
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
-        
     card_name = card.name
     db.delete(card)
     db.commit()
     
-    # Notify
     if current_user.notify_card_del:
-        send_ntfy_alert(
-            current_user,
-            "Card Deleted",
-            f"Removed {card_name} from your wallet.",
-            priority="low",
-            tags="wastebasket"
-        )
-        
+        send_ntfy_alert(current_user, "Card Deleted", f"Removed {card_name} from your wallet.", priority="low", tags="wastebasket")
     return {"message": "Card deleted"}
+
+# --- STATEMENT LOGIC ---
+
+@router.post("/{card_id}/statements", response_model=schemas.Statement)
+def add_statement(
+    card_id: int, 
+    statement: schemas.StatementCreate, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    new_stmt = models.Statement(
+        date=statement.date,
+        amount=statement.amount,
+        card_id=card_id
+    )
+    db.add(new_stmt)
+    db.commit()
+    db.refresh(new_stmt)
+    return new_stmt
+
+@router.get("/{card_id}/statements", response_model=List[schemas.Statement])
+def get_statements(
+    card_id: int, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # Verify ownership
+    card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+        
+    return db.query(models.Statement).filter(models.Statement.card_id == card_id).order_by(desc(models.Statement.date)).all()
