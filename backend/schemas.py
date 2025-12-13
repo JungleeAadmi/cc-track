@@ -41,7 +41,7 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-# NEW: Statement Schemas
+# --- STATEMENT SCHEMAS ---
 class StatementBase(BaseModel):
     date: datetime
     amount: float
@@ -49,6 +49,10 @@ class StatementBase(BaseModel):
 
 class StatementCreate(StatementBase):
     pass
+
+class StatementUpdate(BaseModel):
+    date: Optional[datetime] = None
+    amount: Optional[float] = None
 
 class Statement(StatementBase):
     id: int

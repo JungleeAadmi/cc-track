@@ -80,9 +80,54 @@ def get_statements(
     db: Session = Depends(database.get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # Verify ownership
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
         
     return db.query(models.Statement).filter(models.Statement.card_id == card_id).order_by(desc(models.Statement.date)).all()
+
+@router.put("/{card_id}/statements/{statement_id}", response_model=schemas.Statement)
+def update_statement(
+    card_id: int,
+    statement_id: int,
+    stmt_update: schemas.StatementUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    stmt = db.query(models.Statement).join(models.Card).filter(
+        models.Statement.id == statement_id,
+        models.Statement.card_id == card_id,
+        models.Card.owner_id == current_user.id
+    ).first()
+    
+    if not stmt:
+        raise HTTPException(status_code=404, detail="Statement not found")
+        
+    if stmt_update.date:
+        stmt.date = stmt_update.date
+    if stmt_update.amount is not None:
+        stmt.amount = stmt_update.amount
+        
+    db.commit()
+    db.refresh(stmt)
+    return stmt
+
+@router.delete("/{card_id}/statements/{statement_id}")
+def delete_statement(
+    card_id: int,
+    statement_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    stmt = db.query(models.Statement).join(models.Card).filter(
+        models.Statement.id == statement_id,
+        models.Statement.card_id == card_id,
+        models.Card.owner_id == current_user.id
+    ).first()
+    
+    if not stmt:
+        raise HTTPException(status_code=404, detail="Statement not found")
+        
+    db.delete(stmt)
+    db.commit()
+    return {"message": "Statement deleted"}
