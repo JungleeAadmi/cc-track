@@ -39,6 +39,34 @@ def read_cards(skip: int = 0, limit: int = 100, db: Session = Depends(database.g
 
     return cards
 
+@router.put("/{card_id}", response_model=schemas.Card)
+def update_card(
+    card_id: int, 
+    card_update: schemas.CardUpdate, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+        
+    for field, value in card_update.dict(exclude_unset=True).items():
+        setattr(card, field, value)
+        
+    db.commit()
+    db.refresh(card)
+    
+    # Re-calculate spent for response
+    debits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "DEBIT").scalar() or 0.0
+    credits = db.query(func.sum(models.Transaction.amount)).filter(models.Transaction.card_id == card.id, models.Transaction.type == "CREDIT").scalar() or 0.0
+    current_balance = debits - credits
+    if current_balance < 0: current_balance = 0
+    active_limit = card.manual_limit if (card.manual_limit and card.manual_limit > 0) else card.total_limit
+    card.spent = current_balance
+    card.available = active_limit - current_balance
+    
+    return card
+
 @router.delete("/{card_id}")
 def delete_card(card_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()

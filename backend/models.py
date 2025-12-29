@@ -11,17 +11,15 @@ class User(Base):
     hashed_password = Column(String)
     currency = Column(String, default="USD")
     
-    # --- NTFY CONFIG ---
     ntfy_topic = Column(String, nullable=True)
     ntfy_server = Column(String, default="https://ntfy.sh")
     
-    # --- NOTIFICATION PREFERENCES ---
     notify_card_add = Column(Boolean, default=True)
     notify_txn_add = Column(Boolean, default=True)
     notify_card_del = Column(Boolean, default=True)
     notify_statement = Column(Boolean, default=True)
     notify_due_dates = Column(Boolean, default=True)
-    notify_payment_done = Column(Boolean, default=True) # NEW
+    notify_payment_done = Column(Boolean, default=True)
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
@@ -32,12 +30,13 @@ class Card(Base):
     name = Column(String) 
     bank = Column(String) 
     network = Column(String) 
-    
-    # Details for Virtual Card
     last_4 = Column(String, nullable=True)
-    full_number = Column(String, nullable=True) # NEW
-    cvv = Column(String, nullable=True)         # NEW
-    valid_thru = Column(String, nullable=True)  # NEW (MM/YY)
+    
+    # Virtual Card Details
+    card_holder = Column(String, nullable=True) # NEW FIELD
+    full_number = Column(String, nullable=True)
+    cvv = Column(String, nullable=True)
+    valid_thru = Column(String, nullable=True)
     
     card_type = Column(String, default="Credit Card")
     
@@ -57,13 +56,10 @@ class Card(Base):
 class Statement(Base):
     __tablename__ = "statements"
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(DateTime, default=datetime.utcnow) # Generation Date
+    date = Column(DateTime, default=datetime.utcnow)
     amount = Column(Float)
-    
-    # Payment Tracking
-    is_paid = Column(Boolean, default=False)       # NEW
-    payment_date = Column(DateTime, nullable=True) # NEW
-    
+    is_paid = Column(Boolean, default=False)
+    payment_date = Column(DateTime, nullable=True)
     card_id = Column(Integer, ForeignKey("cards.id"))
     card = relationship("Card", back_populates="statements")
 
@@ -86,7 +82,6 @@ class Transaction(Base):
     mode = Column(String, default="Online")
     is_emi = Column(Boolean, default=False)
     emi_tenure = Column(Integer, nullable=True)
-    
     card_id = Column(Integer, ForeignKey("cards.id"))
     tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     

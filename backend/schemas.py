@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class Token(BaseModel):
@@ -43,7 +43,6 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-# --- STATEMENT SCHEMAS ---
 class StatementBase(BaseModel):
     date: datetime
     amount: float
@@ -79,6 +78,7 @@ class CardBase(BaseModel):
     image_back: Optional[str] = None
     
     # Virtual Card Details
+    card_holder: Optional[str] = None # NEW
     last_4: Optional[str] = None 
     full_number: Optional[str] = None
     cvv: Optional[str] = None
@@ -86,6 +86,23 @@ class CardBase(BaseModel):
 
 class CardCreate(CardBase):
     pass
+
+class CardUpdate(BaseModel):
+    name: Optional[str] = None
+    bank: Optional[str] = None
+    network: Optional[str] = None
+    card_type: Optional[str] = None
+    total_limit: Optional[float] = None
+    manual_limit: Optional[float] = None
+    statement_date: Optional[int] = None
+    payment_due_date: Optional[int] = None
+    card_holder: Optional[str] = None
+    last_4: Optional[str] = None
+    full_number: Optional[str] = None
+    cvv: Optional[str] = None
+    valid_thru: Optional[str] = None
+    image_front: Optional[str] = None
+    image_back: Optional[str] = None
 
 class Card(CardBase):
     id: int
