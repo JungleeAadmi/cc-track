@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.1.7';
+const APP_VERSION = 'v1.2.0';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -139,10 +139,128 @@ const Select = (props) => (
   </div>
 );
 
+// --- NEW MODALS ---
+const CardSummaryModal = ({ cards, currency, onClose }) => {
+  return (
+    <Modal title="Limits Overview" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-[10px] text-neutral-500 uppercase border-b border-neutral-800">
+              <tr>
+                <th className="pb-2 font-bold pl-2">Card</th>
+                <th className="pb-2 font-bold text-right">Limit</th>
+                <th className="pb-2 font-bold text-right">Spent</th>
+                <th className="pb-2 font-bold text-right pr-2">Avail</th>
+              </tr>
+            </thead>
+            <tbody className="text-neutral-300">
+              {cards.map(c => {
+                  const limit = c.manual_limit && c.manual_limit > 0 ? c.manual_limit : c.total_limit;
+                  const avail = limit - c.spent;
+                  return (
+                    <tr key={c.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
+                      <td className="py-3 pl-2 font-medium">{c.name}</td>
+                      <td className="py-3 text-right">{currency} {limit.toLocaleString()}</td>
+                      <td className="py-3 text-right text-red-400">{currency} {c.spent.toLocaleString()}</td>
+                      <td className="py-3 text-right pr-2 text-green-500">{currency} {avail.toLocaleString()}</td>
+                    </tr>
+                  );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+const TransactionsModal = ({ onClose, currency }) => {
+    const [transactions, setTransactions] = useState([]);
+    const [editingTxn, setEditingTxn] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const fetchTxns = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await axios.get(`${API_URL}/transactions/`, { headers: { Authorization: `Bearer ${token}` } });
+            setTransactions(res.data);
+        } catch(err) { console.error(err); } finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchTxns(); }, []);
+
+    const handleDelete = async (id) => {
+        if(!confirm("Delete this transaction?")) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`${API_URL}/transactions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            fetchTxns();
+        } catch(err) { alert("Failed to delete"); }
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        try {
+            await axios.put(`${API_URL}/transactions/${editingTxn.id}`, {
+                description: editingTxn.description,
+                amount: parseFloat(editingTxn.amount),
+                date: new Date(editingTxn.date).toISOString()
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            setEditingTxn(null);
+            fetchTxns();
+        } catch(err) { alert("Failed to update"); }
+    };
+
+    return (
+        <Modal title="Transaction History" onClose={onClose}>
+            {editingTxn ? (
+                <form onSubmit={handleUpdate} className="space-y-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                    <FormField label="Description">
+                        <Input value={editingTxn.description} onChange={e => setEditingTxn({...editingTxn, description: e.target.value})} />
+                    </FormField>
+                    <FormField label="Amount">
+                        <Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} />
+                    </FormField>
+                    <FormField label="Date">
+                        <Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} />
+                    </FormField>
+                    <div className="flex gap-2 justify-end">
+                        <button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-2 rounded-lg text-xs font-bold">Cancel</button>
+                        <button type="submit" className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold">Save</button>
+                    </div>
+                </form>
+            ) : (
+                <div className="space-y-2">
+                    {loading ? <p className="text-center text-neutral-500 py-4">Loading...</p> : 
+                     transactions.map(t => (
+                        <div key={t.id} className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex justify-between items-center">
+                            <div>
+                                <p className="text-white font-medium text-sm">{t.description}</p>
+                                <p className="text-[10px] text-neutral-500">{formatDate(t.date)} • {t.mode}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-white font-bold text-sm">{currency} {t.amount.toLocaleString()}</p>
+                                <div className="flex gap-2 justify-end mt-1">
+                                    <button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white"><Edit2 size={12}/></button>
+                                    <button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500"><Trash2 size={12}/></button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {transactions.length === 0 && !loading && <p className="text-center text-neutral-500 py-4">No transactions found.</p>}
+                </div>
+            )}
+        </Modal>
+    );
+};
+
+
 const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [isEditing, setIsEditing] = useState(false); // New state for edit mode
-  const [tab, setTab] = useState('view'); 
+  const [isEditing, setIsEditing] = useState(false);
+  const [tab, setTab] = useState('view');
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
@@ -166,16 +284,16 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const handleUpdateCard = async () => {
       const token = localStorage.getItem('token');
       try {
-          // Only send fields that match CardUpdate schema
+          // Parse numbers safely
           const payload = {
               name: formData.name,
               bank: formData.bank,
               network: formData.network,
               card_type: formData.card_type,
-              total_limit: parseFloat(formData.total_limit),
-              manual_limit: parseFloat(formData.manual_limit),
-              statement_date: parseInt(formData.statement_date),
-              payment_due_date: parseInt(formData.payment_due_date),
+              total_limit: parseFloat(formData.total_limit) || 0,
+              manual_limit: formData.manual_limit ? parseFloat(formData.manual_limit) : null,
+              statement_date: parseInt(formData.statement_date) || 1,
+              payment_due_date: parseInt(formData.payment_due_date) || 1,
               card_holder: formData.card_holder,
               last_4: formData.last_4,
               full_number: formData.full_number,
@@ -186,7 +304,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
           const res = await axios.put(`${API_URL}/cards/${card.id}`, payload, {
               headers: { Authorization: `Bearer ${token}` }
           });
-          onUpdate(res.data); // Update parent state
+          onUpdate(res.data); 
           setIsEditing(false);
           alert("Card updated successfully");
       } catch (err) { alert("Failed to update card"); }
@@ -452,7 +570,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -712,7 +830,7 @@ const AnalyticsPage = ({ currentUser }) => {
     );
 };
 
-const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }) => {
+const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, onShowTxnList, onShowSummary }) => {
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
   const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
 
@@ -723,16 +841,15 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30 shadow-lg">
-                <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
-                <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
+             <div onClick={onShowSummary} className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-2xl p-5 text-white border border-red-800/30 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform">
+                <p className="text-red-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">Total Available</p>
+                <h2 className="text-2xl font-bold tracking-tight">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
-            {/* Added onClick to navigate to Analytics */}
-             <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-colors">
-                <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
-                    Total Spent <TrendingUp size={14} />
+             <div onClick={onShowTxnList} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-all active:scale-95">
+                <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between mb-1">
+                    Total Spent <TrendingUp size={14} className="text-neutral-600"/>
                 </p>
-                <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
+                <h2 className="text-2xl font-bold text-white">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
             </div>
         </div>
 
@@ -804,6 +921,10 @@ const AuthenticatedApp = () => {
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
+  
+  // New Modals
+  const [showTxnList, setShowTxnList] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   const [newCard, setNewCard] = useState({ 
       name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
@@ -995,6 +1116,8 @@ const AuthenticatedApp = () => {
                 currentUser={currentUser} 
                 onEditCard={setEditingCard} 
                 onAnalyticsClick={() => setActiveView('Analytics')} 
+                onShowTxnList={() => setShowTxnList(true)}
+                onShowSummary={() => setShowSummary(true)}
               />
             </>
          )}
@@ -1024,6 +1147,10 @@ const AuthenticatedApp = () => {
       </nav>
 
       {/* --- MODALS --- */}
+      
+      {showTxnList && <TransactionsModal onClose={() => setShowTxnList(false)} currency={currentUser.currency} />}
+      {showSummary && <CardSummaryModal cards={cards} currency={currentUser.currency} onClose={() => setShowSummary(false)} />}
+
       {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
            <form onSubmit={handleAddCard} className="space-y-6">

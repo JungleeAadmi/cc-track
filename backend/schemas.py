@@ -78,7 +78,7 @@ class CardBase(BaseModel):
     image_back: Optional[str] = None
     
     # Virtual Card Details
-    card_holder: Optional[str] = None # NEW
+    card_holder: Optional[str] = None
     last_4: Optional[str] = None 
     full_number: Optional[str] = None
     cvv: Optional[str] = None
@@ -122,6 +122,16 @@ class TransactionBase(BaseModel):
     emi_tenure: Optional[int] = None
     card_id: int
     tag_name: Optional[str] = None 
+
+class TransactionUpdate(BaseModel):
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    type: Optional[str] = None
+    mode: Optional[str] = None
+    date: Optional[datetime] = None
+    is_emi: Optional[bool] = None
+    emi_tenure: Optional[int] = None
+    tag_name: Optional[str] = None
 
 class Transaction(BaseModel):
     id: int
