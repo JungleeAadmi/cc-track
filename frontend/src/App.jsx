@@ -296,26 +296,24 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'statements' && (
           <div className="space-y-4">
-              <form onSubmit={handleAddOrUpdateStatement} className="grid grid-cols-2 gap-2 items-end bg-neutral-800 p-3 rounded-xl relative">
-                  <div>
+              <form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-3 bg-neutral-800 p-4 rounded-xl relative border border-neutral-700">
+                  <div className="w-full">
                       <label className="text-[10px] text-neutral-400 uppercase font-bold">Date</label>
-                      <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
+                      <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs mt-1"
                          value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
                   </div>
-                  <div className="flex gap-2">
-                      <div className="flex-1">
-                          <label className="text-[10px] text-neutral-400 uppercase font-bold">Amount</label>
-                          <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
-                             placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
-                      </div>
-                      <div className="flex items-end pb-0.5">
-                           {editingStmtId && (
-                               <button type="button" onClick={cancelEdit} className="bg-neutral-600 text-white p-1.5 rounded-lg hover:bg-neutral-500 mr-1"><X size={14}/></button>
-                           )}
-                           <button type="submit" className="bg-red-700 text-white p-1.5 rounded-lg hover:bg-red-600 h-[34px] w-[34px] flex items-center justify-center">
-                               {editingStmtId ? <Check size={14}/> : <Plus size={16}/>}
-                           </button>
-                      </div>
+                  <div className="w-full">
+                      <label className="text-[10px] text-neutral-400 uppercase font-bold">Amount</label>
+                      <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs mt-1"
+                         placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
+                  </div>
+                  <div className="flex gap-2 justify-end mt-2 border-t border-neutral-700 pt-3">
+                     {editingStmtId && (
+                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-600 text-white px-3 py-2 rounded-lg hover:bg-neutral-500 text-xs font-bold">Cancel</button>
+                     )}
+                     <button type="submit" className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-xs font-bold flex items-center gap-2">
+                         {editingStmtId ? <Check size={14}/> : <Plus size={14}/>} {editingStmtId ? 'Update' : 'Add'}
+                     </button>
                   </div>
               </form>
               
@@ -353,7 +351,6 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                               <div>
                                   <span className="text-sm text-neutral-300 block">{formatDate(stmt.date)}</span>
                                   {stmt.is_paid && <span className="text-[10px] text-green-500">Paid: {formatDate(stmt.payment_date)}</span>}
-                                  <span className="text-[10px] text-neutral-600 hidden sm:inline">Long press to edit</span>
                               </div>
                           </div>
                           <div className="flex items-center gap-3">
@@ -869,7 +866,13 @@ const AuthenticatedApp = () => {
                     <Plus size={18} /> Add Txn
                 </button>
               </div>
-              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} onAnalyticsClick={() => setActiveView('Analytics')} />
+              <Dashboard 
+                cards={cards} 
+                loading={loading} 
+                currentUser={currentUser} 
+                onEditCard={setEditingCard} 
+                onAnalyticsClick={() => setActiveView('Analytics')} 
+              />
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
@@ -1011,7 +1014,7 @@ const AuthenticatedApp = () => {
                     placeholder="Starbucks, AWS, etc." value={newTxn.description} onChange={e => setNewTxn({...newTxn, description: e.target.value})} required />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="text-xs text-neutral-500 uppercase font-bold">Date</label>
                     <input type="date" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
@@ -1035,7 +1038,7 @@ const AuthenticatedApp = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="text-xs text-neutral-500 uppercase font-bold">Amount</label>
                     <input type="number" step="0.01" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
@@ -1052,7 +1055,7 @@ const AuthenticatedApp = () => {
               </div>
 
               {/* Payment Style (EMI vs Full) */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                    <div>
                        <label className="text-xs text-neutral-500 uppercase font-bold">Payment Style</label>
                        <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
