@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.1.4';
+const APP_VERSION = 'v1.1.5';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -123,12 +123,16 @@ const FormField = ({ label, children }) => (
 );
 
 const Input = (props) => (
-  <input {...props} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3.5 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px]" />
+  <input 
+    {...props} 
+    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px] appearance-none"
+    style={{ colorScheme: 'dark' }} // CRITICAL FIX: Forces date picker icon to be white
+  />
 );
 
 const Select = (props) => (
   <div className="relative w-full">
-    <select {...props} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3.5 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px]">
+    <select {...props} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px]">
         {props.children}
     </select>
     <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 rotate-90 pointer-events-none" size={16} />
@@ -364,7 +368,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -635,15 +639,16 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-2xl p-5 text-white border border-red-800/30 shadow-lg">
-                <p className="text-red-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">Total Available</p>
-                <h2 className="text-2xl font-bold tracking-tight">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
+             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30 shadow-lg">
+                <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
+                <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
-             <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-all active:scale-95">
-                <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between mb-1">
-                    Total Spent <TrendingUp size={14} className="text-neutral-600"/>
+            {/* Added onClick to navigate to Analytics */}
+             <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-colors">
+                <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
+                    Total Spent <TrendingUp size={14} />
                 </p>
-                <h2 className="text-2xl font-bold text-white">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
+                <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
             </div>
         </div>
 
