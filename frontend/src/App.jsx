@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.1.6';
+const APP_VERSION = 'v1.1.7';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -125,22 +125,23 @@ const FormField = ({ label, children }) => (
 const Input = (props) => (
   <input 
     {...props} 
-    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px] appearance-none"
+    className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px] appearance-none ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     style={{ colorScheme: 'dark' }} 
   />
 );
 
 const Select = (props) => (
   <div className="relative w-full">
-    <select {...props} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px]">
+    <select {...props} className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px] ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
         {props.children}
     </select>
     <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 rotate-90 pointer-events-none" size={16} />
   </div>
 );
 
-const EditCardModal = ({ card, onClose, onDelete }) => {
+const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
+  const [isEditing, setIsEditing] = useState(false); // New state for edit mode
   const [tab, setTab] = useState('view'); 
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
@@ -148,7 +149,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [stmtOptions, setStmtOptions] = useState(null); 
   const longPressTimer = useRef(null);
-  const formRef = useRef(null); // Ref for scrolling to form
+  const formRef = useRef(null); 
 
   useEffect(() => {
     if (tab === 'statements') fetchStatements();
@@ -160,6 +161,35 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
         const res = await axios.get(`${API_URL}/cards/${card.id}/statements`, { headers: { Authorization: `Bearer ${token}` } });
         setStatements(res.data);
     } catch(err) { console.error(err); }
+  };
+
+  const handleUpdateCard = async () => {
+      const token = localStorage.getItem('token');
+      try {
+          // Only send fields that match CardUpdate schema
+          const payload = {
+              name: formData.name,
+              bank: formData.bank,
+              network: formData.network,
+              card_type: formData.card_type,
+              total_limit: parseFloat(formData.total_limit),
+              manual_limit: parseFloat(formData.manual_limit),
+              statement_date: parseInt(formData.statement_date),
+              payment_due_date: parseInt(formData.payment_due_date),
+              card_holder: formData.card_holder,
+              last_4: formData.last_4,
+              full_number: formData.full_number,
+              cvv: formData.cvv,
+              valid_thru: formData.valid_thru
+          };
+
+          const res = await axios.put(`${API_URL}/cards/${card.id}`, payload, {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+          onUpdate(res.data); // Update parent state
+          setIsEditing(false);
+          alert("Card updated successfully");
+      } catch (err) { alert("Failed to update card"); }
   };
 
   const handleAddOrUpdateStatement = async (e) => {
@@ -209,30 +239,17 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
   const startEditStatement = (stmt) => {
       try {
-          // Robust date parsing
           let dateStr = new Date().toISOString().split('T')[0];
           if (stmt.date) {
             dateStr = new Date(stmt.date).toISOString().split('T')[0];
           }
-          
-          setNewStmt({ 
-              date: dateStr, 
-              amount: stmt.amount 
-          });
+          setNewStmt({ date: dateStr, amount: stmt.amount });
           setEditingStmtId(stmt.id);
           setStmtOptions(null);
-          
-          // Scroll to form to show user we are editing
           if(formRef.current) {
               formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              // Small visual cue
-              formRef.current.classList.add('bg-neutral-800');
-              setTimeout(() => formRef.current.classList.remove('bg-neutral-800'), 500);
           }
-      } catch (e) {
-          console.error("Edit Error:", e);
-          alert("Could not load statement for editing.");
-      }
+      } catch (e) { console.error(e); }
   };
 
   const handleTouchStart = (stmt) => {
@@ -243,9 +260,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
   };
 
   const handleTouchEnd = () => {
-      if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-      }
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
   return (
@@ -270,16 +285,16 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                            <NetworkLogo network={card.network} />
                       </div>
                       <div className="text-white text-xl font-mono tracking-widest text-center mt-2 drop-shadow-md">
-                          {card.full_number ? card.full_number.match(/.{1,4}/g).join(' ') : `•••• •••• •••• ${card.last_4 || '0000'}`}
+                          {formData.full_number ? formData.full_number.match(/.{1,4}/g)?.join(' ') : `•••• •••• •••• ${formData.last_4 || '0000'}`}
                       </div>
                       <div className="flex justify-between items-end">
                           <div>
                               <p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Card Holder</p>
-                              <p className="text-sm text-white font-medium uppercase tracking-wide truncate max-w-[120px]">User Name</p>
+                              <p className="text-sm text-white font-medium uppercase tracking-wide truncate max-w-[120px]">{formData.card_holder || 'CARD HOLDER'}</p>
                           </div>
                           <div className="text-right">
                               <p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Valid Thru</p>
-                              <p className="text-sm text-white font-mono">{card.valid_thru || 'MM/YY'}</p>
+                              <p className="text-sm text-white font-mono">{formData.valid_thru || 'MM/YY'}</p>
                           </div>
                       </div>
                   </div>
@@ -289,11 +304,11 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                       <div className="w-full h-10 bg-black mt-6"></div>
                       <div className="p-6 mt-2">
                           <div className="bg-white w-full h-10 flex items-center justify-end px-3 rounded-sm pattern-lines">
-                              <span className="font-mono text-black font-bold italic text-lg tracking-widest">{card.cvv || '***'}</span>
+                              <span className="font-mono text-black font-bold italic text-lg tracking-widest">{formData.cvv || '***'}</span>
                           </div>
                           <p className="text-[8px] text-neutral-500 mt-4 leading-tight text-center">
                               This card is property of the issuer. Use for authorized transactions only.
-                              <br/>Issued by {card.bank}.
+                              <br/>Issued by {formData.bank}.
                           </p>
                       </div>
                   </div>
@@ -304,24 +319,73 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'details' && (
         <div className="space-y-6">
-           <FormField label="Full Card Number">
-              <Input value={formData.full_number || ''} disabled className="cursor-not-allowed opacity-50 font-mono tracking-widest"/>
-           </FormField>
-           
-           <div className="bg-neutral-950 p-5 rounded-xl border border-neutral-800 flex justify-between items-center">
-              <div>
-                <p className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Limit</p>
-                <p className="text-white font-bold text-lg">{formData.total_limit.toLocaleString()}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Exp</p>
-                <p className="text-white font-mono text-lg">{formData.valid_thru || 'N/A'}</p>
-              </div>
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <FormField label="Nickname">
+                  <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} disabled={!isEditing} />
+               </FormField>
+               <FormField label="Bank">
+                  <Input value={formData.bank} onChange={e => setFormData({...formData, bank: e.target.value})} disabled={!isEditing} />
+               </FormField>
            </div>
            
-           <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 bg-red-900/10 text-red-500 py-4 rounded-xl hover:bg-red-900/20 mt-4 flex items-center justify-center gap-2 font-bold transition-colors">
-             <Trash2 size={18}/> Delete Card
-           </button>
+           <FormField label="Card Holder Name">
+              <Input value={formData.card_holder || ''} onChange={e => setFormData({...formData, card_holder: e.target.value})} disabled={!isEditing} />
+           </FormField>
+
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Total Limit">
+                 <Input type="number" value={formData.total_limit} onChange={e => setFormData({...formData, total_limit: e.target.value})} disabled={!isEditing} />
+              </FormField>
+              <FormField label="Manual Limit">
+                 <Input type="number" value={formData.manual_limit || ''} onChange={e => setFormData({...formData, manual_limit: e.target.value})} disabled={!isEditing} />
+              </FormField>
+           </div>
+           
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Full Card Number">
+                  <Input value={formData.full_number || ''} onChange={e => {
+                      const val = e.target.value.replace(/\D/g,'').substring(0,16);
+                      setFormData({...formData, full_number: val, last_4: val.slice(-4)});
+                  }} disabled={!isEditing} className="font-mono"/>
+              </FormField>
+              <div className="grid grid-cols-2 gap-2">
+                  <FormField label="Valid Thru">
+                      <Input value={formData.valid_thru || ''} onChange={e => setFormData({...formData, valid_thru: e.target.value})} disabled={!isEditing} />
+                  </FormField>
+                  <FormField label="CVV">
+                      <Input value={formData.cvv || ''} onChange={e => setFormData({...formData, cvv: e.target.value})} disabled={!isEditing} type="password"/>
+                  </FormField>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Statement Date">
+                  <Select value={formData.statement_date} onChange={e => setFormData({...formData, statement_date: e.target.value})} disabled={!isEditing}>
+                      {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                  </Select>
+              </FormField>
+              <FormField label="Due Date">
+                  <Select value={formData.payment_due_date} onChange={e => setFormData({...formData, payment_due_date: e.target.value})} disabled={!isEditing}>
+                      {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                  </Select>
+              </FormField>
+           </div>
+
+           {isEditing ? (
+              <div className="flex gap-3 pt-4">
+                  <button onClick={() => setIsEditing(false)} className="flex-1 bg-neutral-800 text-white py-3.5 rounded-xl font-bold hover:bg-neutral-700 transition-colors">Cancel</button>
+                  <button onClick={handleUpdateCard} className="flex-1 bg-red-600 text-white py-3.5 rounded-xl font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20">Save Changes</button>
+              </div>
+           ) : (
+              <>
+                 <button onClick={() => setIsEditing(true)} className="w-full bg-white text-black py-3.5 rounded-xl font-bold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
+                     <Edit2 size={16}/> Edit Card Details
+                 </button>
+                 <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 bg-red-900/10 text-red-500 py-3.5 rounded-xl hover:bg-red-900/20 flex items-center justify-center gap-2 font-bold transition-colors">
+                     <Trash2 size={16}/> Delete Card
+                 </button>
+              </>
+           )}
         </div>
       )}
       
@@ -388,7 +452,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -401,10 +465,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                                   </button>
                                   <div className="flex flex-col">
                                       <span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span>
-                                      {stmt.is_paid ? 
-                                        <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide flex items-center gap-1"><Check size={10}/> Paid</span> :
-                                        <span className="text-[10px] text-neutral-600 font-medium">Long press to manage</span>
-                                      }
+                                      {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide flex items-center gap-1"><Check size={10}/> Paid</span>}
                                   </div>
                               </div>
                               <div className="text-right">
