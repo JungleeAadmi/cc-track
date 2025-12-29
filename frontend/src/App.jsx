@@ -4,7 +4,7 @@ import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
-  Receipt, Calendar, Edit2, Check, Copy, CheckCircle
+  Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.1.5';
+const APP_VERSION = 'v1.1.6';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -126,7 +126,7 @@ const Input = (props) => (
   <input 
     {...props} 
     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px] appearance-none"
-    style={{ colorScheme: 'dark' }} // CRITICAL FIX: Forces date picker icon to be white
+    style={{ colorScheme: 'dark' }} 
   />
 );
 
@@ -141,13 +141,14 @@ const Select = (props) => (
 
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [tab, setTab] = useState('view'); // view | details | images | statements
+  const [tab, setTab] = useState('view'); 
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [stmtOptions, setStmtOptions] = useState(null); 
   const longPressTimer = useRef(null);
+  const formRef = useRef(null); // Ref for scrolling to form
 
   useEffect(() => {
     if (tab === 'statements') fetchStatements();
@@ -207,12 +208,31 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
   };
 
   const startEditStatement = (stmt) => {
-      setNewStmt({ 
-          date: new Date(stmt.date).toISOString().split('T')[0], 
-          amount: stmt.amount 
-      });
-      setEditingStmtId(stmt.id);
-      setStmtOptions(null);
+      try {
+          // Robust date parsing
+          let dateStr = new Date().toISOString().split('T')[0];
+          if (stmt.date) {
+            dateStr = new Date(stmt.date).toISOString().split('T')[0];
+          }
+          
+          setNewStmt({ 
+              date: dateStr, 
+              amount: stmt.amount 
+          });
+          setEditingStmtId(stmt.id);
+          setStmtOptions(null);
+          
+          // Scroll to form to show user we are editing
+          if(formRef.current) {
+              formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              // Small visual cue
+              formRef.current.classList.add('bg-neutral-800');
+              setTimeout(() => formRef.current.classList.remove('bg-neutral-800'), 500);
+          }
+      } catch (e) {
+          console.error("Edit Error:", e);
+          alert("Could not load statement for editing.");
+      }
   };
 
   const handleTouchStart = (stmt) => {
@@ -321,7 +341,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
       {tab === 'statements' && (
           <div className="space-y-6 relative h-full">
               {/* Add Form */}
-              <form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+              <form ref={formRef} onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800 transition-colors duration-500">
                   <div className="w-full">
                       <FormField label="Statement Date">
                         <Input type="date" value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
@@ -368,7 +388,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -381,7 +401,10 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                                   </button>
                                   <div className="flex flex-col">
                                       <span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span>
-                                      {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide flex items-center gap-1"><Check size={10}/> Paid</span>}
+                                      {stmt.is_paid ? 
+                                        <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide flex items-center gap-1"><Check size={10}/> Paid</span> :
+                                        <span className="text-[10px] text-neutral-600 font-medium">Long press to manage</span>
+                                      }
                                   </div>
                               </div>
                               <div className="text-right">
