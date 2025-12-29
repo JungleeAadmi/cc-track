@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.2.1';
+const APP_VERSION = 'v1.2.2';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -284,6 +284,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const handleUpdateCard = async () => {
       const token = localStorage.getItem('token');
       try {
+          // Parse numbers safely
           const payload = {
               name: formData.name,
               bank: formData.bank,
@@ -569,7 +570,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
