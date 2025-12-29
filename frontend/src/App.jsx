@@ -296,24 +296,26 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'statements' && (
           <div className="space-y-4">
-              <form onSubmit={handleAddOrUpdateStatement} className="grid grid-cols-[1.3fr_1fr_auto] gap-2 items-end bg-neutral-800 p-3 rounded-xl relative">
+              <form onSubmit={handleAddOrUpdateStatement} className="grid grid-cols-2 gap-2 items-end bg-neutral-800 p-3 rounded-xl relative">
                   <div>
                       <label className="text-[10px] text-neutral-400 uppercase font-bold">Date</label>
                       <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
                          value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
                   </div>
-                  <div>
-                      <label className="text-[10px] text-neutral-400 uppercase font-bold">Amount</label>
-                      <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
-                         placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
-                  </div>
-                  <div className="flex gap-1">
-                     {editingStmtId && (
-                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-600 text-white p-2 rounded-lg hover:bg-neutral-500"><X size={16}/></button>
-                     )}
-                     <button type="submit" className="bg-red-700 text-white p-2 rounded-lg hover:bg-red-600">
-                         {editingStmtId ? <Check size={16}/> : <Plus size={16}/>}
-                     </button>
+                  <div className="flex gap-2">
+                      <div className="flex-1">
+                          <label className="text-[10px] text-neutral-400 uppercase font-bold">Amount</label>
+                          <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
+                             placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
+                      </div>
+                      <div className="flex items-end pb-0.5">
+                           {editingStmtId && (
+                               <button type="button" onClick={cancelEdit} className="bg-neutral-600 text-white p-1.5 rounded-lg hover:bg-neutral-500 mr-1"><X size={14}/></button>
+                           )}
+                           <button type="submit" className="bg-red-700 text-white p-1.5 rounded-lg hover:bg-red-600 h-[34px] w-[34px] flex items-center justify-center">
+                               {editingStmtId ? <Check size={14}/> : <Plus size={16}/>}
+                           </button>
+                      </div>
                   </div>
               </form>
               
@@ -867,17 +869,11 @@ const AuthenticatedApp = () => {
                     <Plus size={18} /> Add Txn
                 </button>
               </div>
-              <Dashboard 
-                cards={cards} 
-                loading={loading} 
-                currentUser={currentUser} 
-                onEditCard={setEditingCard} 
-                onAnalyticsClick={() => setActiveView('Analytics')} 
-              />
+              <Dashboard cards={cards} loading={loading} currentUser={currentUser} onEditCard={setEditingCard} onAnalyticsClick={() => setActiveView('Analytics')} />
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
-         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} cards={cards} />}
+         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} />}
          {activeView === 'My Cards' && (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map(card => (
