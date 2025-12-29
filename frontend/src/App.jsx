@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.1.0';
+const APP_VERSION = 'v1.1.1';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -114,9 +114,29 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
+// --- SHARED FORM INPUT COMPONENT ---
+// Ensures consistent styling and spacing across all forms
+const FormField = ({ label, children }) => (
+  <div className="w-full">
+    <label className="text-[11px] text-neutral-400 uppercase font-bold mb-1.5 block tracking-wide">{label}</label>
+    {children}
+  </div>
+);
+
+const Input = (props) => (
+  <input {...props} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-3 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all placeholder:text-neutral-600" />
+);
+
+const Select = (props) => (
+  <select {...props} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-3 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all appearance-none">
+    {props.children}
+  </select>
+);
+
+
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [tab, setTab] = useState('view'); 
+  const [tab, setTab] = useState('view'); // view | details | images | statements
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
@@ -205,77 +225,76 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
   return (
     <Modal title={`Manage ${card.name}`} onClose={onClose}>
-      <div className="flex gap-2 mb-4 border-b border-neutral-800 pb-2 overflow-x-auto">
+      <div className="flex gap-2 mb-6 border-b border-neutral-800 pb-2 overflow-x-auto no-scrollbar">
         {['view', 'details', 'images', 'statements'].map(t => (
-            <button key={t} onClick={() => setTab(t)} className={`flex-1 pb-2 text-sm font-medium capitalize ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} className={`flex-none px-4 pb-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400 hover:text-neutral-200'}`}>{t}</button>
         ))}
       </div>
 
       {tab === 'view' && (
-          <div className="flex flex-col items-center gap-4 py-4">
+          <div className="flex flex-col items-center gap-6 py-4">
               <div 
                   className="w-full h-48 rounded-2xl relative preserve-3d cursor-pointer transition-transform duration-500"
                   style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', perspective: '1000px' }}
                   onClick={() => setIsFlipped(!isFlipped)}
               >
                   {/* Front */}
-                  <div className={`absolute inset-0 bg-gradient-to-br from-neutral-800 to-black rounded-2xl p-5 flex flex-col justify-between shadow-xl backface-hidden border border-neutral-700 ${isFlipped ? 'hidden' : 'block'}`}>
+                  <div className={`absolute inset-0 bg-gradient-to-br from-neutral-800 to-black rounded-2xl p-6 flex flex-col justify-between shadow-2xl backface-hidden border border-neutral-700 ${isFlipped ? 'hidden' : 'block'}`}>
                       <div className="flex justify-between items-start">
-                           <div className="text-white/50 text-xs font-mono">CC-TRACK VIRTUAL</div>
+                           <div className="text-white/40 text-[10px] font-mono tracking-widest">CC-TRACK VIRTUAL</div>
                            <NetworkLogo network={card.network} />
                       </div>
-                      <div className="text-white text-xl font-mono tracking-widest text-center mt-2">
+                      <div className="text-white text-xl font-mono tracking-widest text-center mt-2 drop-shadow-md">
                           {card.full_number ? card.full_number.match(/.{1,4}/g).join(' ') : `•••• •••• •••• ${card.last_4 || '0000'}`}
                       </div>
                       <div className="flex justify-between items-end">
                           <div>
-                              <p className="text-[8px] text-white/50 uppercase">Card Holder</p>
-                              <p className="text-sm text-white font-medium uppercase tracking-wide">User Name</p>
+                              <p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Card Holder</p>
+                              <p className="text-sm text-white font-medium uppercase tracking-wide truncate max-w-[120px]">User Name</p>
                           </div>
                           <div className="text-right">
-                              <p className="text-[8px] text-white/50 uppercase">Valid Thru</p>
+                              <p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Valid Thru</p>
                               <p className="text-sm text-white font-mono">{card.valid_thru || 'MM/YY'}</p>
                           </div>
                       </div>
                   </div>
 
                   {/* Back */}
-                  <div className={`absolute inset-0 bg-neutral-900 rounded-2xl flex flex-col shadow-xl backface-hidden border border-neutral-800 ${isFlipped ? 'block' : 'hidden'}`} style={{ transform: 'rotateY(180deg)' }}>
-                      <div className="w-full h-10 bg-black mt-4"></div>
-                      <div className="p-4 mt-2">
-                          <div className="bg-white w-full h-8 flex items-center justify-end px-2">
-                              <span className="font-mono text-black font-bold italic">{card.cvv || '***'}</span>
+                  <div className={`absolute inset-0 bg-neutral-900 rounded-2xl flex flex-col shadow-2xl backface-hidden border border-neutral-800 ${isFlipped ? 'block' : 'hidden'}`} style={{ transform: 'rotateY(180deg)' }}>
+                      <div className="w-full h-10 bg-black mt-6"></div>
+                      <div className="p-6 mt-2">
+                          <div className="bg-white w-full h-10 flex items-center justify-end px-3 rounded-sm pattern-lines">
+                              <span className="font-mono text-black font-bold italic text-lg tracking-widest">{card.cvv || '***'}</span>
                           </div>
-                          <p className="text-[10px] text-neutral-500 mt-2 leading-tight">
+                          <p className="text-[8px] text-neutral-500 mt-4 leading-tight text-center">
                               This card is property of the issuer. Use for authorized transactions only.
                               <br/>Issued by {card.bank}.
                           </p>
                       </div>
                   </div>
               </div>
-              <p className="text-xs text-neutral-500">Tap card to flip</p>
+              <p className="text-xs text-neutral-500 flex items-center gap-1"><Eye size={12}/> Tap card to flip</p>
           </div>
       )}
 
       {tab === 'details' && (
-        <div className="space-y-4">
-           <div>
-              <label className="text-xs text-neutral-500 uppercase font-bold">Full Card Number</label>
-              <input value={formData.full_number || ''} disabled className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-3 text-neutral-500 cursor-not-allowed"/>
-           </div>
+        <div className="space-y-6">
+           <FormField label="Full Card Number">
+              <Input value={formData.full_number || ''} disabled className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-3 text-neutral-500 cursor-not-allowed font-mono"/>
+           </FormField>
            
-           <div className="bg-neutral-800 p-4 rounded-xl mb-4 flex justify-between items-center border border-neutral-700">
+           <div className="bg-neutral-800/50 p-5 rounded-xl border border-neutral-700 flex justify-between items-center">
               <div>
-                <p className="text-xs text-neutral-500 uppercase font-bold">Limit</p>
-                <p className="text-white font-bold">{formData.total_limit.toLocaleString()}</p>
+                <p className="text-xs text-neutral-500 uppercase font-bold mb-1">Limit</p>
+                <p className="text-white font-bold text-lg">{formData.total_limit.toLocaleString()}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-500 uppercase font-bold">Exp</p>
-                <p className="text-white font-mono">{formData.valid_thru || 'N/A'}</p>
+                <p className="text-xs text-neutral-500 uppercase font-bold mb-1">Exp</p>
+                <p className="text-white font-mono text-lg">{formData.valid_thru || 'N/A'}</p>
               </div>
            </div>
            
-           <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2 transition-colors">
+           <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 bg-red-900/10 text-red-500 py-3.5 rounded-xl hover:bg-red-900/20 mt-4 flex items-center justify-center gap-2 font-medium transition-colors">
              <Trash2 size={18}/> Delete Card
            </button>
         </div>
@@ -296,36 +315,36 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'statements' && (
           <div className="space-y-6">
-              <form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-800 p-4 rounded-xl border border-neutral-700">
+              <form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-800/50 p-4 rounded-xl border border-neutral-700">
                   <div className="w-full">
-                      <label className="text-xs text-neutral-400 uppercase font-bold mb-1 block">Date</label>
-                      <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                         value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
+                      <FormField label="Statement Date">
+                        <Input type="date" value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
+                      </FormField>
                   </div>
                   <div className="w-full">
-                      <label className="text-xs text-neutral-400 uppercase font-bold mb-1 block">Amount</label>
-                      <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                         placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
+                      <FormField label="Total Amount">
+                        <Input type="number" step="0.01" placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
+                      </FormField>
                   </div>
-                  <div className="flex gap-2 justify-end pt-2 border-t border-neutral-700">
+                  <div className="flex gap-2 justify-end pt-2 border-t border-neutral-700/50">
                      {editingStmtId && (
-                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-600 text-white px-4 py-2 rounded-lg hover:bg-neutral-500 text-xs font-bold transition-colors">Cancel</button>
+                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-700 text-white px-4 py-2.5 rounded-lg hover:bg-neutral-600 text-xs font-bold transition-colors">Cancel</button>
                      )}
-                     <button type="submit" className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-xs font-bold flex items-center gap-2 transition-colors">
-                         {editingStmtId ? <Check size={16}/> : <Plus size={16}/>} {editingStmtId ? 'Update' : 'Add'}
+                     <button type="submit" className="bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-500 text-xs font-bold flex items-center gap-2 transition-colors shadow-lg shadow-red-900/20">
+                         {editingStmtId ? <Check size={16}/> : <Plus size={16}/>} {editingStmtId ? 'Update Statement' : 'Add Statement'}
                      </button>
                   </div>
               </form>
               
-              <div className="max-h-60 overflow-y-auto space-y-2 relative">
+              <div className="space-y-2 relative">
                   {stmtOptions && (
-                     <div className="absolute inset-0 bg-black/90 z-20 flex flex-col items-center justify-center rounded-xl animate-in fade-in backdrop-blur-sm">
-                         <div className="w-full p-6 space-y-3">
+                     <div className="absolute inset-0 bg-black/90 z-20 flex flex-col items-center justify-center rounded-xl animate-in fade-in backdrop-blur-sm p-4">
+                         <div className="w-full max-w-xs space-y-3">
                              <div className="text-white text-sm font-bold text-center mb-2 uppercase tracking-wide">Manage Statement</div>
                              <button onClick={() => startEditStatement(stmtOptions)} className="w-full bg-neutral-800 text-white p-4 rounded-xl flex items-center justify-center gap-2 border border-neutral-700 font-medium hover:bg-neutral-700 transition-colors">
                                 <Edit2 size={18}/> Edit Details
                              </button>
-                             <button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-red-900/30 text-red-500 p-4 rounded-xl flex items-center justify-center gap-2 border border-red-900/50 font-medium hover:bg-red-900/50 transition-colors">
+                             <button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-red-900/20 text-red-500 p-4 rounded-xl flex items-center justify-center gap-2 border border-red-900/30 font-medium hover:bg-red-900/40 transition-colors">
                                 <Trash2 size={18}/> Delete
                              </button>
                              <button onClick={() => setStmtOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button>
@@ -333,34 +352,36 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                      </div>
                   )}
 
-                  {statements.map(stmt => (
-                      <div 
-                        key={stmt.id} 
-                        className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
-                        onTouchStart={() => handleTouchStart(stmt)}
-                        onTouchEnd={handleTouchEnd}
-                        onMouseDown={() => handleTouchStart(stmt)}
-                        onMouseUp={handleTouchEnd}
-                        onMouseLeave={handleTouchEnd}
-                      >
-                          <div className="flex items-center gap-4">
-                              <button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-1.5 rounded-full transition-colors ${stmt.is_paid ? 'text-green-500 bg-green-900/20' : 'text-neutral-600 hover:text-white bg-neutral-900'}`}>
-                                  {stmt.is_paid ? <CheckCircle size={20} fill="currentColor" className="text-green-900" /> : <div className="w-5 h-5 border-2 border-current rounded-full" />}
-                              </button>
-                              <div>
-                                  <span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span>
-                                  {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide">Paid on {formatDate(stmt.payment_date)}</span>}
+                  <div className="max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                      {statements.map(stmt => (
+                          <div 
+                            key={stmt.id} 
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
+                            onTouchStart={() => handleTouchStart(stmt)}
+                            onTouchEnd={handleTouchEnd}
+                            onMouseDown={() => handleTouchStart(stmt)}
+                            onMouseUp={handleTouchEnd}
+                            onMouseLeave={handleTouchEnd}
+                          >
+                              <div className="flex items-center gap-4">
+                                  <button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-1.5 rounded-full transition-colors ${stmt.is_paid ? 'text-green-500 bg-green-900/20' : 'text-neutral-600 hover:text-white bg-neutral-900'}`}>
+                                      {stmt.is_paid ? <CheckCircle size={20} fill="currentColor" className="text-green-900" /> : <div className="w-5 h-5 border-2 border-current rounded-full" />}
+                                  </button>
+                                  <div>
+                                      <span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span>
+                                      {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide">Paid on {formatDate(stmt.payment_date)}</span>}
+                                  </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                  <span className={`font-bold text-lg ${stmt.is_paid ? 'text-green-500' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span>
                               </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                              <span className={`font-bold text-lg ${stmt.is_paid ? 'text-green-500' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span>
-                          </div>
-                      </div>
-                  ))}
-                  {statements.length === 0 && <div className="text-center py-8 bg-neutral-900/30 rounded-xl border border-dashed border-neutral-800">
-                      <Receipt className="mx-auto h-8 w-8 text-neutral-700 mb-2"/>
-                      <p className="text-xs text-neutral-500">No statements logged.</p>
-                  </div>}
+                      ))}
+                      {statements.length === 0 && <div className="text-center py-8 bg-neutral-900/30 rounded-xl border border-dashed border-neutral-800">
+                          <Receipt className="mx-auto h-8 w-8 text-neutral-700 mb-2"/>
+                          <p className="text-xs text-neutral-500">No statements logged.</p>
+                      </div>}
+                  </div>
               </div>
           </div>
       )}
@@ -449,19 +470,15 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
          <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
          <form onSubmit={handleUpdate} className="space-y-6 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
              
-             <div className="grid md:grid-cols-2 gap-4">
-                 <div>
-                    <label className="text-xs text-neutral-500 font-bold uppercase">Display Name</label>
-                    <input className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1" 
-                      value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
-                 </div>
-                 <div>
-                    <label className="text-xs text-neutral-500 font-bold uppercase">Default Currency</label>
-                    <select className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1"
-                      value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                 <FormField label="Display Name">
+                    <Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
+                 </FormField>
+                 <FormField label="Default Currency">
+                    <Select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                    </select>
-                 </div>
+                    </Select>
+                 </FormField>
              </div>
 
              <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800 flex items-center justify-between">
@@ -471,7 +488,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                     </label>
                     <p className="text-xs text-neutral-500 mt-1">Download all transaction history.</p>
                 </div>
-                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-neutral-700">
+                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-neutral-700 transition-colors">
                     <Download size={14} /> Download CSV
                 </button>
              </div>
@@ -480,13 +497,13 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                 <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2 mb-4">
                   <Bell size={14} className="text-red-500"/> Notifications (Ntfy)
                 </label>
-                <div className="space-y-3 mb-4">
-                   <input className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm" 
-                     placeholder="Server URL (e.g. https://ntfy.sh)" value={formData.ntfy_server} onChange={e => setFormData({...formData, ntfy_server: e.target.value})} />
+                <div className="space-y-3 mb-6">
+                   <Input placeholder="Server URL (e.g. https://ntfy.sh)" value={formData.ntfy_server} onChange={e => setFormData({...formData, ntfy_server: e.target.value})} />
                    <div className="flex gap-2">
-                     <input className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm" 
-                       placeholder="Topic Name (e.g. my-cards)" value={formData.ntfy_topic} onChange={e => setFormData({...formData, ntfy_topic: e.target.value})} />
-                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-4 rounded-lg text-sm hover:bg-neutral-700">Test</button>
+                     <div className="flex-1">
+                        <Input placeholder="Topic Name (e.g. my-cards)" value={formData.ntfy_topic} onChange={e => setFormData({...formData, ntfy_topic: e.target.value})} />
+                     </div>
+                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-4 rounded-lg text-sm hover:bg-neutral-700 transition-colors font-medium">Test</button>
                    </div>
                 </div>
                 <div className="space-y-2">
@@ -499,7 +516,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                 </div>
              </div>
              
-             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-3 rounded-lg font-medium transition-colors">
+             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-3.5 rounded-lg font-medium transition-colors border border-neutral-700">
                 <Save size={16}/> Save Changes
              </button>
          </form>
@@ -510,12 +527,12 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
        </div>
 
        <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
-          <h3 className="text-red-500 font-bold mb-2 flex items-center gap-2"><Trash2 size={20}/> Danger Zone</h3>
-          <div className="flex gap-4">
-             <input className="bg-neutral-950 border border-red-900/50 rounded-lg p-3 text-white text-sm flex-1" 
-               placeholder="DELETE" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
+          <h3 className="text-red-500 font-bold mb-3 flex items-center gap-2"><Trash2 size={20}/> Danger Zone</h3>
+          <div className="flex flex-col sm:flex-row gap-4">
+             <input className="bg-neutral-950 border border-red-900/50 rounded-lg p-3 text-white text-sm flex-1 focus:border-red-500 outline-none" 
+               placeholder="Type DELETE to confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'DELETE'} 
-               className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-bold">
+               className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition-colors">
                Delete Account
              </button>
           </div>
@@ -563,7 +580,7 @@ const AnalyticsPage = ({ currentUser }) => {
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                             <XAxis dataKey="name" stroke="#666" fontSize={12} />
                             <YAxis stroke="#666" fontSize={12} />
-                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
                             <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -588,7 +605,7 @@ const AnalyticsPage = ({ currentUser }) => {
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
                             <Legend />
                         </PieChart>
                     </ResponsiveContainer>
@@ -691,11 +708,10 @@ const AuthenticatedApp = () => {
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
 
-  // Forms
   const [newCard, setNewCard] = useState({ 
       name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
       statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
-      card_type: 'Credit Card', expiry_date: '' 
+      card_type: 'Credit Card', expiry_date: '', full_number: '', cvv: '', valid_thru: ''
   });
   const [newTxn, setNewTxn] = useState({ 
       description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', 
@@ -760,14 +776,17 @@ const AuthenticatedApp = () => {
         payment_due_date: parseInt(newCard.due_day),
         image_front: newCard.image_front,
         image_back: newCard.image_back,
-        last_4: newCard.last_4 
+        last_4: newCard.last_4,
+        full_number: newCard.full_number,
+        cvv: newCard.cvv,
+        valid_thru: newCard.valid_thru
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
       fetchData(); 
       setNewCard({ 
           name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
-          statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
-          card_type: 'Credit Card', expiry_date: '' 
+          statement_day: 1, due_day: 20, image_front: '', image_back: '', 
+          last_4: '', full_number: '', cvv: '', valid_thru: '', card_type: 'Credit Card', expiry_date: ''
       });
     } catch (err) { alert(`Failed to add card: ${err.response?.data?.detail || err.message}`); }
   };
@@ -910,13 +929,12 @@ const AuthenticatedApp = () => {
       {/* --- MODALS --- */}
       {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
-           <form onSubmit={handleAddCard} className="space-y-4">
-              <div className="flex gap-2 mb-4">
+           <form onSubmit={handleAddCard} className="space-y-6">
+              <div className="flex gap-2">
                 <button type="button" onClick={() => frontInputRef.current.click()} className={`flex-1 h-24 rounded-xl border-2 border-dashed ${newCard.image_front ? 'border-red-500 bg-red-900/20' : 'border-neutral-700 bg-neutral-800/50'} text-neutral-400 hover:text-white hover:border-red-500 flex flex-col items-center justify-center gap-1 transition-colors relative overflow-hidden`}>
                    {newCard.image_front ? <img src={newCard.image_front} className="absolute inset-0 w-full h-full object-cover opacity-50"/> : null}
                    <Camera size={20} className="relative z-10"/>
                    <span className="text-[10px] uppercase font-bold relative z-10">{newCard.image_front ? 'Retake Front' : 'Front'}</span>
-                   <div className="absolute inset-4 border border-dashed border-white/30 pointer-events-none rounded opacity-50"></div>
                    <input type="file" ref={frontInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
                 </button>
                 <button type="button" onClick={() => backInputRef.current.click()} className={`flex-1 h-24 rounded-xl border-2 border-dashed ${newCard.image_back ? 'border-red-500 bg-red-900/20' : 'border-neutral-700 bg-neutral-800/50'} text-neutral-400 hover:text-white hover:border-red-500 flex flex-col items-center justify-center gap-1 transition-colors relative overflow-hidden`}>
@@ -927,168 +945,153 @@ const AuthenticatedApp = () => {
                 </button>
               </div>
 
-              <div>
-                 <label className="text-xs text-neutral-500 uppercase font-bold">Nickname</label>
-                 <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:border-red-600 outline-none mt-1" 
-                    placeholder="e.g. Amex Gold" value={newCard.name} onChange={e => setNewCard({...newCard, name: e.target.value})} required />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 <FormField label="Nickname">
+                    <Input placeholder="e.g. Amex Gold" value={newCard.name} onChange={e => setNewCard({...newCard, name: e.target.value})} required />
+                 </FormField>
+                 <FormField label="Bank Name">
+                    <Input placeholder="Chase" value={newCard.bank} onChange={e => setNewCard({...newCard, bank: e.target.value})} required />
+                 </FormField>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Bank</label>
-                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="Chase" value={newCard.bank} onChange={e => setNewCard({...newCard, bank: e.target.value})} required />
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Last 4 Digits</label>
-                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="1234" maxLength="4" value={newCard.last_4} onChange={e => setNewCard({...newCard, last_4: e.target.value})} />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Total Limit</label>
-                    <input type="number" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="50000" value={newCard.limit} onChange={e => setNewCard({...newCard, limit: e.target.value})} required />
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Manual Limit</label>
-                    <input type="number" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="Optional" value={newCard.manual_limit} onChange={e => setNewCard({...newCard, manual_limit: e.target.value})} />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Card Type</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newCard.card_type} onChange={e => setNewCard({...newCard, card_type: e.target.value})}>
-                        {CARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Expiry (MM/YY)</label>
-                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="12/28" value={newCard.expiry_date} onChange={e => setNewCard({...newCard, expiry_date: e.target.value})} />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
+                  <FormField label="Last 4 Digits">
+                     <Input placeholder="1234" maxLength="4" value={newCard.last_4} onChange={e => setNewCard({...newCard, last_4: e.target.value})} />
+                  </FormField>
+                  <FormField label="Network">
+                     <Select value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
                         <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold">Stmt</label>
-                      <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 text-sm"
-                          value={newCard.statement_day} onChange={e => setNewCard({...newCard, statement_day: e.target.value})}>
-                          {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold">Due</label>
-                      <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 text-sm"
-                          value={newCard.due_day} onChange={e => setNewCard({...newCard, due_day: e.target.value})}>
-                          {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}</option>)}
-                      </select>
-                    </div>
+                     </Select>
+                  </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Total Limit">
+                     <Input type="number" placeholder="50000" value={newCard.limit} onChange={e => setNewCard({...newCard, limit: e.target.value})} required />
+                  </FormField>
+                  <FormField label="Manual Limit">
+                     <Input type="number" placeholder="Optional" value={newCard.manual_limit} onChange={e => setNewCard({...newCard, manual_limit: e.target.value})} />
+                  </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Card Type">
+                      <Select value={newCard.card_type} onChange={e => setNewCard({...newCard, card_type: e.target.value})}>
+                          {CARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </Select>
+                  </FormField>
+                  <FormField label="Expiry (MM/YY)">
+                      <Input placeholder="12/28" value={newCard.expiry_date} onChange={e => setNewCard({...newCard, expiry_date: e.target.value})} />
+                  </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Statement Date">
+                      <Select value={newCard.statement_day} onChange={e => setNewCard({...newCard, statement_day: e.target.value})}>
+                          {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                      </Select>
+                  </FormField>
+                  <FormField label="Payment Due Date">
+                      <Select value={newCard.due_day} onChange={e => setNewCard({...newCard, due_day: e.target.value})}>
+                          {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                      </Select>
+                  </FormField>
+              </div>
+
+              {/* Virtual Card Details (Collapsed by default logic handled by user filling or not) */}
+              <div className="pt-4 border-t border-neutral-800">
+                  <p className="text-[10px] font-bold text-neutral-500 uppercase mb-3">Virtual Card Details (Optional)</p>
+                  <div className="grid grid-cols-1 gap-4">
+                      <FormField label="Full Card Number">
+                         <Input placeholder="0000 0000 0000 0000" maxLength="19" 
+                            value={newCard.full_number || ''} 
+                            onChange={e => {
+                                const val = e.target.value.replace(/\D/g,'').substring(0,16);
+                                setNewCard({...newCard, full_number: val, last_4: val.slice(-4)});
+                            }} />
+                      </FormField>
+                      <div className="grid grid-cols-2 gap-4">
+                          <FormField label="Valid Thru">
+                             <Input placeholder="MM/YY" maxLength="5" value={newCard.valid_thru || ''} onChange={e => setNewCard({...newCard, valid_thru: e.target.value})} />
+                          </FormField>
+                          <FormField label="CVV">
+                             <Input placeholder="123" maxLength="4" type="password" value={newCard.cvv || ''} onChange={e => setNewCard({...newCard, cvv: e.target.value})} />
+                          </FormField>
+                      </div>
                   </div>
               </div>
-              <button type="submit" className="w-full bg-red-700 text-white font-bold py-3 rounded-xl hover:bg-red-600 mt-2">Save Card</button>
+
+              <button type="submit" className="w-full bg-red-700 text-white font-bold py-3.5 rounded-xl hover:bg-red-600 mt-2 transition-colors">Save Card</button>
            </form>
         </Modal>
       )}
 
       {showAddTxn && (
         <Modal title="Log Transaction" onClose={() => setShowAddTxn(false)}>
-           <form onSubmit={handleAddTxn} className="space-y-4">
-              <div className="w-full">
-                 <label className="text-xs text-neutral-500 uppercase font-bold">Select Card</label>
-                 <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                    value={newTxn.card_id} onChange={e => setNewTxn({...newTxn, card_id: e.target.value})} required>
+           <form onSubmit={handleAddTxn} className="space-y-6">
+              <FormField label="Select Card">
+                 <Select value={newTxn.card_id} onChange={e => setNewTxn({...newTxn, card_id: e.target.value})} required>
                     <option value="">-- Choose Source --</option>
                     {cards.map(c => <option key={c.id} value={c.id}>{c.name} ({c.last_4 || 'XXXX'})</option>)}
-                 </select>
-              </div>
-              <div className="w-full">
-                 <label className="text-xs text-neutral-500 uppercase font-bold">Description</label>
-                 <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                    placeholder="Starbucks, AWS, etc." value={newTxn.description} onChange={e => setNewTxn({...newTxn, description: e.target.value})} required />
-              </div>
+                 </Select>
+              </FormField>
+
+              <FormField label="Description">
+                 <Input placeholder="Starbucks, AWS, etc." value={newTxn.description} onChange={e => setNewTxn({...newTxn, description: e.target.value})} required />
+              </FormField>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Date</label>
-                    <input type="date" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        value={newTxn.date} onChange={e => setNewTxn({...newTxn, date: e.target.value})} required />
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Mode</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newTxn.mode} onChange={e => setNewTxn({...newTxn, mode: e.target.value})}>
+                  <FormField label="Date">
+                     <Input type="date" value={newTxn.date} onChange={e => setNewTxn({...newTxn, date: e.target.value})} required />
+                  </FormField>
+                  <FormField label="Mode">
+                     <Select value={newTxn.mode} onChange={e => setNewTxn({...newTxn, mode: e.target.value})}>
                         {TXN_MODES.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
+                     </Select>
+                  </FormField>
               </div>
 
               {/* Conditional Input for "Others" Mode */}
               {newTxn.mode === 'Others' && (
-                <div>
-                   <label className="text-xs text-neutral-500 uppercase font-bold">Specify Mode</label>
-                   <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                      placeholder="e.g. Bank Transfer" value={newTxn.custom_mode} onChange={e => setNewTxn({...newTxn, custom_mode: e.target.value})} required />
-                </div>
+                <FormField label="Specify Mode">
+                   <Input placeholder="e.g. Bank Transfer" value={newTxn.custom_mode} onChange={e => setNewTxn({...newTxn, custom_mode: e.target.value})} required />
+                </FormField>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Amount</label>
-                    <input type="number" step="0.01" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="0.00" value={newTxn.amount} onChange={e => setNewTxn({...newTxn, amount: e.target.value})} required />
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Type</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newTxn.type} onChange={e => setNewTxn({...newTxn, type: e.target.value})}>
+                  <FormField label="Amount">
+                     <Input type="number" step="0.01" placeholder="0.00" value={newTxn.amount} onChange={e => setNewTxn({...newTxn, amount: e.target.value})} required />
+                  </FormField>
+                  <FormField label="Type">
+                     <Select value={newTxn.type} onChange={e => setNewTxn({...newTxn, type: e.target.value})}>
                         <option value="DEBIT">Expense</option>
                         <option value="CREDIT">Payment/Refund</option>
-                    </select>
-                  </div>
+                     </Select>
+                  </FormField>
               </div>
 
               {/* Payment Style (EMI vs Full) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <div>
-                       <label className="text-xs text-neutral-500 uppercase font-bold">Payment Style</label>
-                       <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                           value={newTxn.is_emi ? "EMI" : "Full"} 
-                           onChange={e => setNewTxn({...newTxn, is_emi: e.target.value === "EMI"})}>
+                   <FormField label="Payment Style">
+                       <Select value={newTxn.is_emi ? "EMI" : "Full"} onChange={e => setNewTxn({...newTxn, is_emi: e.target.value === "EMI"})}>
                            <option value="Full">Full Swipe</option>
                            <option value="EMI">EMI</option>
-                       </select>
-                   </div>
+                       </Select>
+                   </FormField>
                    {newTxn.is_emi && (
-                       <div>
-                           <label className="text-xs text-neutral-500 uppercase font-bold">Tenure (Months)</label>
-                           <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                               value={newTxn.emi_tenure} onChange={e => setNewTxn({...newTxn, emi_tenure: e.target.value})}>
+                       <FormField label="Tenure">
+                           <Select value={newTxn.emi_tenure} onChange={e => setNewTxn({...newTxn, emi_tenure: e.target.value})}>
                                {[3, 6, 9, 12, 18, 24, 36, 48].map(m => <option key={m} value={m}>{m} Months</option>)}
-                           </select>
-                       </div>
+                           </Select>
+                       </FormField>
                    )}
               </div>
 
-              <div>
-                 <label className="text-xs text-neutral-500 uppercase font-bold flex items-center gap-2"><Tag size={12}/> Tag (Auto-saved)</label>
-                 <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                    placeholder="Dining, Travel, Utilities..." value={newTxn.tag} onChange={e => setNewTxn({...newTxn, tag: e.target.value})} />
-              </div>
-              <button type="submit" className="w-full bg-red-700 text-white font-bold py-3 rounded-xl hover:bg-red-600 mt-2">Add Transaction</button>
+              <FormField label="Tag (Auto-saved)">
+                 <Input placeholder="Dining, Travel, Utilities..." value={newTxn.tag} onChange={e => setNewTxn({...newTxn, tag: e.target.value})} />
+              </FormField>
+
+              <button type="submit" className="w-full bg-red-700 text-white font-bold py-3.5 rounded-xl hover:bg-red-600 mt-2 transition-colors">Add Transaction</button>
            </form>
         </Modal>
       )}
@@ -1180,23 +1183,17 @@ const Login = () => {
         <div className="p-8">
             {error && <div className="mb-6 bg-red-950/50 border-l-4 border-red-600 p-4 text-sm text-red-200">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Username</label>
-                  <input type="text" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
-                    value={username} onChange={(e) => setUsername(e.target.value)} required />
-              </div>
+              <FormField label="Username">
+                  <Input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
+              </FormField>
               {!isLogin && (
-                <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <input type="text" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
-                    value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                </div>
+                <FormField label="Full Name">
+                  <Input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                </FormField>
               )}
-              <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Password</label>
-                  <input type="password" className="block w-full rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white focus:border-red-600 outline-none"
-                    value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
+              <FormField label="Password">
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </FormField>
               <button type="submit" disabled={loading} className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-3.5 px-4 rounded-xl transition mt-4">
                   {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
               </button>
