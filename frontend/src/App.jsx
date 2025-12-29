@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.2.2';
+const APP_VERSION = 'v1.2.4';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -216,35 +216,37 @@ const TransactionsModal = ({ onClose, currency }) => {
     return (
         <Modal title="Transaction History" onClose={onClose}>
             {editingTxn ? (
-                <form onSubmit={handleUpdate} className="space-y-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                <form onSubmit={handleUpdate} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
                     <FormField label="Description">
                         <Input value={editingTxn.description} onChange={e => setEditingTxn({...editingTxn, description: e.target.value})} />
                     </FormField>
-                    <FormField label="Amount">
-                        <Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} />
-                    </FormField>
-                    <FormField label="Date">
-                        <Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} />
-                    </FormField>
-                    <div className="flex gap-2 justify-end">
-                        <button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-2 rounded-lg text-xs font-bold">Cancel</button>
-                        <button type="submit" className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold">Save</button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField label="Amount">
+                            <Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} />
+                        </FormField>
+                        <FormField label="Date">
+                            <Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} />
+                        </FormField>
+                    </div>
+                    <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">
+                        <button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-neutral-700">Cancel</button>
+                        <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-red-500">Save</button>
                     </div>
                 </form>
             ) : (
                 <div className="space-y-2">
                     {loading ? <p className="text-center text-neutral-500 py-4">Loading...</p> : 
                      transactions.map(t => (
-                        <div key={t.id} className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex justify-between items-center">
+                        <div key={t.id} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 flex justify-between items-center">
                             <div>
                                 <p className="text-white font-medium text-sm">{t.description}</p>
                                 <p className="text-[10px] text-neutral-500">{formatDate(t.date)} • {t.mode}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-white font-bold text-sm">{currency} {t.amount.toLocaleString()}</p>
-                                <div className="flex gap-2 justify-end mt-1">
-                                    <button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white"><Edit2 size={12}/></button>
-                                    <button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500"><Trash2 size={12}/></button>
+                                <div className="flex gap-2 justify-end mt-2">
+                                    <button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white p-1"><Edit2 size={14}/></button>
+                                    <button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500 p-1"><Trash2 size={14}/></button>
                                 </div>
                             </div>
                         </div>
@@ -304,7 +306,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
           const res = await axios.put(`${API_URL}/cards/${card.id}`, payload, {
               headers: { Authorization: `Bearer ${token}` }
           });
-          onUpdate(res.data); 
+          onUpdate(res.data); // Calls fetchData in parent to refresh
           setIsEditing(false);
           alert("Card updated successfully");
       } catch (err) { alert("Failed to update card"); }
@@ -509,11 +511,11 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
       
       {tab === 'images' && (
         <div className="space-y-6">
-           <div className="space-y-2">
+           <div className="space-y-4">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
-           <div className="space-y-2">
+           <div className="space-y-4">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
@@ -524,16 +526,15 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
           <div className="space-y-6 relative h-full">
               {/* Add Form */}
               <form ref={formRef} onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800 transition-colors duration-500">
-                  <div className="w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField label="Statement Date">
                         <Input type="date" value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
                       </FormField>
-                  </div>
-                  <div className="w-full">
                       <FormField label="Total Amount">
                         <Input type="number" step="0.01" placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
                       </FormField>
                   </div>
+                  
                   <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">
                      {editingStmtId && (
                          <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-800 text-white px-4 py-3 rounded-xl hover:bg-neutral-700 text-xs font-bold transition-colors">Cancel</button>
