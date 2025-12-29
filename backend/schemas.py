@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 
 class Token(BaseModel):
@@ -20,6 +20,7 @@ class UserBase(BaseModel):
     notify_card_del: bool = True
     notify_statement: bool = True
     notify_due_dates: bool = True
+    notify_payment_done: bool = True
 
 class UserCreate(UserBase):
     password: str
@@ -35,6 +36,7 @@ class UserUpdate(BaseModel):
     notify_card_del: Optional[bool] = None
     notify_statement: Optional[bool] = None
     notify_due_dates: Optional[bool] = None
+    notify_payment_done: Optional[bool] = None
 
 class User(UserBase):
     id: int
@@ -46,6 +48,8 @@ class StatementBase(BaseModel):
     date: datetime
     amount: float
     card_id: int
+    is_paid: bool = False
+    payment_date: Optional[datetime] = None
 
 class StatementCreate(StatementBase):
     pass
@@ -53,6 +57,7 @@ class StatementCreate(StatementBase):
 class StatementUpdate(BaseModel):
     date: Optional[datetime] = None
     amount: Optional[float] = None
+    is_paid: Optional[bool] = None
 
 class Statement(StatementBase):
     id: int
@@ -64,14 +69,20 @@ class CardBase(BaseModel):
     bank: str
     network: str
     card_type: str = "Credit Card"
-    expiry_date: Optional[str] = None
+    
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
     payment_due_date: int
+    
     image_front: Optional[str] = None
     image_back: Optional[str] = None
+    
+    # Virtual Card Details
     last_4: Optional[str] = None 
+    full_number: Optional[str] = None
+    cvv: Optional[str] = None
+    valid_thru: Optional[str] = None
 
 class CardCreate(CardBase):
     pass

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
-  Receipt, Calendar
+  Receipt, Calendar, Edit2, Check, Copy, CheckCircle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -30,6 +30,16 @@ axios.interceptors.response.use(
 );
 
 // --- 2. UTILITIES ---
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    // DD-MMM-YY
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = MONTHS[date.getMonth()];
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}-${month}-${year}`;
+};
+
 const getNextDate = (dayOfMonth) => {
   if (!dayOfMonth) return 'N/A';
   const today = new Date();
@@ -39,7 +49,7 @@ const getNextDate = (dayOfMonth) => {
   if (targetDate < today && targetDate.getDate() !== today.getDate()) {
      targetDate.setMonth(currentMonth + 1);
   }
-  return targetDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+  return formatDate(targetDate);
 };
 
 const CURRENCIES = [
@@ -53,7 +63,7 @@ const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
 const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
 const NetworkLogo = ({ network }) => {
-  const style = "h-6 w-10 object-contain";
+  const style = "h-8 w-12 object-contain";
   const net = network ? network.toLowerCase() : '';
   if (net === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
   if (net === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
@@ -106,9 +116,11 @@ const Modal = ({ title, children, onClose }) => (
 
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [tab, setTab] = useState('details'); // details | images | statements
+  const [tab, setTab] = useState('view'); // view (virtual card) | details | images | statements
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
+  const [editingStmtId, setEditingStmtId] = useState(null);
+  const [isFlipped, setIsFlipped] = useState(false);
 
   useEffect(() => {
     if (tab === 'statements') fetchStatements();
@@ -122,45 +134,116 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
     } catch(err) { console.error(err); }
   };
 
-  const handleAddStatement = async (e) => {
+  const handleAddOrUpdateStatement = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     try {
-        await axios.post(`${API_URL}/cards/${card.id}/statements`, {
-            date: new Date(newStmt.date).toISOString(),
-            amount: parseFloat(newStmt.amount),
-            card_id: card.id
-        }, { headers: { Authorization: `Bearer ${token}` } });
+        if (editingStmtId) {
+            await axios.put(`${API_URL}/cards/${card.id}/statements/${editingStmtId}`, {
+                date: new Date(newStmt.date).toISOString(),
+                amount: parseFloat(newStmt.amount),
+                card_id: card.id
+            }, { headers: { Authorization: `Bearer ${token}` } });
+        } else {
+            await axios.post(`${API_URL}/cards/${card.id}/statements`, {
+                date: new Date(newStmt.date).toISOString(),
+                amount: parseFloat(newStmt.amount),
+                card_id: card.id
+            }, { headers: { Authorization: `Bearer ${token}` } });
+        }
         fetchStatements();
         setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' });
-    } catch(err) { alert("Failed to add statement"); }
+        setEditingStmtId(null);
+    } catch(err) { alert("Failed to save statement"); }
+  };
+
+  const toggleStatementPaid = async (stmt) => {
+      const token = localStorage.getItem('token');
+      try {
+          await axios.put(`${API_URL}/cards/${card.id}/statements/${stmt.id}`, {
+              is_paid: !stmt.is_paid
+          }, { headers: { Authorization: `Bearer ${token}` } });
+          fetchStatements();
+      } catch(err) { alert("Failed to update status"); }
   };
 
   return (
     <Modal title={`Manage ${card.name}`} onClose={onClose}>
       <div className="flex gap-2 mb-4 border-b border-neutral-800 pb-2 overflow-x-auto">
-        {['details', 'images', 'statements'].map(t => (
+        {['view', 'details', 'images', 'statements'].map(t => (
             <button key={t} onClick={() => setTab(t)} className={`flex-1 pb-2 text-sm font-medium capitalize ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400'}`}>{t}</button>
         ))}
       </div>
 
+      {tab === 'view' && (
+          <div className="flex flex-col items-center gap-4 py-4">
+              <div 
+                  className="w-full h-48 rounded-2xl relative preserve-3d cursor-pointer transition-transform duration-500"
+                  style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', perspective: '1000px' }}
+                  onClick={() => setIsFlipped(!isFlipped)}
+              >
+                  {/* Front */}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-neutral-800 to-black rounded-2xl p-5 flex flex-col justify-between shadow-xl backface-hidden border border-neutral-700 ${isFlipped ? 'hidden' : 'block'}`}>
+                      <div className="flex justify-between items-start">
+                           <div className="text-white/50 text-xs font-mono">CC-TRACK VIRTUAL</div>
+                           <NetworkLogo network={card.network} />
+                      </div>
+                      <div className="text-white text-xl font-mono tracking-widest text-center mt-2">
+                          {card.full_number ? card.full_number.match(/.{1,4}/g).join(' ') : `•••• •••• •••• ${card.last_4 || '0000'}`}
+                      </div>
+                      <div className="flex justify-between items-end">
+                          <div>
+                              <p className="text-[8px] text-white/50 uppercase">Card Holder</p>
+                              <p className="text-sm text-white font-medium uppercase tracking-wide">User Name</p>
+                          </div>
+                          <div className="text-right">
+                              <p className="text-[8px] text-white/50 uppercase">Valid Thru</p>
+                              <p className="text-sm text-white font-mono">{card.valid_thru || 'MM/YY'}</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Back */}
+                  <div className={`absolute inset-0 bg-neutral-900 rounded-2xl flex flex-col shadow-xl backface-hidden border border-neutral-800 ${isFlipped ? 'block' : 'hidden'}`} style={{ transform: 'rotateY(180deg)' }}>
+                      <div className="w-full h-10 bg-black mt-4"></div>
+                      <div className="p-4 mt-2">
+                          <div className="bg-white w-full h-8 flex items-center justify-end px-2">
+                              <span className="font-mono text-black font-bold italic">{card.cvv || '***'}</span>
+                          </div>
+                          <p className="text-[10px] text-neutral-500 mt-2 leading-tight">
+                              This card is property of the issuer. Use for authorized transactions only.
+                              <br/>Issued by {card.bank}.
+                          </p>
+                      </div>
+                  </div>
+              </div>
+              <p className="text-xs text-neutral-500">Tap card to flip</p>
+          </div>
+      )}
+
       {tab === 'details' && (
         <div className="space-y-4">
+           {/* Inputs for full details */}
+           <div>
+              <label className="text-xs text-neutral-500 uppercase font-bold">Full Card Number</label>
+              <input value={formData.full_number || ''} disabled className="w-full bg-neutral-900 border border-neutral-800 rounded p-2 text-neutral-500 cursor-not-allowed"/>
+              <p className="text-[10px] text-neutral-600">To edit sensitive details, delete and re-add.</p>
+           </div>
+           
            <div className="bg-neutral-800 p-4 rounded-lg mb-4 flex justify-between items-center">
               <div>
-                <p className="text-xs text-neutral-500 uppercase">Card Type</p>
-                <p className="text-white font-bold">{formData.card_type}</p>
+                <p className="text-xs text-neutral-500 uppercase">Limit</p>
+                <p className="text-white font-bold">{formData.total_limit.toLocaleString()}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-500 uppercase">Exp Date</p>
-                <p className="text-white font-mono">{formData.expiry_date || 'N/A'}</p>
+                <p className="text-xs text-neutral-500 uppercase">Exp</p>
+                <p className="text-white font-mono">{formData.valid_thru || 'N/A'}</p>
               </div>
            </div>
            
            <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl hover:bg-red-900/10 mt-4 flex items-center justify-center gap-2">
              <Trash2 size={18}/> Delete Card
            </button>
-           <p className="text-center text-xs text-neutral-600 mt-2">To edit limits or dates, please delete and re-add.</p>
         </div>
       )}
       
@@ -179,7 +262,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'statements' && (
           <div className="space-y-4">
-              <form onSubmit={handleAddStatement} className="flex gap-2 items-end bg-neutral-800 p-3 rounded-xl">
+              <form onSubmit={handleAddOrUpdateStatement} className="flex gap-2 items-end bg-neutral-800 p-3 rounded-xl relative">
                   <div className="flex-1">
                       <label className="text-[10px] text-neutral-400 uppercase font-bold">Date</label>
                       <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
@@ -195,15 +278,21 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
               
               <div className="max-h-60 overflow-y-auto space-y-2">
                   {statements.map(stmt => (
-                      <div key={stmt.id} className="flex justify-between items-center p-3 bg-neutral-800/50 rounded-lg border border-neutral-800">
+                      <div key={stmt.id} className={`flex justify-between items-center p-3 rounded-lg border ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800'}`}>
                           <div className="flex items-center gap-3">
-                              <Receipt size={16} className="text-neutral-500" />
-                              <span className="text-sm text-neutral-300">{new Date(stmt.date).toLocaleDateString()}</span>
+                              <button onClick={() => toggleStatementPaid(stmt)} className={`p-1 rounded-full ${stmt.is_paid ? 'text-green-500' : 'text-neutral-600 hover:text-white'}`}>
+                                  {stmt.is_paid ? <CheckCircle size={18} fill="currentColor" className="text-green-900" /> : <div className="w-4 h-4 border-2 border-current rounded-full" />}
+                              </button>
+                              <div>
+                                  <span className="text-sm text-neutral-300 block">{formatDate(stmt.date)}</span>
+                                  {stmt.is_paid && <span className="text-[10px] text-green-500">Paid: {formatDate(stmt.payment_date)}</span>}
+                              </div>
                           </div>
-                          <span className="font-bold text-white">{parseFloat(stmt.amount).toLocaleString()}</span>
+                          <div className="flex items-center gap-3">
+                              <span className={`font-bold ${stmt.is_paid ? 'text-green-500' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span>
+                          </div>
                       </div>
                   ))}
-                  {statements.length === 0 && <p className="text-center text-xs text-neutral-500 py-4">No statements logged.</p>}
               </div>
           </div>
       )}
@@ -222,6 +311,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
     notify_card_del: currentUser.notify_card_del !== false,
     notify_statement: currentUser.notify_statement !== false,
     notify_due_dates: currentUser.notify_due_dates !== false,
+    notify_payment_done: currentUser.notify_payment_done !== false,
   });
   const [password, setPassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -332,11 +422,12 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                    </div>
                 </div>
                 <div className="space-y-2">
-                   <Toggle label="Card Added Alert" checked={formData.notify_card_add} field="notify_card_add" />
-                   <Toggle label="Transaction Added Alert" checked={formData.notify_txn_add} field="notify_txn_add" />
-                   <Toggle label="Card Deleted Alert" checked={formData.notify_card_del} field="notify_card_del" />
-                   <Toggle label="Statement Day Alert" checked={formData.notify_statement} field="notify_statement" />
+                   <Toggle label="Card Added" checked={formData.notify_card_add} field="notify_card_add" />
+                   <Toggle label="Transaction Added" checked={formData.notify_txn_add} field="notify_txn_add" />
+                   <Toggle label="Card Deleted" checked={formData.notify_card_del} field="notify_card_del" />
+                   <Toggle label="Statement Generated" checked={formData.notify_statement} field="notify_statement" />
                    <Toggle label="Due Date Warning (5 Days)" checked={formData.notify_due_dates} field="notify_due_dates" />
+                   <Toggle label="Payment Completed" checked={formData.notify_payment_done} field="notify_payment_done" />
                 </div>
              </div>
              
@@ -361,75 +452,75 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-const AnalyticsPage = ({ cards }) => {
-    const [heatmapData, setHeatmapData] = useState({});
-    const [selectedCard, setSelectedCard] = useState('0'); // 0 = All
+const AnalyticsPage = ({ currentUser }) => {
+    const [data, setData] = useState({ monthly: [], category: [] });
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchHeatmap = async () => {
+        const fetchAnalytics = async () => {
             const token = localStorage.getItem('token');
             try {
-                const res = await axios.get(`${API_URL}/transactions/heatmap/${selectedCard}`, {
+                const res = await axios.get(`${API_URL}/transactions/analytics`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setHeatmapData(res.data);
-            } catch (err) { console.error(err); }
+                setData(res.data);
+            } catch (err) { console.error(err); } finally { setLoading(false); }
         };
-        fetchHeatmap();
-    }, [selectedCard]);
+        fetchAnalytics();
+    }, []);
 
-    const getColor = (val) => {
-        if (!val) return 'bg-neutral-800';
-        if (val < 1000) return 'bg-red-900/40';
-        if (val < 5000) return 'bg-red-800/60';
-        if (val < 10000) return 'bg-red-700/80';
-        return 'bg-red-600';
-    };
+    if (loading) return <div className="text-center py-20 text-neutral-600 animate-pulse">Analyzing data...</div>;
+    
+    if (data.monthly.length === 0 && data.category.length === 0) {
+        return (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <TrendingUp className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No data yet</h3>
+                <p className="text-neutral-500">Log some transactions to see insights.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white">Statement Heatmap</h2>
-                <select className="bg-neutral-800 border border-neutral-700 text-white p-2 rounded-lg text-sm outline-none"
-                    value={selectedCard} onChange={e => setSelectedCard(e.target.value)}>
-                    <option value="0">All Cards</option>
-                    {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-            </div>
-
-            <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 overflow-x-auto">
-                <div className="min-w-[600px]">
-                    {/* Header Row */}
-                    <div className="grid grid-cols-13 gap-2 mb-2 text-xs text-neutral-500 font-bold uppercase text-center">
-                        <div className="w-12">Year</div>
-                        {MONTHS.map(m => <div key={m}>{m}</div>)}
-                    </div>
-                    {/* Data Rows */}
-                    {Object.keys(heatmapData).sort().reverse().map(year => (
-                        <div key={year} className="grid grid-cols-13 gap-2 mb-2 items-center">
-                            <div className="text-xs text-neutral-400 font-mono w-12">{year}</div>
-                            {heatmapData[year].map((val, idx) => (
-                                <div key={idx} className={`h-8 rounded-md ${getColor(val)} flex items-center justify-center group relative cursor-default`}>
-                                    {val > 0 && (
-                                        <div className="absolute bottom-full mb-2 bg-black border border-neutral-700 text-white text-xs p-2 rounded whitespace-nowrap hidden group-hover:block z-10">
-                                            {val.toLocaleString()}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    ))}
-                    {Object.keys(heatmapData).length === 0 && (
-                        <div className="text-center py-10 text-neutral-600">No statement history found.</div>
-                    )}
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Monthly Spending</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.monthly}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                            <XAxis dataKey="name" stroke="#666" fontSize={12} />
+                            <YAxis stroke="#666" fontSize={12} />
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
+                            <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
-            
-            <div className="flex gap-4 text-xs text-neutral-500 items-center justify-center">
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-neutral-800 rounded"></div> 0</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-900/40 rounded"></div> &lt; 1k</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-700/80 rounded"></div> &lt; 10k</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-600 rounded"></div> 10k+</div>
+
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.category}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {data.category.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
         </div>
     );
@@ -450,7 +541,6 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
                 <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
                 <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
-            {/* Added onClick to navigate to Analytics */}
              <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-colors">
                 <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
                     Total Spent <TrendingUp size={14} />
@@ -530,8 +620,8 @@ const AuthenticatedApp = () => {
 
   const [newCard, setNewCard] = useState({ 
       name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
-      statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
-      card_type: 'Credit Card', expiry_date: '' 
+      statement_day: 1, due_day: 20, image_front: '', image_back: '', 
+      last_4: '', full_number: '', cvv: '', valid_thru: '', card_type: 'Credit Card' 
   });
   const [newTxn, setNewTxn] = useState({ 
       description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', 
@@ -585,25 +675,18 @@ const AuthenticatedApp = () => {
     const token = localStorage.getItem('token');
     try {
       await axios.post(`${API_URL}/cards/`, {
-        name: newCard.name,
-        bank: newCard.bank,
-        network: newCard.network,
-        card_type: newCard.card_type,
-        expiry_date: newCard.expiry_date,
+        ...newCard,
         total_limit: parseFloat(newCard.limit),
         manual_limit: newCard.manual_limit ? parseFloat(newCard.manual_limit) : parseFloat(newCard.limit),
         statement_date: parseInt(newCard.statement_day),
         payment_due_date: parseInt(newCard.due_day),
-        image_front: newCard.image_front,
-        image_back: newCard.image_back,
-        last_4: newCard.last_4 
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
       fetchData(); 
       setNewCard({ 
           name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
-          statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
-          card_type: 'Credit Card', expiry_date: '' 
+          statement_day: 1, due_day: 20, image_front: '', image_back: '', 
+          last_4: '', full_number: '', cvv: '', valid_thru: '', card_type: 'Credit Card'
       });
     } catch (err) { alert(`Failed to add card: ${err.response?.data?.detail || err.message}`); }
   };
@@ -719,7 +802,7 @@ const AuthenticatedApp = () => {
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
-         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} cards={cards} />}
+         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} />}
          {activeView === 'My Cards' && (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map(card => (
@@ -739,7 +822,6 @@ const AuthenticatedApp = () => {
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
-        <NavButton label="Analytics" icon={TrendingUp} active={activeView === 'Analytics'} onClick={() => setActiveView('Analytics')} />
         <NavButton label="Settings" icon={Settings} active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
       </nav>
 
@@ -776,13 +858,42 @@ const AuthenticatedApp = () => {
                         placeholder="Chase" value={newCard.bank} onChange={e => setNewCard({...newCard, bank: e.target.value})} required />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Last 4 Digits</label>
-                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="1234" maxLength="4" value={newCard.last_4} onChange={e => setNewCard({...newCard, last_4: e.target.value})} />
+                     <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
+                     <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
+                        <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
+                     </select>
+                  </div>
+              </div>
+              
+              {/* Virtual Card Details */}
+              <div className="space-y-4 pt-2 border-t border-neutral-800">
+                  <p className="text-xs font-bold text-red-500 uppercase">Virtual Card Details (Optional)</p>
+                  <div>
+                     <label className="text-xs text-neutral-500 uppercase font-bold">Full Card Number</label>
+                     <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 font-mono tracking-wider" 
+                        placeholder="0000 0000 0000 0000" maxLength="19" 
+                        value={newCard.full_number || ''} 
+                        onChange={e => {
+                            const val = e.target.value.replace(/\D/g,'').substring(0,16);
+                            setNewCard({...newCard, full_number: val, last_4: val.slice(-4)});
+                        }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div>
+                        <label className="text-xs text-neutral-500 uppercase font-bold">Expiry (MM/YY)</label>
+                        <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 text-center" 
+                            placeholder="MM/YY" maxLength="5" value={newCard.valid_thru || ''} onChange={e => setNewCard({...newCard, valid_thru: e.target.value})} />
+                     </div>
+                     <div>
+                        <label className="text-xs text-neutral-500 uppercase font-bold">CVV</label>
+                        <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 text-center" 
+                            placeholder="123" maxLength="4" type="password" value={newCard.cvv || ''} onChange={e => setNewCard({...newCard, cvv: e.target.value})} />
+                     </div>
                   </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-800">
                   <div>
                     <label className="text-xs text-neutral-500 uppercase font-bold">Total Limit</label>
                     <input type="number" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
@@ -801,21 +912,6 @@ const AuthenticatedApp = () => {
                     <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
                         value={newCard.card_type} onChange={e => setNewCard({...newCard, card_type: e.target.value})}>
                         {CARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Expiry (MM/YY)</label>
-                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
-                        placeholder="12/28" value={newCard.expiry_date} onChange={e => setNewCard({...newCard, expiry_date: e.target.value})} />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
-                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
-                        <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">

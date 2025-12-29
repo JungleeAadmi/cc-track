@@ -21,6 +21,7 @@ class User(Base):
     notify_card_del = Column(Boolean, default=True)
     notify_statement = Column(Boolean, default=True)
     notify_due_dates = Column(Boolean, default=True)
+    notify_payment_done = Column(Boolean, default=True) # NEW
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
@@ -31,28 +32,39 @@ class Card(Base):
     name = Column(String) 
     bank = Column(String) 
     network = Column(String) 
+    
+    # Details for Virtual Card
     last_4 = Column(String, nullable=True)
+    full_number = Column(String, nullable=True) # NEW
+    cvv = Column(String, nullable=True)         # NEW
+    valid_thru = Column(String, nullable=True)  # NEW (MM/YY)
+    
     card_type = Column(String, default="Credit Card")
-    expiry_date = Column(String, nullable=True)
+    
     image_front = Column(Text, nullable=True)
     image_back = Column(Text, nullable=True)
+    
     total_limit = Column(Float, default=0.0)
     manual_limit = Column(Float, nullable=True) 
     statement_date = Column(Integer) 
     payment_due_date = Column(Integer) 
-    owner_id = Column(Integer, ForeignKey("users.id"))
     
+    owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="cards")
     transactions = relationship("Transaction", back_populates="card", cascade="all, delete-orphan")
-    statements = relationship("Statement", back_populates="card", cascade="all, delete-orphan") # NEW
+    statements = relationship("Statement", back_populates="card", cascade="all, delete-orphan")
 
-class Statement(Base): # NEW TABLE
+class Statement(Base):
     __tablename__ = "statements"
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(DateTime, default=datetime.utcnow) # The statement generation date
+    date = Column(DateTime, default=datetime.utcnow) # Generation Date
     amount = Column(Float)
-    card_id = Column(Integer, ForeignKey("cards.id"))
     
+    # Payment Tracking
+    is_paid = Column(Boolean, default=False)       # NEW
+    payment_date = Column(DateTime, nullable=True) # NEW
+    
+    card_id = Column(Integer, ForeignKey("cards.id"))
     card = relationship("Card", back_populates="statements")
 
 class Tag(Base):
@@ -74,6 +86,7 @@ class Transaction(Base):
     mode = Column(String, default="Online")
     is_emi = Column(Boolean, default=False)
     emi_tenure = Column(Integer, nullable=True)
+    
     card_id = Column(Integer, ForeignKey("cards.id"))
     tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     

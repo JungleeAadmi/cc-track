@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract
+from sqlalchemy import func
 from datetime import datetime
 import models, schemas, auth, database
 from utils import send_ntfy_alert
@@ -66,10 +66,14 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Date", "Card", "Type", "Mode", "Description", "Amount", "Currency", "Tag", "Is EMI", "Tenure"])
+    
     for t in txns:
         tag_name = t.tag.name if t.tag else ""
+        # Format: DD-MMM-YY HH:MM:SS (e.g. 29-Dec-25 21:05:00)
+        formatted_date = t.date.strftime("%d-%b-%y %H:%M:%S")
+        
         writer.writerow([
-            t.date.strftime("%Y-%m-%d %H:%M"),
+            formatted_date,
             t.card.name,
             t.type,
             t.mode or "Online",
@@ -89,6 +93,7 @@ def export_transactions(db: Session = Depends(database.get_db), current_user: mo
 
 @router.get("/analytics")
 def get_analytics(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # Monthly
     monthly_query = db.query(
         func.strftime("%Y-%m", models.Transaction.date).label("month"),
         func.sum(models.Transaction.amount).label("total")
@@ -98,6 +103,7 @@ def get_analytics(db: Session = Depends(database.get_db), current_user: models.U
     ).group_by("month").order_by("month").all()
     monthly_data = [{"name": row.month, "amount": row.total} for row in monthly_query]
 
+    # Tags
     tag_query = db.query(
         models.Tag.name,
         func.sum(models.Transaction.amount).label("total")
@@ -118,18 +124,16 @@ def get_analytics(db: Session = Depends(database.get_db), current_user: models.U
 
 @router.get("/heatmap/{card_id}")
 def get_heatmap(card_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # 0 = All Cards
     query = db.query(models.Statement).join(models.Card).filter(models.Card.owner_id == current_user.id)
     if card_id != 0:
         query = query.filter(models.Statement.card_id == card_id)
         
     statements = query.all()
     
-    # Format: { "2025": [0,0,100,200,...] } (12 months)
     data = {}
     for s in statements:
         year = str(s.date.year)
-        month_idx = s.date.month - 1 # 0-11
+        month_idx = s.date.month - 1 
         if year not in data:
             data[year] = [0.0] * 12
         data[year][month_idx] += s.amount

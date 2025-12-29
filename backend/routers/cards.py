@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
+from datetime import datetime
 import models, schemas, auth, database
 from utils import send_ntfy_alert
 
@@ -67,7 +68,8 @@ def add_statement(
     new_stmt = models.Statement(
         date=statement.date,
         amount=statement.amount,
-        card_id=card_id
+        card_id=card_id,
+        is_paid=False
     )
     db.add(new_stmt)
     db.commit()
@@ -107,6 +109,23 @@ def update_statement(
         stmt.date = stmt_update.date
     if stmt_update.amount is not None:
         stmt.amount = stmt_update.amount
+    
+    # Handle Payment Status Toggle
+    if stmt_update.is_paid is not None:
+        stmt.is_paid = stmt_update.is_paid
+        if stmt.is_paid:
+            stmt.payment_date = datetime.utcnow()
+            
+            # Notify Payment Done
+            if current_user.notify_payment_done:
+                send_ntfy_alert(
+                    current_user,
+                    "Payment Completed",
+                    f"Paid {current_user.currency} {stmt.amount} for {stmt.card.name} statement.",
+                    tags="white_check_mark,moneybag"
+                )
+        else:
+            stmt.payment_date = None
         
     db.commit()
     db.refresh(stmt)
