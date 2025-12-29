@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.1.1';
+const APP_VERSION = 'v1.1.4';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -103,36 +103,37 @@ const processImage = (file) => {
 
 // --- COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-    <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl relative">
-      <div className="flex justify-between items-center p-4 border-b border-neutral-800 bg-neutral-900 shrink-0">
-        <h3 className="text-white font-bold text-lg">{title}</h3>
-        <button onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20}/></button>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden">
+      <div className="flex justify-between items-center p-4 border-b border-neutral-800 bg-neutral-900/95 backdrop-blur shrink-0 z-10">
+        <h3 className="text-white font-bold text-lg tracking-tight">{title}</h3>
+        <button onClick={onClose} className="bg-neutral-800 p-2 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"><X size={18}/></button>
       </div>
-      <div className="p-6 overflow-y-auto custom-scrollbar">{children}</div>
+      <div className="p-4 overflow-y-auto custom-scrollbar flex-1">{children}</div>
     </div>
   </div>
 );
 
 // --- SHARED FORM INPUT COMPONENT ---
-// Ensures consistent styling and spacing across all forms
 const FormField = ({ label, children }) => (
-  <div className="w-full">
-    <label className="text-[11px] text-neutral-400 uppercase font-bold mb-1.5 block tracking-wide">{label}</label>
+  <div className="w-full flex flex-col gap-1.5">
+    <label className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider pl-1">{label}</label>
     {children}
   </div>
 );
 
 const Input = (props) => (
-  <input {...props} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-3 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all placeholder:text-neutral-600" />
+  <input {...props} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3.5 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px]" />
 );
 
 const Select = (props) => (
-  <select {...props} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-3 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all appearance-none">
-    {props.children}
-  </select>
+  <div className="relative w-full">
+    <select {...props} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3.5 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px]">
+        {props.children}
+    </select>
+    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 rotate-90 pointer-events-none" size={16} />
+  </div>
 );
-
 
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
@@ -227,7 +228,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
     <Modal title={`Manage ${card.name}`} onClose={onClose}>
       <div className="flex gap-2 mb-6 border-b border-neutral-800 pb-2 overflow-x-auto no-scrollbar">
         {['view', 'details', 'images', 'statements'].map(t => (
-            <button key={t} onClick={() => setTab(t)} className={`flex-none px-4 pb-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400 hover:text-neutral-200'}`}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} className={`flex-none px-4 pb-2 text-sm font-medium capitalize transition-all whitespace-nowrap ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400 hover:text-neutral-200'}`}>{t}</button>
         ))}
       </div>
 
@@ -280,21 +281,21 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
       {tab === 'details' && (
         <div className="space-y-6">
            <FormField label="Full Card Number">
-              <Input value={formData.full_number || ''} disabled className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-3 text-neutral-500 cursor-not-allowed font-mono"/>
+              <Input value={formData.full_number || ''} disabled className="cursor-not-allowed opacity-50 font-mono tracking-widest"/>
            </FormField>
            
-           <div className="bg-neutral-800/50 p-5 rounded-xl border border-neutral-700 flex justify-between items-center">
+           <div className="bg-neutral-950 p-5 rounded-xl border border-neutral-800 flex justify-between items-center">
               <div>
-                <p className="text-xs text-neutral-500 uppercase font-bold mb-1">Limit</p>
+                <p className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Limit</p>
                 <p className="text-white font-bold text-lg">{formData.total_limit.toLocaleString()}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-500 uppercase font-bold mb-1">Exp</p>
+                <p className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Exp</p>
                 <p className="text-white font-mono text-lg">{formData.valid_thru || 'N/A'}</p>
               </div>
            </div>
            
-           <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 bg-red-900/10 text-red-500 py-3.5 rounded-xl hover:bg-red-900/20 mt-4 flex items-center justify-center gap-2 font-medium transition-colors">
+           <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 bg-red-900/10 text-red-500 py-4 rounded-xl hover:bg-red-900/20 mt-4 flex items-center justify-center gap-2 font-bold transition-colors">
              <Trash2 size={18}/> Delete Card
            </button>
         </div>
@@ -314,8 +315,9 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
       )}
 
       {tab === 'statements' && (
-          <div className="space-y-6">
-              <form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-800/50 p-4 rounded-xl border border-neutral-700">
+          <div className="space-y-6 relative h-full">
+              {/* Add Form */}
+              <form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
                   <div className="w-full">
                       <FormField label="Statement Date">
                         <Input type="date" value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
@@ -326,37 +328,43 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                         <Input type="number" step="0.01" placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
                       </FormField>
                   </div>
-                  <div className="flex gap-2 justify-end pt-2 border-t border-neutral-700/50">
+                  <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">
                      {editingStmtId && (
-                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-700 text-white px-4 py-2.5 rounded-lg hover:bg-neutral-600 text-xs font-bold transition-colors">Cancel</button>
+                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-800 text-white px-4 py-3 rounded-xl hover:bg-neutral-700 text-xs font-bold transition-colors">Cancel</button>
                      )}
-                     <button type="submit" className="bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-500 text-xs font-bold flex items-center gap-2 transition-colors shadow-lg shadow-red-900/20">
+                     <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-500 text-xs font-bold flex items-center gap-2 transition-colors shadow-lg shadow-red-900/20 w-full justify-center sm:w-auto">
                          {editingStmtId ? <Check size={16}/> : <Plus size={16}/>} {editingStmtId ? 'Update Statement' : 'Add Statement'}
                      </button>
                   </div>
               </form>
               
-              <div className="space-y-2 relative">
+              <div className="space-y-2 relative pb-20">
+                  {/* Options Overlay (Professional Look) */}
                   {stmtOptions && (
-                     <div className="absolute inset-0 bg-black/90 z-20 flex flex-col items-center justify-center rounded-xl animate-in fade-in backdrop-blur-sm p-4">
-                         <div className="w-full max-w-xs space-y-3">
-                             <div className="text-white text-sm font-bold text-center mb-2 uppercase tracking-wide">Manage Statement</div>
-                             <button onClick={() => startEditStatement(stmtOptions)} className="w-full bg-neutral-800 text-white p-4 rounded-xl flex items-center justify-center gap-2 border border-neutral-700 font-medium hover:bg-neutral-700 transition-colors">
-                                <Edit2 size={18}/> Edit Details
+                     <div className="absolute inset-0 z-20 flex items-center justify-center animate-in fade-in duration-200">
+                         {/* Backdrop */}
+                         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm rounded-xl" onClick={() => setStmtOptions(null)}></div>
+                         {/* Card */}
+                         <div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl transform scale-100 relative z-30 flex flex-col gap-1">
+                             <div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div>
+                             <button onClick={() => startEditStatement(stmtOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors">
+                                <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div>
+                                <span className="font-medium text-sm">Edit</span>
                              </button>
-                             <button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-red-900/20 text-red-500 p-4 rounded-xl flex items-center justify-center gap-2 border border-red-900/30 font-medium hover:bg-red-900/40 transition-colors">
-                                <Trash2 size={18}/> Delete
+                             <button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors">
+                                <div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div>
+                                <span className="font-medium text-sm">Delete</span>
                              </button>
                              <button onClick={() => setStmtOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button>
                          </div>
                      </div>
                   )}
 
-                  <div className="max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-1 space-y-2">
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -364,16 +372,16 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                             onMouseLeave={handleTouchEnd}
                           >
                               <div className="flex items-center gap-4">
-                                  <button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-1.5 rounded-full transition-colors ${stmt.is_paid ? 'text-green-500 bg-green-900/20' : 'text-neutral-600 hover:text-white bg-neutral-900'}`}>
-                                      {stmt.is_paid ? <CheckCircle size={20} fill="currentColor" className="text-green-900" /> : <div className="w-5 h-5 border-2 border-current rounded-full" />}
+                                  <button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-2 rounded-full transition-colors ${stmt.is_paid ? 'text-green-500 bg-green-900/20' : 'text-neutral-600 hover:text-white bg-neutral-900 border border-neutral-700'}`}>
+                                      {stmt.is_paid ? <CheckCircle size={20} fill="currentColor" className="text-green-900" /> : <div className="w-5 h-5 rounded-full" />}
                                   </button>
-                                  <div>
+                                  <div className="flex flex-col">
                                       <span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span>
-                                      {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide">Paid on {formatDate(stmt.payment_date)}</span>}
+                                      {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide flex items-center gap-1"><Check size={10}/> Paid</span>}
                                   </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                  <span className={`font-bold text-lg ${stmt.is_paid ? 'text-green-500' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span>
+                              <div className="text-right">
+                                  <span className={`font-bold text-lg block ${stmt.is_paid ? 'text-green-500 line-through opacity-70' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span>
                               </div>
                           </div>
                       ))}
@@ -456,10 +464,10 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   };
 
   const Toggle = ({ label, checked, field }) => (
-    <div className="flex items-center justify-between p-3 bg-neutral-950 rounded-lg border border-neutral-800">
-       <span className="text-sm text-neutral-300">{label}</span>
-       <button type="button" onClick={() => setFormData({...formData, [field]: !checked})} className={`w-10 h-6 rounded-full p-1 transition-colors ${checked ? 'bg-red-600' : 'bg-neutral-700'}`}>
-          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`}></div>
+    <div className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+       <span className="text-sm text-neutral-300 font-medium">{label}</span>
+       <button type="button" onClick={() => setFormData({...formData, [field]: !checked})} className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ${checked ? 'bg-red-600' : 'bg-neutral-700'}`}>
+          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
        </button>
     </div>
   );
@@ -481,21 +489,21 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                  </FormField>
              </div>
 
-             <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800 flex items-center justify-between">
+             <div className="bg-neutral-950/50 p-5 rounded-xl border border-neutral-800 flex items-center justify-between">
                 <div>
-                    <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2">
-                        <Tag size={14} className="text-blue-500"/> Data Export
+                    <label className="text-[10px] text-neutral-400 font-bold uppercase flex items-center gap-2 mb-1">
+                        <Tag size={12} className="text-blue-500"/> Data Export
                     </label>
-                    <p className="text-xs text-neutral-500 mt-1">Download all transaction history.</p>
+                    <p className="text-xs text-neutral-500">Download all history.</p>
                 </div>
-                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-neutral-700 transition-colors">
-                    <Download size={14} /> Download CSV
+                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-medium">
+                    <Download size={16} /> Download CSV
                 </button>
              </div>
 
-             <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800">
-                <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2 mb-4">
-                  <Bell size={14} className="text-red-500"/> Notifications (Ntfy)
+             <div className="bg-neutral-900 p-1 rounded-xl">
+                <label className="text-[10px] text-neutral-500 font-bold uppercase flex items-center gap-2 mb-4 pl-1">
+                  <Bell size={12} className="text-red-500"/> Notifications (Ntfy)
                 </label>
                 <div className="space-y-3 mb-6">
                    <Input placeholder="Server URL (e.g. https://ntfy.sh)" value={formData.ntfy_server} onChange={e => setFormData({...formData, ntfy_server: e.target.value})} />
@@ -503,10 +511,10 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                      <div className="flex-1">
                         <Input placeholder="Topic Name (e.g. my-cards)" value={formData.ntfy_topic} onChange={e => setFormData({...formData, ntfy_topic: e.target.value})} />
                      </div>
-                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-4 rounded-lg text-sm hover:bg-neutral-700 transition-colors font-medium">Test</button>
+                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-bold">Test</button>
                    </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                    <Toggle label="Card Added Alert" checked={formData.notify_card_add} field="notify_card_add" />
                    <Toggle label="Transaction Added Alert" checked={formData.notify_txn_add} field="notify_txn_add" />
                    <Toggle label="Card Deleted Alert" checked={formData.notify_card_del} field="notify_card_del" />
@@ -516,23 +524,23 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                 </div>
              </div>
              
-             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-3.5 rounded-lg font-medium transition-colors border border-neutral-700">
-                <Save size={16}/> Save Changes
+             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-white text-black px-4 py-4 rounded-xl font-bold hover:bg-neutral-200 transition-colors">
+                <Save size={18}/> Save Changes
              </button>
          </form>
          
-         <div className="text-center text-xs text-neutral-600 mt-8 font-mono">
+         <div className="text-center text-[10px] text-neutral-600 mt-8 font-mono uppercase tracking-widest">
             CC-Track {APP_VERSION}
          </div>
        </div>
 
        <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
-          <h3 className="text-red-500 font-bold mb-3 flex items-center gap-2"><Trash2 size={20}/> Danger Zone</h3>
+          <h3 className="text-red-500 font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><Trash2 size={16}/> Danger Zone</h3>
           <div className="flex flex-col sm:flex-row gap-4">
-             <input className="bg-neutral-950 border border-red-900/50 rounded-lg p-3 text-white text-sm flex-1 focus:border-red-500 outline-none" 
+             <input className="bg-neutral-950 border border-red-900/50 rounded-xl px-4 py-3 text-white text-sm flex-1 focus:border-red-500 outline-none" 
                placeholder="Type DELETE to confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'DELETE'} 
-               className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition-colors">
+               className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-lg shadow-red-900/40">
                Delete Account
              </button>
           </div>
@@ -577,10 +585,10 @@ const AnalyticsPage = ({ currentUser }) => {
                 <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.monthly}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                            <XAxis dataKey="name" stroke="#666" fontSize={12} />
-                            <YAxis stroke="#666" fontSize={12} />
-                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                            <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}k`} />
+                            <Tooltip cursor={{fill: '#262626'}} contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
                             <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -589,7 +597,7 @@ const AnalyticsPage = ({ currentUser }) => {
 
             <div>
                 <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
-                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
@@ -600,13 +608,14 @@ const AnalyticsPage = ({ currentUser }) => {
                                 outerRadius={80}
                                 paddingAngle={5}
                                 dataKey="value"
+                                stroke="none"
                             >
                                 {data.category.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
                             <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
-                            <Legend />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
@@ -626,16 +635,15 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30 shadow-lg">
-                <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
-                <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
+             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-2xl p-5 text-white border border-red-800/30 shadow-lg">
+                <p className="text-red-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">Total Available</p>
+                <h2 className="text-2xl font-bold tracking-tight">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
-            {/* Added onClick to navigate to Analytics */}
-             <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-colors">
-                <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
-                    Total Spent <TrendingUp size={14} />
+             <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-all active:scale-95">
+                <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between mb-1">
+                    Total Spent <TrendingUp size={14} className="text-neutral-600"/>
                 </p>
-                <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
+                <h2 className="text-2xl font-bold text-white">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
             </div>
         </div>
 
@@ -651,7 +659,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
             {cards.map(card => (
                 <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
                     <div className="relative z-10 flex items-start justify-between mb-4">
-                        <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
+                        <div className="bg-black/40 p-2 rounded-xl border border-white/5 backdrop-blur-sm">
                             <NetworkLogo network={card.network} />
                         </div>
                         <div className="text-right">
@@ -662,10 +670,10 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
 
                     <div className="relative z-10">
                         <h4 className="font-bold text-white text-xl tracking-wide leading-tight mb-1">{card.name}</h4>
-                        <p className="text-xs text-neutral-400 mb-4 uppercase tracking-wider font-semibold">{card.bank}</p>
+                        <p className="text-xs text-neutral-400 mb-6 uppercase tracking-wider font-semibold">{card.bank}</p>
                         
-                        <div className="bg-black/30 rounded-lg p-3 mb-3 border border-white/5">
-                          <div className="flex justify-between text-sm mb-1">
+                        <div className="bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
+                          <div className="flex justify-between text-sm mb-2">
                             <span className="text-neutral-400 text-xs font-medium">Used</span>
                             <span className="text-white font-bold text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
                           </div>
@@ -677,11 +685,11 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
                         <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-white/5 pt-3 mt-1">
                             <div>
                                 <span className="block text-neutral-500 uppercase font-bold mb-0.5">Statement</span>
-                                <span className="text-neutral-200">{getNextDate(card.statement_date)}</span>
+                                <span className="text-neutral-200 font-mono">{getNextDate(card.statement_date)}</span>
                             </div>
                             <div className="text-right">
                                 <span className="block text-neutral-500 uppercase font-bold mb-0.5">Due Date</span>
-                                <span className="text-red-400 font-bold">{getNextDate(card.payment_due_date)}</span>
+                                <span className="text-red-400 font-bold font-mono">{getNextDate(card.payment_due_date)}</span>
                             </div>
                         </div>
                     </div>
@@ -935,6 +943,7 @@ const AuthenticatedApp = () => {
                    {newCard.image_front ? <img src={newCard.image_front} className="absolute inset-0 w-full h-full object-cover opacity-50"/> : null}
                    <Camera size={20} className="relative z-10"/>
                    <span className="text-[10px] uppercase font-bold relative z-10">{newCard.image_front ? 'Retake Front' : 'Front'}</span>
+                   <div className="absolute inset-4 border border-dashed border-white/30 pointer-events-none rounded opacity-50"></div>
                    <input type="file" ref={frontInputRef} accept="image/*" capture="environment" onChange={(e) => handleImageUpload(e, 'image_front')} className="hidden" />
                 </button>
                 <button type="button" onClick={() => backInputRef.current.click()} className={`flex-1 h-24 rounded-xl border-2 border-dashed ${newCard.image_back ? 'border-red-500 bg-red-900/20' : 'border-neutral-700 bg-neutral-800/50'} text-neutral-400 hover:text-white hover:border-red-500 flex flex-col items-center justify-center gap-1 transition-colors relative overflow-hidden`}>
