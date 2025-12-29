@@ -33,7 +33,6 @@ axios.interceptors.response.use(
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    // DD-MMM-YY
     const day = date.getDate().toString().padStart(2, '0');
     const month = MONTHS[date.getMonth()];
     const year = date.getFullYear().toString().slice(-2);
@@ -104,7 +103,7 @@ const processImage = (file) => {
 // --- COMPONENTS ---
 const Modal = ({ title, children, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-    <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
+    <div className="bg-neutral-900 border border-red-900/40 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl relative">
       <div className="flex justify-between items-center p-4 border-b border-neutral-800 bg-neutral-900 shrink-0">
         <h3 className="text-white font-bold text-lg">{title}</h3>
         <button onClick={onClose} className="text-neutral-500 hover:text-white"><X size={20}/></button>
@@ -116,11 +115,13 @@ const Modal = ({ title, children, onClose }) => (
 
 const EditCardModal = ({ card, onClose, onDelete }) => {
   const [formData, setFormData] = useState({ ...card });
-  const [tab, setTab] = useState('view'); // view (virtual card) | details | images | statements
+  const [tab, setTab] = useState('view'); // view | details | images | statements
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [stmtOptions, setStmtOptions] = useState(null); // For Long Press Menu
+  const longPressTimer = useRef(null);
 
   useEffect(() => {
     if (tab === 'statements') fetchStatements();
@@ -165,6 +166,41 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
           }, { headers: { Authorization: `Bearer ${token}` } });
           fetchStatements();
       } catch(err) { alert("Failed to update status"); }
+  };
+
+  const handleDeleteStatement = async (stmtId) => {
+      if(!confirm("Delete this statement?")) return;
+      const token = localStorage.getItem('token');
+      try {
+          await axios.delete(`${API_URL}/cards/${card.id}/statements/${stmtId}`, { 
+              headers: { Authorization: `Bearer ${token}` } 
+          });
+          fetchStatements();
+          setStmtOptions(null);
+      } catch(err) { alert("Failed to delete statement"); }
+  };
+
+  const startEditStatement = (stmt) => {
+      setNewStmt({ 
+          date: new Date(stmt.date).toISOString().split('T')[0], 
+          amount: stmt.amount 
+      });
+      setEditingStmtId(stmt.id);
+      setStmtOptions(null);
+  };
+
+  // --- Long Press Logic ---
+  const handleTouchStart = (stmt) => {
+      longPressTimer.current = setTimeout(() => {
+          if (navigator.vibrate) navigator.vibrate(50);
+          setStmtOptions(stmt);
+      }, 500);
+  };
+
+  const handleTouchEnd = () => {
+      if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+      }
   };
 
   return (
@@ -223,11 +259,9 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'details' && (
         <div className="space-y-4">
-           {/* Inputs for full details */}
            <div>
               <label className="text-xs text-neutral-500 uppercase font-bold">Full Card Number</label>
               <input value={formData.full_number || ''} disabled className="w-full bg-neutral-900 border border-neutral-800 rounded p-2 text-neutral-500 cursor-not-allowed"/>
-              <p className="text-[10px] text-neutral-600">To edit sensitive details, delete and re-add.</p>
            </div>
            
            <div className="bg-neutral-800 p-4 rounded-lg mb-4 flex justify-between items-center">
@@ -262,30 +296,62 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
 
       {tab === 'statements' && (
           <div className="space-y-4">
-              <form onSubmit={handleAddOrUpdateStatement} className="flex gap-2 items-end bg-neutral-800 p-3 rounded-xl relative">
-                  <div className="flex-1">
+              <form onSubmit={handleAddOrUpdateStatement} className="grid grid-cols-[1.3fr_1fr_auto] gap-2 items-end bg-neutral-800 p-3 rounded-xl relative">
+                  <div>
                       <label className="text-[10px] text-neutral-400 uppercase font-bold">Date</label>
                       <input type="date" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
                          value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
                   </div>
-                  <div className="flex-1">
+                  <div>
                       <label className="text-[10px] text-neutral-400 uppercase font-bold">Amount</label>
                       <input type="number" step="0.01" className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-white text-xs"
                          placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
                   </div>
-                  <button type="submit" className="bg-red-700 text-white p-2 rounded-lg hover:bg-red-600"><Plus size={16}/></button>
+                  <div className="flex gap-1">
+                     {editingStmtId && (
+                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-600 text-white p-2 rounded-lg hover:bg-neutral-500"><X size={16}/></button>
+                     )}
+                     <button type="submit" className="bg-red-700 text-white p-2 rounded-lg hover:bg-red-600">
+                         {editingStmtId ? <Check size={16}/> : <Plus size={16}/>}
+                     </button>
+                  </div>
               </form>
               
-              <div className="max-h-60 overflow-y-auto space-y-2">
+              <div className="max-h-60 overflow-y-auto space-y-2 relative">
+                  {/* Options Overlay */}
+                  {stmtOptions && (
+                     <div className="absolute inset-0 bg-black/90 z-20 flex flex-col items-center justify-center rounded-lg animate-in fade-in backdrop-blur-sm">
+                         <div className="w-full p-4 space-y-2">
+                             <div className="text-white text-sm font-bold text-center mb-2">Manage Statement</div>
+                             <button onClick={() => startEditStatement(stmtOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-lg flex items-center justify-center gap-2 border border-neutral-700 font-medium">
+                                <Edit2 size={16}/> Edit Details
+                             </button>
+                             <button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-red-900/30 text-red-500 p-3 rounded-lg flex items-center justify-center gap-2 border border-red-900/50 font-medium">
+                                <Trash2 size={16}/> Delete
+                             </button>
+                             <button onClick={() => setStmtOptions(null)} className="w-full text-neutral-500 text-sm py-2">Cancel</button>
+                         </div>
+                     </div>
+                  )}
+
                   {statements.map(stmt => (
-                      <div key={stmt.id} className={`flex justify-between items-center p-3 rounded-lg border ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800'}`}>
+                      <div 
+                        key={stmt.id} 
+                        className={`flex justify-between items-center p-3 rounded-lg border select-none transition-colors ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:bg-neutral-800'}`}
+                        onTouchStart={() => handleTouchStart(stmt)}
+                        onTouchEnd={handleTouchEnd}
+                        onMouseDown={() => handleTouchStart(stmt)}
+                        onMouseUp={handleTouchEnd}
+                        onMouseLeave={handleTouchEnd}
+                      >
                           <div className="flex items-center gap-3">
-                              <button onClick={() => toggleStatementPaid(stmt)} className={`p-1 rounded-full ${stmt.is_paid ? 'text-green-500' : 'text-neutral-600 hover:text-white'}`}>
+                              <button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-1 rounded-full ${stmt.is_paid ? 'text-green-500' : 'text-neutral-600 hover:text-white'}`}>
                                   {stmt.is_paid ? <CheckCircle size={18} fill="currentColor" className="text-green-900" /> : <div className="w-4 h-4 border-2 border-current rounded-full" />}
                               </button>
                               <div>
                                   <span className="text-sm text-neutral-300 block">{formatDate(stmt.date)}</span>
                                   {stmt.is_paid && <span className="text-[10px] text-green-500">Paid: {formatDate(stmt.payment_date)}</span>}
+                                  <span className="text-[10px] text-neutral-600 hidden sm:inline">Long press to edit</span>
                               </div>
                           </div>
                           <div className="flex items-center gap-3">
@@ -293,6 +359,7 @@ const EditCardModal = ({ card, onClose, onDelete }) => {
                           </div>
                       </div>
                   ))}
+                  {statements.length === 0 && <p className="text-center text-xs text-neutral-500 py-4">No statements logged.</p>}
               </div>
           </div>
       )}
@@ -422,10 +489,10 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                    </div>
                 </div>
                 <div className="space-y-2">
-                   <Toggle label="Card Added" checked={formData.notify_card_add} field="notify_card_add" />
-                   <Toggle label="Transaction Added" checked={formData.notify_txn_add} field="notify_txn_add" />
-                   <Toggle label="Card Deleted" checked={formData.notify_card_del} field="notify_card_del" />
-                   <Toggle label="Statement Generated" checked={formData.notify_statement} field="notify_statement" />
+                   <Toggle label="Card Added Alert" checked={formData.notify_card_add} field="notify_card_add" />
+                   <Toggle label="Transaction Added Alert" checked={formData.notify_txn_add} field="notify_txn_add" />
+                   <Toggle label="Card Deleted Alert" checked={formData.notify_card_del} field="notify_card_del" />
+                   <Toggle label="Statement Day Alert" checked={formData.notify_statement} field="notify_statement" />
                    <Toggle label="Due Date Warning (5 Days)" checked={formData.notify_due_dates} field="notify_due_dates" />
                    <Toggle label="Payment Completed" checked={formData.notify_payment_done} field="notify_payment_done" />
                 </div>
@@ -541,6 +608,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }
                 <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
                 <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
             </div>
+            {/* Added onClick to navigate to Analytics */}
              <div onClick={onAnalyticsClick} className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-colors">
                 <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
                     Total Spent <TrendingUp size={14} />
@@ -620,8 +688,8 @@ const AuthenticatedApp = () => {
 
   const [newCard, setNewCard] = useState({ 
       name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
-      statement_day: 1, due_day: 20, image_front: '', image_back: '', 
-      last_4: '', full_number: '', cvv: '', valid_thru: '', card_type: 'Credit Card' 
+      statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
+      card_type: 'Credit Card', expiry_date: '' 
   });
   const [newTxn, setNewTxn] = useState({ 
       description: '', amount: '', type: 'DEBIT', card_id: '', tag: '', 
@@ -675,18 +743,25 @@ const AuthenticatedApp = () => {
     const token = localStorage.getItem('token');
     try {
       await axios.post(`${API_URL}/cards/`, {
-        ...newCard,
+        name: newCard.name,
+        bank: newCard.bank,
+        network: newCard.network,
+        card_type: newCard.card_type,
+        expiry_date: newCard.expiry_date,
         total_limit: parseFloat(newCard.limit),
         manual_limit: newCard.manual_limit ? parseFloat(newCard.manual_limit) : parseFloat(newCard.limit),
         statement_date: parseInt(newCard.statement_day),
         payment_due_date: parseInt(newCard.due_day),
+        image_front: newCard.image_front,
+        image_back: newCard.image_back,
+        last_4: newCard.last_4 
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddCard(false);
       fetchData(); 
       setNewCard({ 
           name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
-          statement_day: 1, due_day: 20, image_front: '', image_back: '', 
-          last_4: '', full_number: '', cvv: '', valid_thru: '', card_type: 'Credit Card'
+          statement_day: 1, due_day: 20, image_front: '', image_back: '', last_4: '',
+          card_type: 'Credit Card', expiry_date: '' 
       });
     } catch (err) { alert(`Failed to add card: ${err.response?.data?.detail || err.message}`); }
   };
@@ -802,7 +877,7 @@ const AuthenticatedApp = () => {
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
-         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} />}
+         {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} cards={cards} />}
          {activeView === 'My Cards' && (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map(card => (
@@ -822,6 +897,7 @@ const AuthenticatedApp = () => {
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
+        <NavButton label="Analytics" icon={TrendingUp} active={activeView === 'Analytics'} onClick={() => setActiveView('Analytics')} />
         <NavButton label="Settings" icon={Settings} active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
       </nav>
 
@@ -858,42 +934,13 @@ const AuthenticatedApp = () => {
                         placeholder="Chase" value={newCard.bank} onChange={e => setNewCard({...newCard, bank: e.target.value})} required />
                   </div>
                   <div>
-                     <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
-                     <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
-                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
-                        <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
-                     </select>
-                  </div>
-              </div>
-              
-              {/* Virtual Card Details */}
-              <div className="space-y-4 pt-2 border-t border-neutral-800">
-                  <p className="text-xs font-bold text-red-500 uppercase">Virtual Card Details (Optional)</p>
-                  <div>
-                     <label className="text-xs text-neutral-500 uppercase font-bold">Full Card Number</label>
-                     <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 font-mono tracking-wider" 
-                        placeholder="0000 0000 0000 0000" maxLength="19" 
-                        value={newCard.full_number || ''} 
-                        onChange={e => {
-                            const val = e.target.value.replace(/\D/g,'').substring(0,16);
-                            setNewCard({...newCard, full_number: val, last_4: val.slice(-4)});
-                        }} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div>
-                        <label className="text-xs text-neutral-500 uppercase font-bold">Expiry (MM/YY)</label>
-                        <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 text-center" 
-                            placeholder="MM/YY" maxLength="5" value={newCard.valid_thru || ''} onChange={e => setNewCard({...newCard, valid_thru: e.target.value})} />
-                     </div>
-                     <div>
-                        <label className="text-xs text-neutral-500 uppercase font-bold">CVV</label>
-                        <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1 text-center" 
-                            placeholder="123" maxLength="4" type="password" value={newCard.cvv || ''} onChange={e => setNewCard({...newCard, cvv: e.target.value})} />
-                     </div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Last 4 Digits</label>
+                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
+                        placeholder="1234" maxLength="4" value={newCard.last_4} onChange={e => setNewCard({...newCard, last_4: e.target.value})} />
                   </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-800">
+              <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-neutral-500 uppercase font-bold">Total Limit</label>
                     <input type="number" className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
@@ -912,6 +959,21 @@ const AuthenticatedApp = () => {
                     <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
                         value={newCard.card_type} onChange={e => setNewCard({...newCard, card_type: e.target.value})}>
                         {CARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Expiry (MM/YY)</label>
+                    <input className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1" 
+                        placeholder="12/28" value={newCard.expiry_date} onChange={e => setNewCard({...newCard, expiry_date: e.target.value})} />
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase font-bold">Network</label>
+                    <select className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white mt-1"
+                        value={newCard.network} onChange={e => setNewCard({...newCard, network: e.target.value})}>
+                        <option>Visa</option><option>Mastercard</option><option>Amex</option><option>Discover</option>
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
