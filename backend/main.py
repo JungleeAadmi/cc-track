@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import models
 from database import engine
-from routers import auth, cards, transactions, users
+from routers import auth, cards, transactions, users, lending, salary, data
 from scheduler import start_scheduler
 
 models.Base.metadata.create_all(bind=engine)
@@ -28,6 +28,9 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
+app.include_router(lending.router, prefix="/api")
+app.include_router(salary.router, prefix="/api")
+app.include_router(data.router, prefix="/api") # NEW
 
 import os
 if os.path.exists("../frontend/dist"):

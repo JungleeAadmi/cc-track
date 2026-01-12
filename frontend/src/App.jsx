@@ -4,7 +4,7 @@ import axios from 'axios';
 import { 
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
-  Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle
+  Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle, Upload
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.2.4';
+const APP_VERSION = 'v1.3.0';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -139,130 +139,11 @@ const Select = (props) => (
   </div>
 );
 
-// --- NEW MODALS ---
-const CardSummaryModal = ({ cards, currency, onClose }) => {
-  return (
-    <Modal title="Limits Overview" onClose={onClose}>
-      <div className="space-y-4">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-[10px] text-neutral-500 uppercase border-b border-neutral-800">
-              <tr>
-                <th className="pb-2 font-bold pl-2">Card</th>
-                <th className="pb-2 font-bold text-right">Limit</th>
-                <th className="pb-2 font-bold text-right">Spent</th>
-                <th className="pb-2 font-bold text-right pr-2">Avail</th>
-              </tr>
-            </thead>
-            <tbody className="text-neutral-300">
-              {cards.map(c => {
-                  const limit = c.manual_limit && c.manual_limit > 0 ? c.manual_limit : c.total_limit;
-                  const avail = limit - c.spent;
-                  return (
-                    <tr key={c.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
-                      <td className="py-3 pl-2 font-medium">{c.name}</td>
-                      <td className="py-3 text-right">{currency} {limit.toLocaleString()}</td>
-                      <td className="py-3 text-right text-red-400">{currency} {c.spent.toLocaleString()}</td>
-                      <td className="py-3 text-right pr-2 text-green-500">{currency} {avail.toLocaleString()}</td>
-                    </tr>
-                  );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </Modal>
-  );
-};
-
-const TransactionsModal = ({ onClose, currency }) => {
-    const [transactions, setTransactions] = useState([]);
-    const [editingTxn, setEditingTxn] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    const fetchTxns = async () => {
-        const token = localStorage.getItem('token');
-        try {
-            const res = await axios.get(`${API_URL}/transactions/`, { headers: { Authorization: `Bearer ${token}` } });
-            setTransactions(res.data);
-        } catch(err) { console.error(err); } finally { setLoading(false); }
-    };
-
-    useEffect(() => { fetchTxns(); }, []);
-
-    const handleDelete = async (id) => {
-        if(!confirm("Delete this transaction?")) return;
-        const token = localStorage.getItem('token');
-        try {
-            await axios.delete(`${API_URL}/transactions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-            fetchTxns();
-        } catch(err) { alert("Failed to delete"); }
-    };
-
-    const handleUpdate = async (e) => {
-        e.preventDefault();
-        const token = localStorage.getItem('token');
-        try {
-            await axios.put(`${API_URL}/transactions/${editingTxn.id}`, {
-                description: editingTxn.description,
-                amount: parseFloat(editingTxn.amount),
-                date: new Date(editingTxn.date).toISOString()
-            }, { headers: { Authorization: `Bearer ${token}` } });
-            setEditingTxn(null);
-            fetchTxns();
-        } catch(err) { alert("Failed to update"); }
-    };
-
-    return (
-        <Modal title="Transaction History" onClose={onClose}>
-            {editingTxn ? (
-                <form onSubmit={handleUpdate} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
-                    <FormField label="Description">
-                        <Input value={editingTxn.description} onChange={e => setEditingTxn({...editingTxn, description: e.target.value})} />
-                    </FormField>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField label="Amount">
-                            <Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} />
-                        </FormField>
-                        <FormField label="Date">
-                            <Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} />
-                        </FormField>
-                    </div>
-                    <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">
-                        <button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-neutral-700">Cancel</button>
-                        <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-red-500">Save</button>
-                    </div>
-                </form>
-            ) : (
-                <div className="space-y-2">
-                    {loading ? <p className="text-center text-neutral-500 py-4">Loading...</p> : 
-                     transactions.map(t => (
-                        <div key={t.id} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 flex justify-between items-center">
-                            <div>
-                                <p className="text-white font-medium text-sm">{t.description}</p>
-                                <p className="text-[10px] text-neutral-500">{formatDate(t.date)} • {t.mode}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-white font-bold text-sm">{currency} {t.amount.toLocaleString()}</p>
-                                <div className="flex gap-2 justify-end mt-2">
-                                    <button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white p-1"><Edit2 size={14}/></button>
-                                    <button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500 p-1"><Trash2 size={14}/></button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {transactions.length === 0 && !loading && <p className="text-center text-neutral-500 py-4">No transactions found.</p>}
-                </div>
-            )}
-        </Modal>
-    );
-};
-
 
 const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
   const [isEditing, setIsEditing] = useState(false);
-  const [tab, setTab] = useState('view');
+  const [tab, setTab] = useState('view'); // view | details | images | statements
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
@@ -306,7 +187,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
           const res = await axios.put(`${API_URL}/cards/${card.id}`, payload, {
               headers: { Authorization: `Bearer ${token}` }
           });
-          onUpdate(res.data); // Calls fetchData in parent to refresh
+          onUpdate(res.data); 
           setIsEditing(false);
           alert("Card updated successfully");
       } catch (err) { alert("Failed to update card"); }
@@ -511,11 +392,11 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
       
       {tab === 'images' && (
         <div className="space-y-6">
-           <div className="space-y-4">
+           <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
-           <div className="space-y-4">
+           <div className="space-y-2">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
@@ -619,6 +500,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   });
   const [password, setPassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const fileInputRef = useRef(null); // Ref for file upload
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -642,21 +524,41 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
     } catch (err) { alert('Failed to send test: ' + (err.response?.data?.detail || err.message)); }
   };
   
-  const handleDownloadCSV = async () => {
+  const handleDownloadExcel = async () => {
     const token = localStorage.getItem('token');
     try {
-        const response = await axios.get(`${API_URL}/transactions/export`, {
+        const response = await axios.get(`${API_URL}/data/export_excel`, {
             headers: { Authorization: `Bearer ${token}` },
             responseType: 'blob', 
         });
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute('download', `cc_track_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
         document.body.appendChild(link);
         link.click();
         link.remove();
-    } catch (err) { alert("Failed to download CSV"); }
+    } catch (err) { alert("Failed to download Excel"); }
+  };
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        await axios.post(`${API_URL}/data/import_excel`, formData, {
+            headers: { 
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        alert("Data imported successfully! Please reload.");
+        window.location.reload();
+    } catch (err) { alert("Failed to import: " + (err.response?.data?.detail || err.message)); }
   };
 
   const handleDeleteAccount = async () => {
@@ -696,16 +598,24 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
                  </FormField>
              </div>
 
-             <div className="bg-neutral-950/50 p-5 rounded-xl border border-neutral-800 flex items-center justify-between">
-                <div>
-                    <label className="text-[10px] text-neutral-400 font-bold uppercase flex items-center gap-2 mb-1">
-                        <Tag size={12} className="text-blue-500"/> Data Export
-                    </label>
-                    <p className="text-xs text-neutral-500">Download all history.</p>
+             <div className="bg-neutral-950/50 p-5 rounded-xl border border-neutral-800 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <label className="text-[10px] text-neutral-400 font-bold uppercase flex items-center gap-2 mb-1">
+                            <Tag size={12} className="text-blue-500"/> Data Management
+                        </label>
+                        <p className="text-xs text-neutral-500">Backup and restore your data.</p>
+                    </div>
                 </div>
-                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-medium">
-                    <Download size={16} /> Download CSV
-                </button>
+                <div className="flex gap-2">
+                    <button type="button" onClick={handleDownloadExcel} className="flex-1 flex items-center justify-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-5 py-3 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-medium">
+                        <Download size={16} /> Export Data (Excel)
+                    </button>
+                    <button type="button" onClick={() => fileInputRef.current.click()} className="flex-1 flex items-center justify-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-5 py-3 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-medium">
+                        <Upload size={16} /> Import Data (Excel)
+                    </button>
+                    <input type="file" ref={fileInputRef} accept=".xlsx" className="hidden" onChange={handleImportExcel} />
+                </div>
              </div>
 
              <div className="bg-neutral-900 p-1 rounded-xl">

@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
+# --- Base Models ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -43,6 +44,59 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# --- LENDING ---
+class LendingBase(BaseModel):
+    borrower_name: str
+    amount: float
+    lent_date: datetime
+    reminder_date: Optional[datetime] = None
+    attachment_lent: Optional[str] = None
+    is_returned: bool = False
+    returned_date: Optional[datetime] = None
+    attachment_returned: Optional[str] = None
+
+class LendingCreate(LendingBase):
+    pass
+
+class LendingUpdate(BaseModel):
+    is_returned: bool
+    returned_date: datetime
+    attachment_returned: Optional[str] = None
+
+class Lending(LendingBase):
+    id: int
+    owner_id: int
+    class Config:
+        from_attributes = True
+
+# --- SALARY ---
+class SalaryBase(BaseModel):
+    amount: float
+    date: datetime
+    company_id: int
+
+class SalaryCreate(SalaryBase):
+    pass
+
+class Salary(SalaryBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class CompanyBase(BaseModel):
+    name: str
+    joining_date: datetime
+
+class CompanyCreate(CompanyBase):
+    pass
+
+class Company(CompanyBase):
+    id: int
+    salaries: List[Salary] = []
+    class Config:
+        from_attributes = True
+
+# --- EXISTING CARDS/TXNS ---
 class StatementBase(BaseModel):
     date: datetime
     amount: float
@@ -68,21 +122,18 @@ class CardBase(BaseModel):
     bank: str
     network: str
     card_type: str = "Credit Card"
-    
     total_limit: float
     manual_limit: Optional[float] = None
     statement_date: int
     payment_due_date: int
-    
     image_front: Optional[str] = None
     image_back: Optional[str] = None
-    
-    # Virtual Card Details
     card_holder: Optional[str] = None
     last_4: Optional[str] = None 
     full_number: Optional[str] = None
     cvv: Optional[str] = None
     valid_thru: Optional[str] = None
+    expiry_date: Optional[str] = None
 
 class CardCreate(CardBase):
     pass
@@ -103,6 +154,7 @@ class CardUpdate(BaseModel):
     valid_thru: Optional[str] = None
     image_front: Optional[str] = None
     image_back: Optional[str] = None
+    expiry_date: Optional[str] = None
 
 class Card(CardBase):
     id: int

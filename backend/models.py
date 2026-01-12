@@ -23,6 +23,8 @@ class User(Base):
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
+    lending = relationship("Lending", back_populates="owner", cascade="all, delete-orphan") # NEW
+    companies = relationship("Company", back_populates="owner", cascade="all, delete-orphan") # NEW
 
 class Card(Base):
     __tablename__ = "cards"
@@ -31,24 +33,20 @@ class Card(Base):
     bank = Column(String) 
     network = Column(String) 
     last_4 = Column(String, nullable=True)
-    
-    # Virtual Card Details
-    card_holder = Column(String, nullable=True) # NEW FIELD
+    card_holder = Column(String, nullable=True)
     full_number = Column(String, nullable=True)
     cvv = Column(String, nullable=True)
     valid_thru = Column(String, nullable=True)
-    
     card_type = Column(String, default="Credit Card")
-    
+    expiry_date = Column(String, nullable=True)
     image_front = Column(Text, nullable=True)
     image_back = Column(Text, nullable=True)
-    
     total_limit = Column(Float, default=0.0)
     manual_limit = Column(Float, nullable=True) 
     statement_date = Column(Integer) 
     payment_due_date = Column(Integer) 
-    
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
     owner = relationship("User", back_populates="cards")
     transactions = relationship("Transaction", back_populates="card", cascade="all, delete-orphan")
     statements = relationship("Statement", back_populates="card", cascade="all, delete-orphan")
@@ -87,3 +85,40 @@ class Transaction(Base):
     
     card = relationship("Card", back_populates="transactions")
     tag = relationship("Tag", back_populates="transactions")
+
+# --- NEW MODULES ---
+
+class Lending(Base):
+    __tablename__ = "lending"
+    id = Column(Integer, primary_key=True, index=True)
+    borrower_name = Column(String)
+    amount = Column(Float)
+    lent_date = Column(DateTime)
+    reminder_date = Column(DateTime, nullable=True)
+    attachment_lent = Column(Text, nullable=True) # Screenshot/PDF Base64
+    
+    is_returned = Column(Boolean, default=False)
+    returned_date = Column(DateTime, nullable=True)
+    attachment_returned = Column(Text, nullable=True) # Proof of return
+    
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner = relationship("User", back_populates="lending")
+
+class Company(Base):
+    __tablename__ = "companies"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    joining_date = Column(DateTime)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    
+    owner = relationship("User", back_populates="companies")
+    salaries = relationship("Salary", back_populates="company", cascade="all, delete-orphan")
+
+class Salary(Base):
+    __tablename__ = "salaries"
+    id = Column(Integer, primary_key=True, index=True)
+    amount = Column(Float)
+    date = Column(DateTime)
+    company_id = Column(Integer, ForeignKey("companies.id"))
+    
+    company = relationship("Company", back_populates="salaries")
