@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.1.0';
+const APP_VERSION = 'v2.1.2';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -62,8 +62,6 @@ const CURRENCIES = [
 
 const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
 const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
-
-// --- 3. UI HELPER COMPONENTS ---
 
 const NetworkLogo = ({ network }) => {
   const style = "h-8 w-12 object-contain";
@@ -263,7 +261,7 @@ const TransactionsModal = ({ onClose, currency }) => {
 const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
   const [isEditing, setIsEditing] = useState(false);
-  const [tab, setTab] = useState('view');
+  const [tab, setTab] = useState('view'); 
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
@@ -571,7 +569,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -604,12 +602,13 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   );
 };
 
-// --- PAGES ---
+// --- NEW PAGES ---
 
 const LendingPage = ({ currentUser }) => {
     const [lendingList, setLendingList] = useState([]);
     const [showAdd, setShowAdd] = useState(false);
     const [showReturn, setShowReturn] = useState(null); 
+    const [viewingProof, setViewingProof] = useState(null); 
     const [newItem, setNewItem] = useState({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' });
     const [returnItem, setReturnItem] = useState({ returned_date: new Date().toISOString().split('T')[0], attachment_returned: '' });
     
@@ -688,8 +687,8 @@ const LendingPage = ({ currentUser }) => {
                         </div>
                         
                         {item.attachment_lent && (
-                             <div className="mt-2 mb-2 p-2 bg-black/30 rounded-lg border border-white/5 flex items-center gap-2 cursor-pointer" onClick={() => {const w=window.open(); w.document.write('<img src="'+item.attachment_lent+'"/>')}}>
-                                <Settings size={14} className="text-blue-400"/> <span className="text-xs text-blue-300">View Proof (Lent)</span>
+                             <div className="mt-2 mb-2 p-2 bg-black/30 rounded-lg border border-white/5 flex items-center gap-2 cursor-pointer hover:bg-black/50 transition-colors" onClick={() => setViewingProof(item.attachment_lent)}>
+                                <Eye size={14} className="text-blue-400"/> <span className="text-xs text-blue-300">View Proof (Lent)</span>
                              </div>
                         )}
 
@@ -705,7 +704,9 @@ const LendingPage = ({ currentUser }) => {
                         ) : (
                              <div className="mt-2 text-xs text-green-500 flex items-center gap-1">
                                  <CheckCircle size={12}/> Returned on {formatDate(item.returned_date)}
-                                 {item.attachment_returned && <Settings size={12} className="ml-2"/>}
+                                 {item.attachment_returned && (
+                                     <button onClick={() => setViewingProof(item.attachment_returned)} className="ml-2 hover:text-green-300"><Eye size={12}/></button>
+                                 )}
                              </div>
                         )}
                     </div>
@@ -724,7 +725,7 @@ const LendingPage = ({ currentUser }) => {
                         </div>
                         <FormField label="Proof (Optional)">
                             <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}>
-                                <Settings className="mx-auto text-neutral-500 mb-2"/>
+                                <Upload className="mx-auto text-neutral-500 mb-2"/>
                                 <span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span>
                             </div>
                             <input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/>
@@ -740,7 +741,7 @@ const LendingPage = ({ currentUser }) => {
                         <FormField label="Returned Date"><Input type="date" value={returnItem.returned_date} onChange={e=>setReturnItem({...returnItem, returned_date: e.target.value})} required/></FormField>
                          <FormField label="Proof of Return (Optional)">
                             <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}>
-                                <Settings className="mx-auto text-neutral-500 mb-2"/>
+                                <Upload className="mx-auto text-neutral-500 mb-2"/>
                                 <span className="text-xs text-neutral-400">{returnItem.attachment_returned ? 'File Selected' : 'Upload Screenshot'}</span>
                             </div>
                             <input type="file" ref={returnFileRef} className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment_returned')}/>
@@ -748,6 +749,16 @@ const LendingPage = ({ currentUser }) => {
                         <button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button>
                     </form>
                 </Modal>
+            )}
+
+            {/* Proof Viewer Modal */}
+            {viewingProof && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}>
+                    <button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-50">
+                        <X size={24} />
+                    </button>
+                    <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />
+                </div>
             )}
         </div>
     );
@@ -1412,7 +1423,7 @@ const AuthenticatedApp = () => {
          )}
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30 overflow-x-auto no-scrollbar">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-between items-center px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+20px)] z-30 overflow-x-auto no-scrollbar">
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
