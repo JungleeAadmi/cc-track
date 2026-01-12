@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.2.1';
+const APP_VERSION = 'v2.2.3';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -258,11 +258,10 @@ const TransactionsModal = ({ onClose, currency }) => {
     );
 };
 
-
 const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
   const [isEditing, setIsEditing] = useState(false);
-  const [tab, setTab] = useState('view');
+  const [tab, setTab] = useState('view'); 
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
@@ -1016,6 +1015,312 @@ const IncomePage = ({ currentUser }) => {
     );
 };
 
+// --- DASHBOARD (Restored) ---
+const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, onShowTxnList, onShowSummary }) => {
+  const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
+  const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div onClick={onShowSummary} className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-2xl p-5 text-white border border-red-800/30 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform">
+                <p className="text-red-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">Total Available</p>
+                <h2 className="text-2xl font-bold tracking-tight">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
+            </div>
+             <div onClick={onShowTxnList} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-all active:scale-95">
+                <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between mb-1">
+                    Total Spent <TrendingUp size={14} className="text-neutral-600"/>
+                </p>
+                <h2 className="text-2xl font-bold text-white">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
+            </div>
+        </div>
+
+        {cards.length === 0 && !loading && (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <CreditCard className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No cards yet</h3>
+                <p className="text-neutral-500">Add your first credit card to start tracking.</p>
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cards.map(card => (
+                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                    <div className="relative z-10 flex items-start justify-between mb-4">
+                        <div className="bg-black/40 p-2 rounded-xl border border-white/5 backdrop-blur-sm">
+                            <NetworkLogo network={card.network} />
+                        </div>
+                        <div className="text-right">
+                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold block">•••• {card.last_4 || 'XXXX'}</span>
+                          <span className="text-[10px] text-neutral-500 uppercase">{card.card_type}</span>
+                        </div>
+                    </div>
+
+                    <div className="relative z-10">
+                        <h4 className="font-bold text-white text-xl tracking-wide leading-tight mb-1">{card.name}</h4>
+                        <p className="text-xs text-neutral-400 mb-6 uppercase tracking-wider font-semibold">{card.bank}</p>
+                        
+                        <div className="bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-neutral-400 text-xs font-medium">Used</span>
+                            <span className="text-white font-bold text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-white/5 pt-3 mt-1">
+                            <div>
+                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Statement</span>
+                                <span className="text-neutral-200 font-mono">{getNextDate(card.statement_date)}</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Due Date</span>
+                                <span className="text-red-400 font-bold font-mono">{getNextDate(card.payment_due_date)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+        
+        {loading && <div className="text-center py-12 text-neutral-600 animate-pulse">Syncing data...</div>}
+    </div>
+  );
+};
+
+const SettingsPage = ({ currentUser, onUpdateUser }) => {
+  const [formData, setFormData] = useState({ 
+    full_name: currentUser.full_name || '', 
+    currency: currentUser.currency || 'USD',
+    ntfy_topic: currentUser.ntfy_topic || '',
+    ntfy_server: currentUser.ntfy_server || 'https://ntfy.sh',
+    notify_card_add: currentUser.notify_card_add !== false,
+    notify_txn_add: currentUser.notify_txn_add !== false,
+    notify_card_del: currentUser.notify_card_del !== false,
+    notify_statement: currentUser.notify_statement !== false,
+    notify_due_dates: currentUser.notify_due_dates !== false,
+    notify_payment_done: currentUser.notify_payment_done !== false,
+  });
+  const [password, setPassword] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    try {
+      const res = await axios.put(`${API_URL}/users/me`, {
+        ...formData,
+        password: password || undefined
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      onUpdateUser(res.data);
+      localStorage.setItem('user_currency', res.data.currency);
+      alert('Settings updated!');
+    } catch (err) { alert('Failed to update'); }
+  };
+
+  const handleTestNotify = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.post(`${API_URL}/users/test-notify`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      alert('Notification sent!');
+    } catch (err) { alert('Failed to send test: ' + (err.response?.data?.detail || err.message)); }
+  };
+  
+  const handleDownloadCSV = async () => {
+    const token = localStorage.getItem('token');
+    try {
+        const response = await axios.get(`${API_URL}/transactions/export`, {
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: 'blob', 
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (err) { alert("Failed to download CSV"); }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return; 
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      window.location.href = '/';
+    } catch (err) { alert('Failed to delete'); }
+  };
+
+  const Toggle = ({ label, checked, field }) => (
+    <div className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+       <span className="text-sm text-neutral-300 font-medium">{label}</span>
+       <button type="button" onClick={() => setFormData({...formData, [field]: !checked})} className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ${checked ? 'bg-red-600' : 'bg-neutral-700'}`}>
+          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
+       </button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right duration-300">
+       <div>
+         <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
+         <form onSubmit={handleUpdate} className="space-y-6 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
+             
+             <div className="grid md:grid-cols-2 gap-6">
+                 <FormField label="Display Name">
+                    <Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
+                 </FormField>
+                 <FormField label="Default Currency">
+                    <Select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
+                       {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                    </Select>
+                 </FormField>
+             </div>
+
+             <div className="bg-neutral-950/50 p-5 rounded-xl border border-neutral-800 flex items-center justify-between">
+                <div>
+                    <label className="text-[10px] text-neutral-400 font-bold uppercase flex items-center gap-2 mb-1">
+                        <Tag size={12} className="text-blue-500"/> Data Export
+                    </label>
+                    <p className="text-xs text-neutral-500">Download all history.</p>
+                </div>
+                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-medium">
+                    <Download size={16} /> Download CSV
+                </button>
+             </div>
+
+             <div className="bg-neutral-900 p-1 rounded-xl">
+                <label className="text-[10px] text-neutral-500 font-bold uppercase flex items-center gap-2 mb-4 pl-1">
+                  <Bell size={12} className="text-red-500"/> Notifications (Ntfy)
+                </label>
+                <div className="space-y-3 mb-6">
+                   <Input placeholder="Server URL (e.g. https://ntfy.sh)" value={formData.ntfy_server} onChange={e => setFormData({...formData, ntfy_server: e.target.value})} />
+                   <div className="flex gap-2">
+                     <div className="flex-1">
+                        <Input placeholder="Topic Name (e.g. my-cards)" value={formData.ntfy_topic} onChange={e => setFormData({...formData, ntfy_topic: e.target.value})} />
+                     </div>
+                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-bold">Test</button>
+                   </div>
+                </div>
+                <div className="space-y-3">
+                   <Toggle label="Card Added Alert" checked={formData.notify_card_add} field="notify_card_add" />
+                   <Toggle label="Transaction Added Alert" checked={formData.notify_txn_add} field="notify_txn_add" />
+                   <Toggle label="Card Deleted Alert" checked={formData.notify_card_del} field="notify_card_del" />
+                   <Toggle label="Statement Day Alert" checked={formData.notify_statement} field="notify_statement" />
+                   <Toggle label="Due Date Warning (5 Days)" checked={formData.notify_due_dates} field="notify_due_dates" />
+                   <Toggle label="Payment Completed" checked={formData.notify_payment_done} field="notify_payment_done" />
+                </div>
+             </div>
+             
+             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-white text-black px-4 py-4 rounded-xl font-bold hover:bg-neutral-200 transition-colors">
+                <Save size={18}/> Save Changes
+             </button>
+         </form>
+         
+         <div className="text-center text-[10px] text-neutral-600 mt-8 font-mono uppercase tracking-widest">
+            CC-Track {APP_VERSION}
+         </div>
+       </div>
+
+       <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
+          <h3 className="text-red-500 font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><Trash2 size={16}/> Danger Zone</h3>
+          <div className="flex flex-col sm:flex-row gap-4">
+             <input className="bg-neutral-950 border border-red-900/50 rounded-xl px-4 py-3 text-white text-sm flex-1 focus:border-red-500 outline-none" 
+               placeholder="Type DELETE to confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
+             <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'DELETE'} 
+               className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-lg shadow-red-900/40">
+               Delete Account
+             </button>
+          </div>
+       </div>
+    </div>
+  );
+};
+
+const AnalyticsPage = ({ currentUser }) => {
+    const [data, setData] = useState({ monthly: [], category: [] });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAnalytics = async () => {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await axios.get(`${API_URL}/transactions/analytics`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setData(res.data);
+            } catch (err) { console.error(err); } finally { setLoading(false); }
+        };
+        fetchAnalytics();
+    }, []);
+
+    if (loading) return <div className="text-center py-20 text-neutral-600 animate-pulse">Analyzing data...</div>;
+    
+    if (data.monthly.length === 0 && data.category.length === 0) {
+        return (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <TrendingUp className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No data yet</h3>
+                <p className="text-neutral-500">Log some transactions to see insights.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Monthly Spending</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.monthly}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                            <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}k`} />
+                            <Tooltip cursor={{fill: '#262626'}} contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
+                            <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.category}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                                stroke="none"
+                            >
+                                {data.category.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- AUTHENTICATED APP WRAPPER ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
@@ -1440,7 +1745,7 @@ const AuthenticatedApp = () => {
             card={editingCard} 
             onClose={() => setEditingCard(null)} 
             onDelete={handleDeleteCard}
-            onUpdate={fetchData} // Pass fetchData here!
+            onUpdate={fetchData} 
         />
       )}
     </div>
