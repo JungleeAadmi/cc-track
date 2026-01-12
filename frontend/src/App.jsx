@@ -5,7 +5,7 @@ import {
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
   Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle, Upload,
-  Handshake, Building2, Wallet2
+  Users, Briefcase, DollarSign 
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v1.4.0';
+const APP_VERSION = 'v1.4.1';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -115,6 +115,7 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
+// --- SHARED FORM INPUT COMPONENT ---
 const FormField = ({ label, children }) => (
   <div className="w-full flex flex-col gap-1.5">
     <label className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider pl-1">{label}</label>
@@ -139,8 +140,7 @@ const Select = (props) => (
   </div>
 );
 
-// --- MODALS (Restored TransactionsModal) ---
-
+// --- MODALS ---
 const CardSummaryModal = ({ cards, currency, onClose }) => {
   return (
     <Modal title="Limits Overview" onClose={onClose}>
@@ -604,8 +604,6 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   );
 };
 
-// --- NEW PAGES ---
-
 const LendingPage = ({ currentUser }) => {
     const [lendingList, setLendingList] = useState([]);
     const [showAdd, setShowAdd] = useState(false);
@@ -887,6 +885,10 @@ const AuthenticatedApp = () => {
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
+  
+  // New Modals
+  const [showTxnList, setShowTxnList] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   const [newCard, setNewCard] = useState({ 
       name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
@@ -1104,12 +1106,12 @@ const AuthenticatedApp = () => {
          )}
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-between items-center px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30 overflow-x-auto no-scrollbar">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
-        <NavButton label="Debt" icon={Handshake} active={activeView === 'Debt & Lending'} onClick={() => setActiveView('Debt & Lending')} />
-        <NavButton label="Income" icon={Wallet2} active={activeView === 'Income Streams'} onClick={() => setActiveView('Income Streams')} />
+        <NavButton label="Analytics" icon={TrendingUp} active={activeView === 'Analytics'} onClick={() => setActiveView('Analytics')} />
+        <NavButton label="Settings" icon={Settings} active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
       </nav>
 
       {/* --- MODALS --- */}
