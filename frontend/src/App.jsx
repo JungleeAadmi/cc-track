@@ -5,7 +5,7 @@ import {
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
   Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle, Upload,
-  Users, Briefcase, DollarSign // SAFE ICONS: Users instead of Handshake, DollarSign instead of Wallet2
+  Users, Briefcase, DollarSign
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.0.1';
+const APP_VERSION = 'v2.0.2';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -115,7 +115,6 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
-// --- SHARED FORM INPUT COMPONENT ---
 const FormField = ({ label, children }) => (
   <div className="w-full flex flex-col gap-1.5">
     <label className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider pl-1">{label}</label>
@@ -258,7 +257,6 @@ const TransactionsModal = ({ onClose, currency }) => {
         </Modal>
     );
 };
-
 
 const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
@@ -512,11 +510,11 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
       
       {tab === 'images' && (
         <div className="space-y-6">
-           <div className="space-y-2">
+           <div className="space-y-4">
               <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
               {formData.image_front ? <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
-           <div className="space-y-2">
+           <div className="space-y-4">
               <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
               {formData.image_back ? <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
            </div>
@@ -605,273 +603,231 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   );
 };
 
-// --- NEW PAGES ---
+const SettingsPage = ({ currentUser, onUpdateUser }) => {
+  const [formData, setFormData] = useState({ 
+    full_name: currentUser.full_name || '', 
+    currency: currentUser.currency || 'USD',
+    ntfy_topic: currentUser.ntfy_topic || '',
+    ntfy_server: currentUser.ntfy_server || 'https://ntfy.sh',
+    notify_card_add: currentUser.notify_card_add !== false,
+    notify_txn_add: currentUser.notify_txn_add !== false,
+    notify_card_del: currentUser.notify_card_del !== false,
+    notify_statement: currentUser.notify_statement !== false,
+    notify_due_dates: currentUser.notify_due_dates !== false,
+    notify_payment_done: currentUser.notify_payment_done !== false,
+  });
+  const [password, setPassword] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState('');
 
-const LendingPage = ({ currentUser }) => {
-    const [lendingList, setLendingList] = useState([]);
-    const [showAdd, setShowAdd] = useState(false);
-    const [showReturn, setShowReturn] = useState(null); 
-    const [newItem, setNewItem] = useState({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' });
-    const [returnItem, setReturnItem] = useState({ returned_date: new Date().toISOString().split('T')[0], attachment_returned: '' });
-    
-    const fileRef = useRef(null);
-    const returnFileRef = useRef(null);
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    try {
+      const res = await axios.put(`${API_URL}/users/me`, {
+        ...formData,
+        password: password || undefined
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      onUpdateUser(res.data);
+      localStorage.setItem('user_currency', res.data.currency);
+      alert('Settings updated!');
+    } catch (err) { alert('Failed to update'); }
+  };
 
-    const fetchLending = async () => {
-        const token = localStorage.getItem('token');
-        try {
-            const res = await axios.get(`${API_URL}/lending/`, { headers: { Authorization: `Bearer ${token}` } });
-            setLendingList(res.data);
-        } catch (e) { console.error(e); }
-    };
+  const handleTestNotify = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.post(`${API_URL}/users/test-notify`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      alert('Notification sent!');
+    } catch (err) { alert('Failed to send test: ' + (err.response?.data?.detail || err.message)); }
+  };
+  
+  const handleDownloadCSV = async () => {
+    const token = localStorage.getItem('token');
+    try {
+        const response = await axios.get(`${API_URL}/transactions/export`, {
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: 'blob', 
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (err) { alert("Failed to download CSV"); }
+  };
 
-    useEffect(() => { fetchLending(); }, []);
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return; 
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      window.location.href = '/';
+    } catch (err) { alert('Failed to delete'); }
+  };
 
-    const handleAdd = async (e) => {
-        e.preventDefault();
-        const token = localStorage.getItem('token');
-        try {
-            await axios.post(`${API_URL}/lending/`, {
-                ...newItem,
-                amount: parseFloat(newItem.amount),
-                lent_date: new Date(newItem.lent_date).toISOString(),
-                reminder_date: newItem.reminder_date ? new Date(newItem.reminder_date).toISOString() : null
-            }, { headers: { Authorization: `Bearer ${token}` } });
-            setShowAdd(false);
-            fetchLending();
-            setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' });
-        } catch(e) { alert("Failed to add"); }
-    };
+  const Toggle = ({ label, checked, field }) => (
+    <div className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+       <span className="text-sm text-neutral-300 font-medium">{label}</span>
+       <button type="button" onClick={() => setFormData({...formData, [field]: !checked})} className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ${checked ? 'bg-red-600' : 'bg-neutral-700'}`}>
+          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
+       </button>
+    </div>
+  );
 
-    const handleReturn = async (e) => {
-        e.preventDefault();
-        const token = localStorage.getItem('token');
-        try {
-            await axios.put(`${API_URL}/lending/${showReturn}/return`, {
-                is_returned: true,
-                returned_date: new Date(returnItem.returned_date).toISOString(),
-                attachment_returned: returnItem.attachment_returned
-            }, { headers: { Authorization: `Bearer ${token}` } });
-            setShowReturn(null);
-            fetchLending();
-        } catch(e) { alert("Failed to update"); }
-    };
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right duration-300">
+       <div>
+         <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
+         <form onSubmit={handleUpdate} className="space-y-6 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
+             
+             <div className="grid md:grid-cols-2 gap-4">
+                 <div>
+                    <label className="text-xs text-neutral-500 font-bold uppercase">Display Name</label>
+                    <input className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1" 
+                      value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
+                 </div>
+                 <div>
+                    <label className="text-xs text-neutral-500 font-bold uppercase">Default Currency</label>
+                    <select className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white mt-1"
+                      value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
+                       {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                    </select>
+                 </div>
+             </div>
 
-    const handleFile = async (e, setter, field) => {
-        try {
-            const b64 = await processImage(e.target.files[0]);
-            setter(prev => ({...prev, [field]: b64}));
-        } catch(e) { alert("Error processing image"); }
-    };
-
-    return (
-        <div className="space-y-6 animate-in fade-in">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-white">Debt Portfolio</h2>
-                <button onClick={() => setShowAdd(true)} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700">
-                    <Plus size={16}/> Lend Money
+             <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800 flex items-center justify-between">
+                <div>
+                    <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2">
+                        <Tag size={14} className="text-blue-500"/> Data Export
+                    </label>
+                    <p className="text-xs text-neutral-500 mt-1">Download all transaction history.</p>
+                </div>
+                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-neutral-700">
+                    <Download size={14} /> Download CSV
                 </button>
-            </div>
+             </div>
 
-            <div className="space-y-3">
-                {lendingList.map(item => (
-                    <div key={item.id} className={`p-4 rounded-xl border ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`}>
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <h3 className="font-bold text-white text-lg">{item.borrower_name}</h3>
-                                <p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p>
-                            </div>
-                            <div className="text-right">
-                                <span className={`font-bold text-lg ${item.is_returned ? 'text-green-500 line-through' : 'text-red-500'}`}>
-                                    {currentUser.currency} {item.amount.toLocaleString()}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        {item.attachment_lent && (
-                             <div className="mt-2 mb-2 p-2 bg-black/30 rounded-lg border border-white/5 flex items-center gap-2 cursor-pointer" onClick={() => {const w=window.open(); w.document.write('<img src="'+item.attachment_lent+'"/>')}}>
-                                <Settings size={14} className="text-blue-400"/> <span className="text-xs text-blue-300">View Proof (Lent)</span>
-                             </div>
-                        )}
+             <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-800">
+                <label className="text-xs text-neutral-400 font-bold uppercase flex items-center gap-2 mb-4">
+                  <Bell size={14} className="text-red-500"/> Notifications (Ntfy)
+                </label>
+                <div className="space-y-3 mb-4">
+                   <input className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm" 
+                     placeholder="Server URL (e.g. https://ntfy.sh)" value={formData.ntfy_server} onChange={e => setFormData({...formData, ntfy_server: e.target.value})} />
+                   <div className="flex gap-2">
+                     <input className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm" 
+                       placeholder="Topic Name (e.g. my-cards)" value={formData.ntfy_topic} onChange={e => setFormData({...formData, ntfy_topic: e.target.value})} />
+                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-4 rounded-lg text-sm hover:bg-neutral-700">Test</button>
+                   </div>
+                </div>
+                <div className="space-y-2">
+                   <Toggle label="Card Added Alert" checked={formData.notify_card_add} field="notify_card_add" />
+                   <Toggle label="Transaction Added Alert" checked={formData.notify_txn_add} field="notify_txn_add" />
+                   <Toggle label="Card Deleted Alert" checked={formData.notify_card_del} field="notify_card_del" />
+                   <Toggle label="Statement Day Alert" checked={formData.notify_statement} field="notify_statement" />
+                   <Toggle label="Due Date Warning (5 Days)" checked={formData.notify_due_dates} field="notify_due_dates" />
+                </div>
+             </div>
+             
+             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-3 rounded-lg font-medium transition-colors">
+                <Save size={16}/> Save Changes
+             </button>
+         </form>
+       </div>
 
-                        {!item.is_returned ? (
-                            <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
-                                <span className="text-xs text-neutral-500 flex items-center gap-1">
-                                    <Bell size={12}/> {item.reminder_date ? `Remind: ${formatDate(item.reminder_date)}` : 'No reminder'}
-                                </span>
-                                <button onClick={() => setShowReturn(item.id)} className="bg-green-700/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-green-700/50 hover:bg-green-700/30">
-                                    Mark Returned
-                                </button>
-                            </div>
-                        ) : (
-                             <div className="mt-2 text-xs text-green-500 flex items-center gap-1">
-                                 <CheckCircle size={12}/> Returned on {formatDate(item.returned_date)}
-                                 {item.attachment_returned && <Settings size={12} className="ml-2"/>}
-                             </div>
-                        )}
-                    </div>
-                ))}
-                {lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}
-            </div>
-
-            {showAdd && (
-                <Modal title="Lend Money" onClose={() => setShowAdd(false)}>
-                    <form onSubmit={handleAdd} className="space-y-6">
-                        <FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField>
-                        <FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField>
-                            <FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField>
-                        </div>
-                        <FormField label="Proof (Optional)">
-                            <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}>
-                                <Settings className="mx-auto text-neutral-500 mb-2"/>
-                                <span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span>
-                            </div>
-                            <input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/>
-                        </FormField>
-                        <button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button>
-                    </form>
-                </Modal>
-            )}
-
-            {showReturn && (
-                <Modal title="Mark as Returned" onClose={() => setShowReturn(null)}>
-                    <form onSubmit={handleReturn} className="space-y-6">
-                        <FormField label="Returned Date"><Input type="date" value={returnItem.returned_date} onChange={e=>setReturnItem({...returnItem, returned_date: e.target.value})} required/></FormField>
-                         <FormField label="Proof of Return (Optional)">
-                            <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}>
-                                <Settings className="mx-auto text-neutral-500 mb-2"/>
-                                <span className="text-xs text-neutral-400">{returnItem.attachment_returned ? 'File Selected' : 'Upload Screenshot'}</span>
-                            </div>
-                            <input type="file" ref={returnFileRef} className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment_returned')}/>
-                        </FormField>
-                        <button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button>
-                    </form>
-                </Modal>
-            )}
-        </div>
-    );
+       <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
+          <h3 className="text-red-500 font-bold mb-2 flex items-center gap-2"><Trash2 size={20}/> Danger Zone</h3>
+          <div className="flex gap-4">
+             <input className="bg-neutral-950 border border-red-900/50 rounded-lg p-3 text-white text-sm flex-1" 
+               placeholder="DELETE" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
+             <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'DELETE'} 
+               className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-bold">
+               Delete Account
+             </button>
+          </div>
+       </div>
+    </div>
+  );
 };
 
-const IncomePage = ({ currentUser }) => {
-    const [companies, setCompanies] = useState([]);
-    const [salaries, setSalaries] = useState([]);
-    const [showAddComp, setShowAddComp] = useState(false);
-    const [showLogSal, setShowLogSal] = useState(false);
-    
-    // Forms
-    const [newComp, setNewComp] = useState({ name: '', joining_date: new Date().toISOString().split('T')[0] });
-    const [newSal, setNewSal] = useState({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '' });
+const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick }) => {
+  const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
+  const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
 
-    const fetchData = async () => {
-        const token = localStorage.getItem('token');
-        const [c, s] = await Promise.all([
-            axios.get(`${API_URL}/income/companies`, { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get(`${API_URL}/income/salary`, { headers: { Authorization: `Bearer ${token}` } })
-        ]);
-        setCompanies(c.data);
-        setSalaries(s.data);
-    };
-
-    useEffect(() => { fetchData(); }, []);
-
-    const handleAddComp = async (e) => {
-        e.preventDefault();
-        const token = localStorage.getItem('token');
-        await axios.post(`${API_URL}/income/companies`, {
-            name: newComp.name,
-            joining_date: new Date(newComp.joining_date).toISOString()
-        }, { headers: { Authorization: `Bearer ${token}` } });
-        setShowAddComp(false);
-        fetchData();
-    };
-
-    const handleLogSal = async (e) => {
-        e.preventDefault();
-        const token = localStorage.getItem('token');
-        await axios.post(`${API_URL}/income/salary`, {
-            amount: parseFloat(newSal.amount),
-            date: new Date(newSal.date).toISOString(),
-            company_id: parseInt(newSal.company_id)
-        }, { headers: { Authorization: `Bearer ${token}` } });
-        setShowLogSal(false);
-        fetchData();
-    };
-
-    return (
-        <div className="space-y-8 animate-in fade-in">
-             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-white">Income Streams</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => setShowAddComp(true)} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button>
-                    <button onClick={() => setShowLogSal(true)} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button>
-                </div>
-            </div>
-
-            {/* Companies Horizontal Scroll */}
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                {companies.map(c => (
-                    <div key={c.id} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28">
-                        <Briefcase size={24} className="text-blue-500 mb-1"/>
-                        <div>
-                            <p className="font-bold text-white text-sm truncate">{c.name}</p>
-                            <p className="text-[10px] text-neutral-500">Since {formatDate(c.joining_date)}</p>
-                        </div>
-                    </div>
-                ))}
-                <button onClick={() => setShowAddComp(true)} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600">
-                    <Plus size={24}/>
-                </button>
-            </div>
-
-            {/* Salary List */}
-            <div className="space-y-3">
-                <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>
-                {salaries.map(s => (
-                    <div key={s.id} className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800">
-                        <div className="flex items-center gap-3">
-                             <div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div>
-                             <div>
-                                 <p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p>
-                                 <p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p>
-                             </div>
-                        </div>
-                        <span className="font-bold text-green-500">+ {currentUser.currency} {s.amount.toLocaleString()}</span>
-                    </div>
-                ))}
-                 {salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}
-            </div>
-
-            {showAddComp && (
-                <Modal title="Add Company" onClose={() => setShowAddComp(false)}>
-                    <form onSubmit={handleAddComp} className="space-y-6">
-                        <FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField>
-                        <FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>
-                        <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Add Company</button>
-                    </form>
-                </Modal>
-            )}
-
-            {showLogSal && (
-                <Modal title="Log Salary" onClose={() => setShowLogSal(false)}>
-                    <form onSubmit={handleLogSal} className="space-y-6">
-                        <FormField label="Select Company">
-                            <Select value={newSal.company_id} onChange={e=>setNewSal({...newSal, company_id: e.target.value})} required>
-                                <option value="">-- Select --</option>
-                                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </Select>
-                        </FormField>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField>
-                            <FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField>
-                        </div>
-                        <button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Log Credit</button>
-                    </form>
-                </Modal>
-            )}
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
         </div>
-    );
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-xl p-5 text-white border border-red-800/30 shadow-lg">
+                <p className="text-red-200/70 text-xs font-bold uppercase tracking-wider">Total Available</p>
+                <h2 className="text-2xl font-bold tracking-tight mt-1">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
+            </div>
+             <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-md">
+                <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Total Spent</p>
+                <h2 className="text-2xl font-bold text-white mt-1">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
+            </div>
+        </div>
+
+        {cards.length === 0 && !loading && (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <CreditCard className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No cards yet</h3>
+                <p className="text-neutral-500">Add your first credit card to start tracking.</p>
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cards.map(card => (
+                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
+                    <div className="relative z-10 flex items-start justify-between mb-4">
+                        <div className="bg-black/40 p-2 rounded-lg border border-white/5 backdrop-blur-sm">
+                            <NetworkLogo network={card.network} />
+                        </div>
+                        <div className="text-right">
+                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold block">•••• {card.last_4 || 'XXXX'}</span>
+                          <span className="text-[10px] text-neutral-500 uppercase">{card.card_type}</span>
+                        </div>
+                    </div>
+
+                    <div className="relative z-10">
+                        <h4 className="font-bold text-white text-xl tracking-wide leading-tight mb-1">{card.name}</h4>
+                        <p className="text-xs text-neutral-400 mb-4 uppercase tracking-wider font-semibold">{card.bank}</p>
+                        
+                        <div className="bg-black/30 rounded-lg p-3 mb-3 border border-white/5">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-neutral-400 text-xs font-medium">Used</span>
+                            <span className="text-white font-bold text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-white/5 pt-3 mt-1">
+                            <div>
+                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Statement</span>
+                                <span className="text-neutral-200">{getNextDate(card.statement_date)}</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Due Date</span>
+                                <span className="text-red-400 font-bold">{getNextDate(card.payment_due_date)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+        
+        {loading && <div className="text-center py-12 text-neutral-600 animate-pulse">Syncing data...</div>}
+    </div>
+  );
 };
 
 // --- AUTHENTICATED APP WRAPPER ---
@@ -887,10 +843,6 @@ const AuthenticatedApp = () => {
   const [showAddCard, setShowAddCard] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
-  
-  // New Modals
-  const [showTxnList, setShowTxnList] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
 
   const [newCard, setNewCard] = useState({ 
       name: '', bank: '', limit: '', manual_limit: '', network: 'Visa', 
@@ -1039,8 +991,6 @@ const AuthenticatedApp = () => {
             {[
               { name: 'Dashboard', icon: LayoutDashboard },
               { name: 'My Cards', icon: CreditCard },
-              { name: 'Debt & Lending', icon: Users },
-              { name: 'Income Streams', icon: DollarSign },
               { name: 'Analytics', icon: TrendingUp },
               { name: 'Settings', icon: Settings }
             ].map((item) => (
@@ -1084,15 +1034,11 @@ const AuthenticatedApp = () => {
                 currentUser={currentUser} 
                 onEditCard={setEditingCard} 
                 onAnalyticsClick={() => setActiveView('Analytics')} 
-                onShowTxnList={() => setShowTxnList(true)}
-                onShowSummary={() => setShowSummary(true)}
               />
             </>
          )}
          {activeView === 'Settings' && <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} />}
          {activeView === 'Analytics' && <AnalyticsPage currentUser={currentUser} />}
-         {activeView === 'Debt & Lending' && <LendingPage currentUser={currentUser} />}
-         {activeView === 'Income Streams' && <IncomePage currentUser={currentUser} />}
          {activeView === 'My Cards' && (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map(card => (
@@ -1108,19 +1054,15 @@ const AuthenticatedApp = () => {
          )}
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30 overflow-x-auto no-scrollbar">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30">
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />
-        <NavButton label="Debt" icon={Users} active={activeView === 'Debt & Lending'} onClick={() => setActiveView('Debt & Lending')} />
-        <NavButton label="Income" icon={DollarSign} active={activeView === 'Income Streams'} onClick={() => setActiveView('Income Streams')} />
+        <NavButton label="Analytics" icon={TrendingUp} active={activeView === 'Analytics'} onClick={() => setActiveView('Analytics')} />
+        <NavButton label="Settings" icon={Settings} active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
       </nav>
 
       {/* --- MODALS --- */}
-      
-      {showTxnList && <TransactionsModal onClose={() => setShowTxnList(false)} currency={currentUser.currency} />}
-      {showSummary && <CardSummaryModal cards={cards} currency={currentUser.currency} onClose={() => setShowSummary(false)} />}
-
       {showAddCard && (
         <Modal title="Add New Card" onClose={() => setShowAddCard(false)}>
            <form onSubmit={handleAddCard} className="space-y-6">
