@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.1.2';
+const APP_VERSION = 'v2.2.1';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -258,10 +258,11 @@ const TransactionsModal = ({ onClose, currency }) => {
     );
 };
 
+
 const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const [formData, setFormData] = useState({ ...card });
   const [isEditing, setIsEditing] = useState(false);
-  const [tab, setTab] = useState('view'); 
+  const [tab, setTab] = useState('view');
   const [statements, setStatements] = useState([]);
   const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
   const [editingStmtId, setEditingStmtId] = useState(null);
@@ -285,6 +286,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const handleUpdateCard = async () => {
       const token = localStorage.getItem('token');
       try {
+          // Parse numbers safely
           const payload = {
               name: formData.name,
               bank: formData.bank,
@@ -569,7 +571,7 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
                       {statements.map(stmt => (
                           <div 
                             key={stmt.id} 
-                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/50 border-neutral-800 active:scale-[0.98]'}`}
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
                             onTouchStart={() => handleTouchStart(stmt)}
                             onTouchEnd={handleTouchEnd}
                             onMouseDown={() => handleTouchStart(stmt)}
@@ -770,9 +772,21 @@ const IncomePage = ({ currentUser }) => {
     const [showAddComp, setShowAddComp] = useState(false);
     const [showLogSal, setShowLogSal] = useState(false);
     
+    // Feature: Edit/Delete Company
+    const [compOptions, setCompOptions] = useState(null); // Which company to manage
+    const [showEditComp, setShowEditComp] = useState(false); // Edit modal visibility
+    const longPressTimer = useRef(null);
+
     // Forms
-    const [newComp, setNewComp] = useState({ name: '', joining_date: new Date().toISOString().split('T')[0] });
+    const [newComp, setNewComp] = useState({ 
+        name: '', 
+        joining_date: new Date().toISOString().split('T')[0],
+        leaving_date: '',
+        is_current: true,
+        logo: '' // Base64
+    });
     const [newSal, setNewSal] = useState({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '' });
+    const logoRef = useRef(null);
 
     const fetchData = async () => {
         const token = localStorage.getItem('token');
@@ -786,15 +800,43 @@ const IncomePage = ({ currentUser }) => {
 
     useEffect(() => { fetchData(); }, []);
 
-    const handleAddComp = async (e) => {
+    const handleAddOrUpdateComp = async (e) => {
         e.preventDefault();
         const token = localStorage.getItem('token');
-        await axios.post(`${API_URL}/income/companies`, {
-            name: newComp.name,
-            joining_date: new Date(newComp.joining_date).toISOString()
-        }, { headers: { Authorization: `Bearer ${token}` } });
-        setShowAddComp(false);
-        fetchData();
+        try {
+            const payload = {
+                name: newComp.name,
+                joining_date: new Date(newComp.joining_date).toISOString(),
+                leaving_date: newComp.leaving_date ? new Date(newComp.leaving_date).toISOString() : null,
+                is_current: newComp.is_current,
+                logo: newComp.logo
+            };
+
+            if (showEditComp && compOptions) {
+                // Update
+                await axios.put(`${API_URL}/income/companies/${compOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            } else {
+                // Create
+                await axios.post(`${API_URL}/income/companies`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            }
+            
+            setShowAddComp(false);
+            setShowEditComp(false);
+            setCompOptions(null);
+            fetchData();
+            // Reset form
+            setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' });
+        } catch(err) { alert("Failed to save company"); }
+    };
+    
+    const handleDeleteComp = async (id) => {
+        if(!confirm("Delete this company and all associated salary records?")) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`${API_URL}/income/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            setCompOptions(null);
+            fetchData();
+        } catch(err) { alert("Failed to delete company"); }
     };
 
     const handleLogSal = async (e) => {
@@ -809,12 +851,62 @@ const IncomePage = ({ currentUser }) => {
         fetchData();
     };
 
+    const handleLogoUpload = async (e) => {
+        try {
+            const b64 = await processImage(e.target.files[0]);
+            setNewComp(prev => ({...prev, logo: b64}));
+        } catch(err) { alert("Error uploading logo"); }
+    };
+
+    // --- Long Press Logic ---
+    const handleTouchStart = (comp) => {
+        longPressTimer.current = setTimeout(() => {
+            if (navigator.vibrate) navigator.vibrate(50);
+            setCompOptions(comp);
+        }, 500);
+    };
+
+    const handleTouchEnd = () => {
+        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
+
+    const startEdit = (comp) => {
+        setNewComp({
+            name: comp.name,
+            joining_date: new Date(comp.joining_date).toISOString().split('T')[0],
+            leaving_date: comp.leaving_date ? new Date(comp.leaving_date).toISOString().split('T')[0] : '',
+            is_current: comp.is_current,
+            logo: comp.logo || ''
+        });
+        setCompOptions(comp); // Keep track of ID
+        setShowEditComp(true); 
+    };
+
     return (
-        <div className="space-y-8 animate-in fade-in">
+        <div className="space-y-8 animate-in fade-in relative">
+            {/* Options Overlay for Companies */}
+            {compOptions && !showEditComp && (
+                 <div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200">
+                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setCompOptions(null)}></div>
+                     <div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1">
+                         <div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div>
+                         <button onClick={() => startEdit(compOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors">
+                            <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div>
+                            <span className="font-medium text-sm">Edit</span>
+                         </button>
+                         <button onClick={() => handleDeleteComp(compOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors">
+                            <div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div>
+                            <span className="font-medium text-sm">Delete</span>
+                         </button>
+                         <button onClick={() => setCompOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button>
+                     </div>
+                 </div>
+            )}
+
              <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-white">Income Streams</h2>
                 <div className="flex gap-2">
-                    <button onClick={() => setShowAddComp(true)} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button>
+                    <button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true }); setShowAddComp(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button>
                     <button onClick={() => setShowLogSal(true)} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button>
                 </div>
             </div>
@@ -822,15 +914,28 @@ const IncomePage = ({ currentUser }) => {
             {/* Companies Horizontal Scroll */}
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
                 {companies.map(c => (
-                    <div key={c.id} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28">
-                        <Briefcase size={24} className="text-blue-500 mb-1"/>
+                    <div 
+                        key={c.id} 
+                        className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95"
+                        onTouchStart={() => handleTouchStart(c)}
+                        onTouchEnd={handleTouchEnd}
+                        onMouseDown={() => handleTouchStart(c)}
+                        onMouseUp={handleTouchEnd}
+                        onMouseLeave={handleTouchEnd}
+                    >
+                        {c.logo ? (
+                            <img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />
+                        ) : (
+                            <Briefcase size={24} className="text-blue-500 mb-1"/>
+                        )}
                         <div>
                             <p className="font-bold text-white text-sm truncate">{c.name}</p>
-                            <p className="text-[10px] text-neutral-500">Since {formatDate(c.joining_date)}</p>
+                            <p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p>
                         </div>
+                        {c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}
                     </div>
                 ))}
-                <button onClick={() => setShowAddComp(true)} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600">
+                <button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600">
                     <Plus size={24}/>
                 </button>
             </div>
@@ -853,12 +958,39 @@ const IncomePage = ({ currentUser }) => {
                  {salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}
             </div>
 
-            {showAddComp && (
-                <Modal title="Add Company" onClose={() => setShowAddComp(false)}>
-                    <form onSubmit={handleAddComp} className="space-y-6">
+            {(showAddComp || showEditComp) && (
+                <Modal title={showEditComp ? "Edit Company" : "Add Company"} onClose={() => { setShowAddComp(false); setShowEditComp(false); setCompOptions(null); }}>
+                    <form onSubmit={handleAddOrUpdateComp} className="space-y-6">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-20 h-20 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => logoRef.current.click()}>
+                                {newComp.logo ? <img src={newComp.logo} className="w-full h-full object-cover"/> : <Upload size={24} className="text-neutral-500"/>}
+                                <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-[10px] text-white">Change</div>
+                            </div>
+                            <input type="file" ref={logoRef} className="hidden" onChange={handleLogoUpload}/>
+                        </div>
+
                         <FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField>
-                        <FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>
-                        <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Add Company</button>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>
+                            {!newComp.is_current && (
+                                <FormField label="Leaving Date"><Input type="date" value={newComp.leaving_date} onChange={e=>setNewComp({...newComp, leaving_date: e.target.value})} required/></FormField>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-neutral-800 p-3 rounded-xl border border-neutral-700">
+                             <div 
+                                onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}
+                                className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${newComp.is_current ? 'bg-green-600 border-green-600' : 'border-neutral-500'}`}
+                             >
+                                 {newComp.is_current && <Check size={14} className="text-white"/>}
+                             </div>
+                             <span className="text-sm text-white font-medium" onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}>I currently work here</span>
+                        </div>
+
+                        <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">
+                            {showEditComp ? "Update Company" : "Add Company"}
+                        </button>
                     </form>
                 </Modal>
             )}
@@ -876,317 +1008,12 @@ const IncomePage = ({ currentUser }) => {
                             <FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField>
                             <FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField>
                         </div>
-                        <button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Log Credit</button>
+                        <button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-green-500 transition-colors">Log Credit</button>
                     </form>
                 </Modal>
             )}
         </div>
     );
-};
-
-const SettingsPage = ({ currentUser, onUpdateUser }) => {
-  const [formData, setFormData] = useState({ 
-    full_name: currentUser.full_name || '', 
-    currency: currentUser.currency || 'USD',
-    ntfy_topic: currentUser.ntfy_topic || '',
-    ntfy_server: currentUser.ntfy_server || 'https://ntfy.sh',
-    notify_card_add: currentUser.notify_card_add !== false,
-    notify_txn_add: currentUser.notify_txn_add !== false,
-    notify_card_del: currentUser.notify_card_del !== false,
-    notify_statement: currentUser.notify_statement !== false,
-    notify_due_dates: currentUser.notify_due_dates !== false,
-    notify_payment_done: currentUser.notify_payment_done !== false,
-  });
-  const [password, setPassword] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem('token');
-    try {
-      const res = await axios.put(`${API_URL}/users/me`, {
-        ...formData,
-        password: password || undefined
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      onUpdateUser(res.data);
-      localStorage.setItem('user_currency', res.data.currency);
-      alert('Settings updated!');
-    } catch (err) { alert('Failed to update'); }
-  };
-
-  const handleTestNotify = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      await axios.post(`${API_URL}/users/test-notify`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      alert('Notification sent!');
-    } catch (err) { alert('Failed to send test: ' + (err.response?.data?.detail || err.message)); }
-  };
-  
-  const handleDownloadCSV = async () => {
-    const token = localStorage.getItem('token');
-    try {
-        const response = await axios.get(`${API_URL}/transactions/export`, {
-            headers: { Authorization: `Bearer ${token}` },
-            responseType: 'blob', 
-        });
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-    } catch (err) { alert("Failed to download CSV"); }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE') return; 
-    const token = localStorage.getItem('token');
-    try {
-      await axios.delete(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
-      localStorage.removeItem('token');
-      localStorage.removeItem('username');
-      window.location.href = '/';
-    } catch (err) { alert('Failed to delete'); }
-  };
-
-  const Toggle = ({ label, checked, field }) => (
-    <div className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800">
-       <span className="text-sm text-neutral-300 font-medium">{label}</span>
-       <button type="button" onClick={() => setFormData({...formData, [field]: !checked})} className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 ${checked ? 'bg-red-600' : 'bg-neutral-700'}`}>
-          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
-       </button>
-    </div>
-  );
-
-  return (
-    <div className="space-y-8 animate-in slide-in-from-right duration-300">
-       <div>
-         <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
-         <form onSubmit={handleUpdate} className="space-y-6 bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
-             
-             <div className="grid md:grid-cols-2 gap-6">
-                 <FormField label="Display Name">
-                    <Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
-                 </FormField>
-                 <FormField label="Default Currency">
-                    <Select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
-                       {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                    </Select>
-                 </FormField>
-             </div>
-
-             <div className="bg-neutral-950/50 p-5 rounded-xl border border-neutral-800 flex items-center justify-between">
-                <div>
-                    <label className="text-[10px] text-neutral-400 font-bold uppercase flex items-center gap-2 mb-1">
-                        <Tag size={12} className="text-blue-500"/> Data Export
-                    </label>
-                    <p className="text-xs text-neutral-500">Download all history.</p>
-                </div>
-                <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-medium">
-                    <Download size={16} /> Download CSV
-                </button>
-             </div>
-
-             <div className="bg-neutral-900 p-1 rounded-xl">
-                <label className="text-[10px] text-neutral-500 font-bold uppercase flex items-center gap-2 mb-4 pl-1">
-                  <Bell size={12} className="text-red-500"/> Notifications (Ntfy)
-                </label>
-                <div className="space-y-3 mb-6">
-                   <Input placeholder="Server URL (e.g. https://ntfy.sh)" value={formData.ntfy_server} onChange={e => setFormData({...formData, ntfy_server: e.target.value})} />
-                   <div className="flex gap-2">
-                     <div className="flex-1">
-                        <Input placeholder="Topic Name (e.g. my-cards)" value={formData.ntfy_topic} onChange={e => setFormData({...formData, ntfy_topic: e.target.value})} />
-                     </div>
-                     <button type="button" onClick={handleTestNotify} className="bg-neutral-800 border border-neutral-700 text-white px-5 rounded-xl text-sm hover:bg-neutral-700 transition-colors font-bold">Test</button>
-                   </div>
-                </div>
-                <div className="space-y-3">
-                   <Toggle label="Card Added Alert" checked={formData.notify_card_add} field="notify_card_add" />
-                   <Toggle label="Transaction Added Alert" checked={formData.notify_txn_add} field="notify_txn_add" />
-                   <Toggle label="Card Deleted Alert" checked={formData.notify_card_del} field="notify_card_del" />
-                   <Toggle label="Statement Day Alert" checked={formData.notify_statement} field="notify_statement" />
-                   <Toggle label="Due Date Warning (5 Days)" checked={formData.notify_due_dates} field="notify_due_dates" />
-                   <Toggle label="Payment Completed" checked={formData.notify_payment_done} field="notify_payment_done" />
-                </div>
-             </div>
-             
-             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-white text-black px-4 py-4 rounded-xl font-bold hover:bg-neutral-200 transition-colors">
-                <Save size={18}/> Save Changes
-             </button>
-         </form>
-         
-         <div className="text-center text-[10px] text-neutral-600 mt-8 font-mono uppercase tracking-widest">
-            CC-Track {APP_VERSION}
-         </div>
-       </div>
-
-       <div className="bg-red-950/20 p-6 rounded-2xl border border-red-900/30">
-          <h3 className="text-red-500 font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><Trash2 size={16}/> Danger Zone</h3>
-          <div className="flex flex-col sm:flex-row gap-4">
-             <input className="bg-neutral-950 border border-red-900/50 rounded-xl px-4 py-3 text-white text-sm flex-1 focus:border-red-500 outline-none" 
-               placeholder="Type DELETE to confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} />
-             <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'DELETE'} 
-               className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-lg shadow-red-900/40">
-               Delete Account
-             </button>
-          </div>
-       </div>
-    </div>
-  );
-};
-
-const AnalyticsPage = ({ currentUser }) => {
-    const [data, setData] = useState({ monthly: [], category: [] });
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchAnalytics = async () => {
-            const token = localStorage.getItem('token');
-            try {
-                const res = await axios.get(`${API_URL}/transactions/analytics`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setData(res.data);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
-        };
-        fetchAnalytics();
-    }, []);
-
-    if (loading) return <div className="text-center py-20 text-neutral-600 animate-pulse">Analyzing data...</div>;
-    
-    if (data.monthly.length === 0 && data.category.length === 0) {
-        return (
-            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
-                <TrendingUp className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
-                <h3 className="text-lg font-medium text-white">No data yet</h3>
-                <p className="text-neutral-500">Log some transactions to see insights.</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h2 className="text-xl font-bold text-white mb-4">Monthly Spending</h2>
-                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.monthly}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                            <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}k`} />
-                            <Tooltip cursor={{fill: '#262626'}} contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
-                            <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            <div>
-                <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
-                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data.category}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={80}
-                                paddingAngle={5}
-                                dataKey="value"
-                                stroke="none"
-                            >
-                                {data.category.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, onShowTxnList, onShowSummary }) => {
-  const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
-  const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div onClick={onShowSummary} className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-2xl p-5 text-white border border-red-800/30 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform">
-                <p className="text-red-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">Total Available</p>
-                <h2 className="text-2xl font-bold tracking-tight">{currentUser.currency} {totalAvailable.toLocaleString()}</h2>
-            </div>
-             <div onClick={onShowTxnList} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-all active:scale-95">
-                <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between mb-1">
-                    Total Spent <TrendingUp size={14} className="text-neutral-600"/>
-                </p>
-                <h2 className="text-2xl font-bold text-white">{currentUser.currency} {totalSpent.toLocaleString()}</h2>
-            </div>
-        </div>
-
-        {cards.length === 0 && !loading && (
-            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
-                <CreditCard className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
-                <h3 className="text-lg font-medium text-white">No cards yet</h3>
-                <p className="text-neutral-500">Add your first credit card to start tracking.</p>
-            </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cards.map(card => (
-                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
-                    <div className="relative z-10 flex items-start justify-between mb-4">
-                        <div className="bg-black/40 p-2 rounded-xl border border-white/5 backdrop-blur-sm">
-                            <NetworkLogo network={card.network} />
-                        </div>
-                        <div className="text-right">
-                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold block">•••• {card.last_4 || 'XXXX'}</span>
-                          <span className="text-[10px] text-neutral-500 uppercase">{card.card_type}</span>
-                        </div>
-                    </div>
-
-                    <div className="relative z-10">
-                        <h4 className="font-bold text-white text-xl tracking-wide leading-tight mb-1">{card.name}</h4>
-                        <p className="text-xs text-neutral-400 mb-6 uppercase tracking-wider font-semibold">{card.bank}</p>
-                        
-                        <div className="bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
-                          <div className="flex justify-between text-sm mb-2">
-                            <span className="text-neutral-400 text-xs font-medium">Used</span>
-                            <span className="text-white font-bold text-xs">{currentUser.currency} {card.spent?.toLocaleString()}</span>
-                          </div>
-                          <div className="w-full bg-neutral-700 h-1.5 rounded-full overflow-hidden">
-                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-white/5 pt-3 mt-1">
-                            <div>
-                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Statement</span>
-                                <span className="text-neutral-200 font-mono">{getNextDate(card.statement_date)}</span>
-                            </div>
-                            <div className="text-right">
-                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Due Date</span>
-                                <span className="text-red-400 font-bold font-mono">{getNextDate(card.payment_due_date)}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-        
-        {loading && <div className="text-center py-12 text-neutral-600 animate-pulse">Syncing data...</div>}
-    </div>
-  );
 };
 
 // --- AUTHENTICATED APP WRAPPER ---
@@ -1423,7 +1250,7 @@ const AuthenticatedApp = () => {
          )}
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-between items-center px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+20px)] z-30 overflow-x-auto no-scrollbar">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-center p-3 pb-[calc(env(safe-area-inset-bottom)+10px)] z-30 overflow-x-auto no-scrollbar">
         <NavButton label="Home" icon={Home} active={activeView === 'Dashboard'} onClick={() => setActiveView('Dashboard')} />
         <NavButton label="Add Card" icon={CreditCard} onClick={() => setShowAddCard(true)} />
         <NavButton label="Add Txn" icon={Plus} onClick={() => setShowAddTxn(true)} />

@@ -27,6 +27,38 @@ def get_companies(
 ):
     return db.query(models.Company).filter(models.Company.owner_id == current_user.id).all()
 
+@router.put("/companies/{company_id}", response_model=schemas.Company)
+def update_company(
+    company_id: int,
+    comp_update: schemas.CompanyUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    comp = db.query(models.Company).filter(models.Company.id == company_id, models.Company.owner_id == current_user.id).first()
+    if not comp:
+        raise HTTPException(status_code=404, detail="Company not found")
+        
+    for field, value in comp_update.dict(exclude_unset=True).items():
+        setattr(comp, field, value)
+        
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+@router.delete("/companies/{company_id}")
+def delete_company(
+    company_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    comp = db.query(models.Company).filter(models.Company.id == company_id, models.Company.owner_id == current_user.id).first()
+    if not comp:
+        raise HTTPException(status_code=404, detail="Company not found")
+        
+    db.delete(comp)
+    db.commit()
+    return {"message": "Company deleted"}
+
 # --- SALARIES ---
 @router.post("/salary", response_model=schemas.Salary)
 def add_salary(

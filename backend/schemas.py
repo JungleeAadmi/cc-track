@@ -86,9 +86,19 @@ class Salary(SalaryBase):
 class CompanyBase(BaseModel):
     name: str
     joining_date: datetime
+    leaving_date: Optional[datetime] = None
+    is_current: bool = True
+    logo: Optional[str] = None
 
 class CompanyCreate(CompanyBase):
     pass
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    joining_date: Optional[datetime] = None
+    leaving_date: Optional[datetime] = None
+    is_current: Optional[bool] = None
+    logo: Optional[str] = None
 
 class Company(CompanyBase):
     id: int

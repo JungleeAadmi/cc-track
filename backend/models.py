@@ -23,8 +23,8 @@ class User(Base):
     
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
-    lending = relationship("Lending", back_populates="owner", cascade="all, delete-orphan") # NEW
-    companies = relationship("Company", back_populates="owner", cascade="all, delete-orphan") # NEW
+    lending = relationship("Lending", back_populates="owner", cascade="all, delete-orphan")
+    companies = relationship("Company", back_populates="owner", cascade="all, delete-orphan")
 
 class Card(Base):
     __tablename__ = "cards"
@@ -86,8 +86,6 @@ class Transaction(Base):
     card = relationship("Card", back_populates="transactions")
     tag = relationship("Tag", back_populates="transactions")
 
-# --- NEW MODULES ---
-
 class Lending(Base):
     __tablename__ = "lending"
     id = Column(Integer, primary_key=True, index=True)
@@ -95,11 +93,11 @@ class Lending(Base):
     amount = Column(Float)
     lent_date = Column(DateTime)
     reminder_date = Column(DateTime, nullable=True)
-    attachment_lent = Column(Text, nullable=True) # Screenshot/PDF Base64
+    attachment_lent = Column(Text, nullable=True)
     
     is_returned = Column(Boolean, default=False)
     returned_date = Column(DateTime, nullable=True)
-    attachment_returned = Column(Text, nullable=True) # Proof of return
+    attachment_returned = Column(Text, nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="lending")
@@ -109,6 +107,9 @@ class Company(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     joining_date = Column(DateTime)
+    leaving_date = Column(DateTime, nullable=True) # NEW
+    is_current = Column(Boolean, default=True)     # NEW
+    logo = Column(Text, nullable=True)             # NEW (Base64)
     owner_id = Column(Integer, ForeignKey("users.id"))
     
     owner = relationship("User", back_populates="companies")
