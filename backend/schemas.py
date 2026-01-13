@@ -44,6 +44,21 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# --- SUBSCRIPTION ---
+class SubscriptionBase(BaseModel):
+    name: str
+    amount: float
+    billing_cycle: str = "Monthly"
+    next_due_date: datetime
+
+class SubscriptionCreate(SubscriptionBase):
+    pass
+
+class Subscription(SubscriptionBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 # --- LENDING ---
 class LendingBase(BaseModel):
     borrower_name: str

@@ -1,8 +1,8 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 from datetime import datetime
 import models, schemas, auth, database
 from utils import send_ntfy_alert
@@ -15,13 +15,35 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 def read_transactions(
     skip: int = 0, 
     limit: int = 500, 
+    search: Optional[str] = None,
+    min_amount: Optional[float] = None,
+    max_amount: Optional[float] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(database.get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # Return transactions for cards owned by user
-    return db.query(models.Transaction).join(models.Card).filter(
-        models.Card.owner_id == current_user.id
-    ).order_by(desc(models.Transaction.date)).offset(skip).limit(limit).all()
+    query = db.query(models.Transaction).join(models.Card).filter(models.Card.owner_id == current_user.id)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(or_(
+            models.Transaction.description.ilike(search_term),
+            models.Transaction.type.ilike(search_term),
+            models.Card.name.ilike(search_term)
+        ))
+    
+    if min_amount is not None:
+        query = query.filter(models.Transaction.amount >= min_amount)
+    if max_amount is not None:
+        query = query.filter(models.Transaction.amount <= max_amount)
+    
+    if start_date:
+        query = query.filter(models.Transaction.date >= datetime.fromisoformat(start_date))
+    if end_date:
+        query = query.filter(models.Transaction.date <= datetime.fromisoformat(end_date))
+        
+    return query.order_by(desc(models.Transaction.date)).offset(skip).limit(limit).all()
 
 @router.post("/", response_model=schemas.Transaction)
 def create_transaction(
@@ -80,7 +102,6 @@ def update_transaction(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # Verify ownership via Card
     txn = db.query(models.Transaction).join(models.Card).filter(
         models.Transaction.id == txn_id,
         models.Card.owner_id == current_user.id
@@ -91,7 +112,6 @@ def update_transaction(
         
     for field, value in txn_update.dict(exclude_unset=True).items():
         if field == "tag_name" and value:
-             # Handle Tag update separately
              tag_clean = value.strip().title()
              existing_tag = db.query(models.Tag).filter(models.Tag.name == tag_clean, models.Tag.owner_id == current_user.id).first()
              if existing_tag:
