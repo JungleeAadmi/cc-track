@@ -25,7 +25,7 @@ class User(Base):
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
     lending = relationship("Lending", back_populates="owner", cascade="all, delete-orphan")
     companies = relationship("Company", back_populates="owner", cascade="all, delete-orphan")
-    subscriptions = relationship("Subscription", back_populates="owner", cascade="all, delete-orphan") # NEW
+    subscriptions = relationship("Subscription", back_populates="owner", cascade="all, delete-orphan")
 
 class Card(Base):
     __tablename__ = "cards"
@@ -118,16 +118,17 @@ class Salary(Base):
     id = Column(Integer, primary_key=True, index=True)
     amount = Column(Float)
     date = Column(DateTime)
+    slip = Column(Text, nullable=True) 
     company_id = Column(Integer, ForeignKey("companies.id"))
     company = relationship("Company", back_populates="salaries")
 
-# --- NEW: Subscription ---
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     amount = Column(Float)
-    billing_cycle = Column(String) # Monthly, Yearly
+    billing_cycle = Column(String)
     next_due_date = Column(DateTime)
+    attachment = Column(Text, nullable=True) # NEW
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="subscriptions")

@@ -50,9 +50,17 @@ class SubscriptionBase(BaseModel):
     amount: float
     billing_cycle: str = "Monthly"
     next_due_date: datetime
+    attachment: Optional[str] = None
 
 class SubscriptionCreate(SubscriptionBase):
     pass
+
+class SubscriptionUpdate(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    billing_cycle: Optional[str] = None
+    next_due_date: Optional[datetime] = None
+    attachment: Optional[str] = None
 
 class Subscription(SubscriptionBase):
     id: int
@@ -89,9 +97,15 @@ class SalaryBase(BaseModel):
     amount: float
     date: datetime
     company_id: int
+    slip: Optional[str] = None
 
 class SalaryCreate(SalaryBase):
     pass
+
+class SalaryUpdate(BaseModel):
+    amount: Optional[float] = None
+    date: Optional[datetime] = None
+    slip: Optional[str] = None
 
 class Salary(SalaryBase):
     id: int
