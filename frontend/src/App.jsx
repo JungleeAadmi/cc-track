@@ -5,7 +5,7 @@ import {
   CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye, EyeOff,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
   Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle, Upload,
-  Users, Briefcase, DollarSign, Search, RefreshCw, Paperclip
+  Users, Briefcase, DollarSign, Search, RefreshCw
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.6.1';
+const APP_VERSION = 'v2.6.2';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -58,38 +58,43 @@ const formatMoney = (amount, currency, privacy) => {
 
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
+    if (!file) return reject("No file");
+    
+    // Check if PDF - Return directly as Base64
     if (file.type === 'application/pdf') {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = reject;
-    } else {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-          const img = new Image();
-          img.src = event.target.result;
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 800; 
-              const scaleSize = MAX_WIDTH / img.width;
-              if (img.width > MAX_WIDTH) {
-                  canvas.width = MAX_WIDTH;
-                  canvas.height = img.height * scaleSize;
-              } else {
-                  canvas.width = img.width;
-                  canvas.height = img.height;
-              }
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              resolve(canvas.toDataURL('image/jpeg', 0.7));
-            } catch (e) { reject(e); }
-          };
-          img.onerror = (err) => reject(err);
-        };
-        reader.onerror = (err) => reject(err);
+        reader.onerror = (e) => reject(e);
+        return;
     }
+
+    // Handle Images - Compress
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; 
+          const scaleSize = MAX_WIDTH / img.width;
+          if (img.width > MAX_WIDTH) {
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+          } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+          }
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } catch (e) { reject(e); }
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
   });
 };
 
@@ -141,7 +146,7 @@ const Select = (props) => (
   </div>
 );
 
-// --- 3. PAGE COMPONENTS ---
+// --- 3. PAGE & FEATURE COMPONENTS ---
 
 const SearchPage = ({ currency, privacy }) => {
     const [results, setResults] = useState([]);
@@ -182,7 +187,6 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     const [showAdd, setShowAdd] = useState(false);
     const [newSub, setNewSub] = useState({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
     
-    // Edit/Delete
     const [options, setOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const [viewingSubAtt, setViewingSubAtt] = useState(null);
