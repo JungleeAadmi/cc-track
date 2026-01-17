@@ -35,6 +35,24 @@ def read_lending(
         models.Lending.owner_id == current_user.id
     ).order_by(desc(models.Lending.lent_date)).all()
 
+@router.put("/{lending_id}", response_model=schemas.Lending)
+def update_lending(
+    lending_id: int,
+    update: schemas.LendingUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    lend = db.query(models.Lending).filter(models.Lending.id == lending_id, models.Lending.owner_id == current_user.id).first()
+    if not lend:
+        raise HTTPException(status_code=404, detail="Entry not found")
+        
+    for field, value in update.dict(exclude_unset=True).items():
+        setattr(lend, field, value)
+    
+    db.commit()
+    db.refresh(lend)
+    return lend
+
 @router.put("/{lending_id}/return", response_model=schemas.Lending)
 def mark_returned(
     lending_id: int,
@@ -61,3 +79,17 @@ def mark_returned(
             tags="white_check_mark,moneybag"
         )
     return lend
+
+@router.delete("/{lending_id}")
+def delete_lending(
+    lending_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    lend = db.query(models.Lending).filter(models.Lending.id == lending_id, models.Lending.owner_id == current_user.id).first()
+    if not lend:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    db.delete(lend)
+    db.commit()
+    return {"message": "Deleted"}

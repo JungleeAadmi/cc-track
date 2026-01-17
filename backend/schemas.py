@@ -82,8 +82,13 @@ class LendingCreate(LendingBase):
     pass
 
 class LendingUpdate(BaseModel):
-    is_returned: bool
-    returned_date: datetime
+    borrower_name: Optional[str] = None
+    amount: Optional[float] = None
+    lent_date: Optional[datetime] = None
+    reminder_date: Optional[datetime] = None
+    attachment_lent: Optional[str] = None
+    is_returned: Optional[bool] = None
+    returned_date: Optional[datetime] = None
     attachment_returned: Optional[str] = None
 
 class Lending(LendingBase):
@@ -106,6 +111,7 @@ class SalaryUpdate(BaseModel):
     amount: Optional[float] = None
     date: Optional[datetime] = None
     slip: Optional[str] = None
+    company_id: Optional[int] = None
 
 class Salary(SalaryBase):
     id: int

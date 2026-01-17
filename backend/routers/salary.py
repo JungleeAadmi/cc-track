@@ -92,3 +92,43 @@ def get_salaries(
     return db.query(models.Salary).join(models.Company).filter(
         models.Company.owner_id == current_user.id
     ).order_by(desc(models.Salary.date)).all()
+
+@router.put("/salary/{salary_id}", response_model=schemas.Salary)
+def update_salary(
+    salary_id: int,
+    sal_update: schemas.SalaryUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    sal = db.query(models.Salary).join(models.Company).filter(
+        models.Salary.id == salary_id,
+        models.Company.owner_id == current_user.id
+    ).first()
+    
+    if not sal:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+        
+    for field, value in sal_update.dict(exclude_unset=True).items():
+        setattr(sal, field, value)
+    
+    db.commit()
+    db.refresh(sal)
+    return sal
+
+@router.delete("/salary/{salary_id}")
+def delete_salary(
+    salary_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    sal = db.query(models.Salary).join(models.Company).filter(
+        models.Salary.id == salary_id,
+        models.Company.owner_id == current_user.id
+    ).first()
+    
+    if not sal:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+        
+    db.delete(sal)
+    db.commit()
+    return {"message": "Salary record deleted"}
