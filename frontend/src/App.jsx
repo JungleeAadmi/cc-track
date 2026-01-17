@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
-  CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye, EyeOff,
+  CreditCard, Plus, LogOut, LayoutDashboard, Settings, Trash2, Save, Eye,
   Camera, Image as ImageIcon, X, ChevronRight, Home, TrendingUp, Bell, Tag, Download,
   Receipt, Calendar, Edit2, Check, Copy, CheckCircle, AlertTriangle, Upload,
   Users, Briefcase, DollarSign, Search, RefreshCw
@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.6.3';
+const APP_VERSION = 'v2.7.1';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -60,7 +60,6 @@ const processImage = (file) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject("No file");
     
-    // Check if PDF - Return directly as Base64
     if (file.type === 'application/pdf') {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -69,7 +68,6 @@ const processImage = (file) => {
         return;
     }
 
-    // Handle Images - Compress
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -146,7 +144,7 @@ const Select = (props) => (
   </div>
 );
 
-// --- 3. PAGE & FEATURE COMPONENTS ---
+// --- 3. PAGE COMPONENTS ---
 
 const SearchPage = ({ currency, privacy }) => {
     const [results, setResults] = useState([]);
@@ -278,7 +276,11 @@ const LendingPage = ({ currentUser, privacy }) => {
         e.preventDefault(); const token = localStorage.getItem('token'); 
         try { 
             const payload = { ...newItem, amount: parseFloat(newItem.amount), lent_date: new Date(newItem.lent_date).toISOString(), reminder_date: newItem.reminder_date ? new Date(newItem.reminder_date).toISOString() : null };
-            if (showEdit && lendOptions) { await axios.put(`${API_URL}/lending/${lendOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/lending/`, payload, { headers: { Authorization: `Bearer ${token}` } }); }
+            if (showEdit && lendOptions) {
+                await axios.put(`${API_URL}/lending/${lendOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            } else {
+                await axios.post(`${API_URL}/lending/`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
+            }
             setShowAdd(false); setShowEdit(false); setLendOptions(null); fetchLending(); setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); 
         } catch(e) { alert("Failed to save"); } 
     };
@@ -294,14 +296,18 @@ const LendingPage = ({ currentUser, privacy }) => {
     
     const handleTouchStart = (item) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setLendOptions(item); }, 500); };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
-    const startEdit = (item) => { setNewItem({ borrower_name: item.borrower_name, amount: item.amount, lent_date: new Date(item.lent_date).toISOString().split('T')[0], reminder_date: item.reminder_date ? new Date(item.reminder_date).toISOString().split('T')[0] : '', attachment_lent: item.attachment_lent }); setLendOptions(item); setShowEdit(true); };
+
+    const startEdit = (item) => {
+        setNewItem({ borrower_name: item.borrower_name, amount: item.amount, lent_date: new Date(item.lent_date).toISOString().split('T')[0], reminder_date: item.reminder_date ? new Date(item.reminder_date).toISOString().split('T')[0] : '', attachment_lent: item.attachment_lent });
+        setLendOptions(item); setShowEdit(true);
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in relative">
             {lendOptions && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setLendOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(lendOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(lendOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setLendOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Debt Portfolio</h2><button onClick={() => { setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700"><Plus size={16}/> Lend Money</button></div>
             <div className="space-y-3">{lendingList.map(item => (<div key={item.id} className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} onTouchStart={() => handleTouchStart(item)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(item)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex justify-between items-start mb-2"><div><h3 className="font-bold text-white text-lg">{item.borrower_name}</h3><p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p></div><div className="text-right"><span className={`font-bold text-lg ${item.is_returned ? 'text-green-500 line-through' : 'text-red-500'}`}>{formatMoney(item.amount, currentUser.currency, privacy)}</span></div></div>{item.attachment_lent && (<div className="mt-2 mb-2 p-2 bg-black/30 rounded-lg border border-white/5 flex items-center gap-2 cursor-pointer hover:bg-black/50 transition-colors" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}><Eye size={14} className="text-blue-400"/> <span className="text-xs text-blue-300">View Proof (Lent)</span></div>)}{!item.is_returned ? (<div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5"><span className="text-xs text-neutral-500 flex items-center gap-1"><Bell size={12}/> {item.reminder_date ? `Remind: ${formatDate(item.reminder_date)}` : 'No reminder'}</span><button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); }} className="bg-green-700/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-green-700/50 hover:bg-green-700/30">Mark Returned</button></div>) : (<div className="mt-2 text-xs text-green-500 flex items-center gap-1"><CheckCircle size={12}/> Returned on {formatDate(item.returned_date)}{item.attachment_returned && (<button onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_returned); }} className="ml-2 hover:text-green-300"><Eye size={12}/></button>)}</div>)}</div>))}{lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}</div>
-            {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Lending" : "Lend Money"} onClose={() => { setShowAdd(false); setShowEdit(false); setLendOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>}
+            {(showAdd || showEdit) && (<Modal title={showEdit ? "Edit Lending" : "Lend Money"} onClose={() => { setShowAdd(false); setShowEdit(false); setLendOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>)}
             {showReturn && <Modal title="Mark as Returned" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><FormField label="Returned Date"><Input type="date" value={returnItem.returned_date} onChange={e=>setReturnItem({...returnItem, returned_date: e.target.value})} required/></FormField><FormField label="Proof of Return (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment_returned ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment_returned')}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button></form></Modal>}
             {viewingProof && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}><button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingProof.startsWith('data:application/pdf') ? <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
@@ -317,6 +323,7 @@ const IncomePage = ({ currentUser, privacy }) => {
     const [showEditComp, setShowEditComp] = useState(false); 
     const [salOptions, setSalOptions] = useState(null);
     const [showEditSal, setShowEditSal] = useState(false);
+    const [viewCompany, setViewCompany] = useState(null);
     const [viewingSlip, setViewingSlip] = useState(null);
     const longPressTimer = useRef(null);
     const [newComp, setNewComp] = useState({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' });
@@ -330,15 +337,10 @@ const IncomePage = ({ currentUser, privacy }) => {
     const handleAddOrUpdateComp = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { const payload = { name: newComp.name, joining_date: new Date(newComp.joining_date).toISOString(), leaving_date: newComp.leaving_date ? new Date(newComp.leaving_date).toISOString() : null, is_current: newComp.is_current, logo: newComp.logo }; if (showEditComp && compOptions) { await axios.put(`${API_URL}/income/companies/${compOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/companies`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowAddComp(false); setShowEditComp(false); setCompOptions(null); fetchData(); setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' }); } catch(err) { alert("Failed to save company"); } };
     const handleDeleteComp = async (id) => { if(!confirm("Delete this company?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setCompOptions(null); fetchData(); } catch(err) { alert("Failed to delete company"); } };
     
-    // UPDATED SALARY LOGIC
+    // FIXED SALARY SUBMISSION
     const handleLogOrUpdateSal = async (e) => { 
         e.preventDefault(); 
-        
-        if (!newSal.company_id) {
-            alert("Please select a company first.");
-            return;
-        }
-
+        if(!newSal.company_id) { alert("Please select a company"); return; } 
         const token = localStorage.getItem('token'); 
         try { 
             const payload = { 
@@ -347,22 +349,14 @@ const IncomePage = ({ currentUser, privacy }) => {
                 company_id: parseInt(newSal.company_id), 
                 slip: newSal.slip || null 
             }; 
-            
             if (showEditSal && salOptions) { 
                 await axios.put(`${API_URL}/income/salary/${salOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
             } else { 
                 await axios.post(`${API_URL}/income/salary`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
             } 
-            
-            setShowLogSal(false); 
-            setShowEditSal(false); 
-            setSalOptions(null); 
-            fetchData(); 
+            setShowLogSal(false); setShowEditSal(false); setSalOptions(null); fetchData(); 
             setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); 
-        } catch(err) { 
-            console.error(err);
-            alert("Failed to save salary: " + (err.response?.data?.detail || err.message)); 
-        } 
+        } catch(err) { alert("Failed to save salary: " + (err.response?.data?.detail || err.message)); } 
     };
     
     const handleDeleteSal = async (id) => { if(!confirm("Delete this record?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/salary/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setSalOptions(null); fetchData(); } catch(err) { alert("Failed to delete salary"); } };
@@ -372,16 +366,47 @@ const IncomePage = ({ currentUser, privacy }) => {
     const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
     const startEditComp = (comp) => { setNewComp({ name: comp.name, joining_date: new Date(comp.joining_date).toISOString().split('T')[0], leaving_date: comp.leaving_date ? new Date(comp.leaving_date).toISOString().split('T')[0] : '', is_current: comp.is_current, logo: comp.logo || '' }); setCompOptions(comp); setShowEditComp(true); };
     const startEditSal = (sal) => { setNewSal({ amount: sal.amount, date: new Date(sal.date).toISOString().split('T')[0], company_id: sal.company_id, slip: sal.slip || '' }); setSalOptions(sal); setShowEditSal(true); };
+    const getCompanyTotal = (id) => salaries.filter(s => s.company_id === id).reduce((acc, curr) => acc + curr.amount, 0);
 
     return (
         <div className="space-y-8 animate-in fade-in relative">
             {compOptions && !showEditComp && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setCompOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Company Options</div><button onClick={() => startEditComp(compOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDeleteComp(compOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setCompOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             {salOptions && !showEditSal && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSalOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Salary Options</div><button onClick={() => startEditSal(salOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDeleteSal(salOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setSalOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Income Streams</h2><div className="flex gap-2"><button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button><button onClick={() => { setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); setShowLogSal(true); }} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button></div></div>
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{companies.map(c => (<div key={c.id} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95" onTouchStart={() => handleTouchStart(c, setCompOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(c, setCompOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>{c.logo ? (<img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />) : (<Briefcase size={24} className="text-blue-500 mb-1"/>)}<div><p className="font-bold text-white text-sm truncate">{c.name}</p><p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p></div>{c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}</div>))}<button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600"><Plus size={24}/></button></div>
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{companies.map(c => (<div key={c.id} onClick={() => setViewCompany(c)} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95 cursor-pointer" onTouchStart={() => handleTouchStart(c, setCompOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(c, setCompOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>{c.logo ? (<img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />) : (<Briefcase size={24} className="text-blue-500 mb-1"/>)}<div><p className="font-bold text-white text-sm truncate">{c.name}</p><p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p><p className="text-xs font-bold text-green-500 mt-1">{formatMoney(getCompanyTotal(c.id), currentUser.currency, privacy)}</p></div>{c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}</div>))}<button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600"><Plus size={24}/></button></div>
             <div className="space-y-3"><h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>{salaries.map(s => (<div key={s.id} className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s, setSalOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s, setSalOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div><div><p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p><p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p></div></div><div className="flex items-center gap-3">{s.slip && <button onClick={(e) => { e.stopPropagation(); setViewingSlip(s.slip); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<span className="font-bold text-green-500">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span></div></div>))}{salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}</div>
             {(showAddComp || showEditComp) && (<Modal title={showEditComp ? "Edit Company" : "Add Company"} onClose={() => { setShowAddComp(false); setShowEditComp(false); setCompOptions(null); }}><form onSubmit={handleAddOrUpdateComp} className="space-y-6"><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => logoRef.current.click()}>{newComp.logo ? <img src={newComp.logo} className="w-full h-full object-cover"/> : <Upload size={24} className="text-neutral-500"/>}<div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-[10px] text-white">Change</div></div><input type="file" ref={logoRef} className="hidden" onChange={handleLogoUpload}/></div><FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>{!newComp.is_current && (<FormField label="Leaving Date"><Input type="date" value={newComp.leaving_date} onChange={e=>setNewComp({...newComp, leaving_date: e.target.value})} required/></FormField>)}</div><div className="flex items-center gap-3 bg-neutral-800 p-3 rounded-xl border border-neutral-700"><div onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})} className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${newComp.is_current ? 'bg-green-600 border-green-600' : 'border-neutral-500'}`}>{newComp.is_current && <Check size={14} className="text-white"/>}</div><span className="text-sm text-white font-medium" onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}>I currently work here</span></div><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">{showEditComp ? "Update Company" : "Add Company"}</button></form></Modal>)}
             {(showLogSal || showEditSal) && (<Modal title={showEditSal ? "Edit Salary" : "Log Salary"} onClose={() => { setShowLogSal(false); setShowEditSal(false); setSalOptions(null); }}><form onSubmit={handleLogOrUpdateSal} className="space-y-6"><FormField label="Select Company"><Select value={newSal.company_id} onChange={e=>setNewSal({...newSal, company_id: e.target.value})} required><option value="">-- Select --</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField></div><FormField label="Salary Slip (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => slipRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSal.slip ? 'File Selected' : 'Upload Slip (PDF/Img)'}</span></div><input type="file" ref={slipRef} className="hidden" onChange={handleSlipUpload}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-green-500 transition-colors">{showEditSal ? "Update Record" : "Log Credit"}</button></form></Modal>)}
+            {viewCompany && (
+                <Modal title={viewCompany.name} onClose={() => setViewCompany(null)}>
+                    <div className="text-center py-6 border-b border-neutral-800 mb-4">
+                        <p className="text-neutral-500 text-xs uppercase tracking-wider">Lifetime Earnings</p>
+                        <h2 className="text-3xl font-bold text-white mt-2">{formatMoney(getCompanyTotal(viewCompany.id), currentUser.currency, privacy)}</h2>
+                        <p className="text-xs text-neutral-600 mt-2">{formatDate(viewCompany.joining_date)} - {viewCompany.is_current ? 'Present' : formatDate(viewCompany.leaving_date)}</p>
+                    </div>
+                    <div className="space-y-3">
+                        {salaries.filter(s => s.company_id === viewCompany.id).map(s => (
+                            <div key={s.id} className="flex justify-between items-center p-3 bg-neutral-950 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform"
+                                 onTouchStart={() => handleTouchStart(s, setSalOptions)} 
+                                 onTouchEnd={handleTouchEnd} 
+                                 onMouseDown={() => handleTouchStart(s, setSalOptions)} 
+                                 onMouseUp={handleTouchEnd} 
+                                 onMouseLeave={handleTouchEnd}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={16}/></div>
+                                    <div><p className="text-white font-medium text-sm">{formatDate(s.date)}</p></div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {s.slip && <button onClick={(e) => { e.stopPropagation(); setViewingSlip(s.slip); }} className="text-neutral-500 hover:text-white"><Eye size={14}/></button>}
+                                    <span className="font-bold text-green-500 text-sm">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span>
+                                </div>
+                            </div>
+                        ))}
+                        {salaries.filter(s => s.company_id === viewCompany.id).length === 0 && <p className="text-center text-neutral-500 text-sm">No records found.</p>}
+                    </div>
+                </Modal>
+            )}
             {viewingSlip && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSlip(null)}><button onClick={() => setViewingSlip(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingSlip.startsWith('data:application/pdf') ? <iframe src={viewingSlip} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingSlip} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
     );
