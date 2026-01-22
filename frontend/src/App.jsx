@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.8.3';
+const APP_VERSION = 'v2.7.2';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -59,16 +59,13 @@ const formatMoney = (amount, currency, privacy) => {
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject("No file");
-    
-    // Improved PDF check: Check MIME type OR file extension
-    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    if (file.type === 'application/pdf') {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = (e) => resolve(e.target.result);
         reader.onerror = (e) => reject(e);
         return;
     }
-
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -112,7 +109,6 @@ const NetworkLogo = ({ network }) => {
   const style = "h-8 w-12 object-contain";
   if (network?.toLowerCase() === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
   if (network?.toLowerCase() === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
-  if (net === 'amex') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>;
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -146,8 +142,7 @@ const Select = (props) => (
   </div>
 );
 
-// --- 3. MODALS ---
-
+// --- 3. MODALS (RESTORED) ---
 const CardSummaryModal = ({ cards, currency, onClose }) => {
   return (
     <Modal title="Limits Overview" onClose={onClose}>
@@ -293,7 +288,6 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   const handleUpdateCard = async () => {
       const token = localStorage.getItem('token');
       try {
-          // Parse numbers safely
           const payload = {
               name: formData.name,
               bank: formData.bank,
@@ -667,15 +661,13 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     const handleAddOrUpdate = async (e) => {
         e.preventDefault(); const token = localStorage.getItem('token');
         const payload = { ...newSub, amount: parseFloat(newSub.amount), next_due_date: new Date(newSub.next_due_date).toISOString() };
-        try {
-            if (showEdit && options) {
-                await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
-            } else {
-                await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } });
-            }
-            setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs();
-            setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
-        } catch(err) { alert("Failed to save subscription."); }
+        if (showEdit && options) {
+            await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        } else {
+            await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        }
+        setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs();
+        setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
     };
 
     const handleDelete = async (id) => {
@@ -700,8 +692,8 @@ const SubscriptionsPage = ({ currency, privacy }) => {
         <div className="space-y-6 animate-in fade-in relative">
             {options && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Subscriptions</h2><button onClick={() => { setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700"><Plus size={20}/></button></div>
-            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="text-right"><p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p><button onClick={() => handleDelete(s.id)} className="text-[10px] text-red-500 hover:underline">Remove</button></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
-            {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-4"><FormField label="Service Name"><Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/></FormField><FormField label="Cycle"><Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}><option>Monthly</option><option>Yearly</option></Select></FormField></div><FormField label="Next Billing Date"><Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/></FormField><FormField label="Attachment (Invoice/Receipt)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File (PDF/Img)'}</span></div><input type="file" ref={fileRef} accept="image/*,application/pdf" className="hidden" onChange={handleFile}/></FormField><button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">Track Subscription</button></form></Modal>}
+            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
+            {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-4"><FormField label="Service Name"><Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/></FormField><FormField label="Cycle"><Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}><option>Monthly</option><option>Yearly</option></Select></FormField></div><FormField label="Next Billing Date"><Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/></FormField><FormField label="Attachment (Invoice/Receipt)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File'}</span></div><input type="file" ref={fileRef} className="hidden" onChange={handleFile}/></FormField><button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">Track Subscription</button></form></Modal>}
             {viewingSubAtt && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSubAtt(null)}><button onClick={() => setViewingSubAtt(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingSubAtt.startsWith('data:application/pdf') ? <iframe src={viewingSubAtt} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingSubAtt} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
     );
@@ -776,8 +768,8 @@ const LendingPage = ({ currentUser, privacy }) => {
             {lendOptions && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setLendOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(lendOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(lendOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setLendOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Debt Portfolio</h2><button onClick={() => { setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700"><Plus size={16}/> Lend Money</button></div>
             <div className="space-y-3">{lendingList.map(item => (<div key={item.id} className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} onTouchStart={() => handleTouchStart(item)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(item)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex justify-between items-start mb-2"><div><h3 className="font-bold text-white text-lg">{item.borrower_name}</h3><p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p></div><div className="text-right"><span className={`font-bold text-lg ${item.is_returned ? 'text-green-500 line-through' : 'text-red-500'}`}>{formatMoney(item.amount, currentUser.currency, privacy)}</span></div></div>{item.attachment_lent && (<div className="mt-2 mb-2 p-2 bg-black/30 rounded-lg border border-white/5 flex items-center gap-2 cursor-pointer hover:bg-black/50 transition-colors" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}><Eye size={14} className="text-blue-400"/> <span className="text-xs text-blue-300">View Proof (Lent)</span></div>)}{!item.is_returned ? (<div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5"><span className="text-xs text-neutral-500 flex items-center gap-1"><Bell size={12}/> {item.reminder_date ? `Remind: ${formatDate(item.reminder_date)}` : 'No reminder'}</span><button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); }} className="bg-green-700/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-green-700/50 hover:bg-green-700/30">Mark Returned</button></div>) : (<div className="mt-2 text-xs text-green-500 flex items-center gap-1"><CheckCircle size={12}/> Returned on {formatDate(item.returned_date)}{item.attachment_returned && (<button onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_returned); }} className="ml-2 hover:text-green-300"><Eye size={12}/></button>)}</div>)}</div>))}{lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}</div>
-            {(showAdd || showEdit) && (<Modal title={showEdit ? "Edit Lending" : "Lend Money"} onClose={() => { setShowAdd(false); setShowEdit(false); setLendOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>)}
-            {showReturn && <Modal title="Mark as Returned" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><FormField label="Returned Date"><Input type="date" value={returnItem.returned_date} onChange={e=>setReturnItem({...returnItem, returned_date: e.target.value})} required/></FormField><FormField label="Proof of Return (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment_returned ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment_returned')}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button></form></Modal>}
+            {(showAdd || showEdit) && (<Modal title={showEdit ? "Edit Lending" : "Lend Money"} onClose={() => { setShowAdd(false); setShowEdit(false); setLendOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>)}
+            {showReturn && <Modal title="Mark as Returned" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><FormField label="Returned Date"><Input type="date" value={returnItem.returned_date} onChange={e=>setReturnItem({...returnItem, returned_date: e.target.value})} required/></FormField><FormField label="Proof of Return (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment_returned ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment_returned')}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button></form></Modal>}
             {viewingProof && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}><button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingProof.startsWith('data:application/pdf') ? <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
     );
@@ -835,7 +827,6 @@ const IncomePage = ({ currentUser, privacy }) => {
     const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
     const startEditComp = (comp) => { setNewComp({ name: comp.name, joining_date: new Date(comp.joining_date).toISOString().split('T')[0], leaving_date: comp.leaving_date ? new Date(comp.leaving_date).toISOString().split('T')[0] : '', is_current: comp.is_current, logo: comp.logo || '' }); setCompOptions(comp); setShowEditComp(true); };
     const startEditSal = (sal) => { setNewSal({ amount: sal.amount, date: new Date(sal.date).toISOString().split('T')[0], company_id: sal.company_id, slip: sal.slip || '' }); setSalOptions(sal); setShowEditSal(true); };
-    
     const getCompanyTotal = (id) => salaries.filter(s => s.company_id === id).reduce((acc, curr) => acc + curr.amount, 0);
 
     return (
@@ -845,8 +836,8 @@ const IncomePage = ({ currentUser, privacy }) => {
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Income Streams</h2><div className="flex gap-2"><button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button><button onClick={() => { setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); setShowLogSal(true); }} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button></div></div>
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{companies.map(c => (<div key={c.id} onClick={() => setViewCompany(c)} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95 cursor-pointer" onTouchStart={() => handleTouchStart(c, setCompOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(c, setCompOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>{c.logo ? (<img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />) : (<Briefcase size={24} className="text-blue-500 mb-1"/>)}<div><p className="font-bold text-white text-sm truncate">{c.name}</p><p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p><p className="text-xs font-bold text-green-500 mt-1">{formatMoney(getCompanyTotal(c.id), currentUser.currency, privacy)}</p></div>{c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}</div>))}<button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600"><Plus size={24}/></button></div>
             <div className="space-y-3"><h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>{salaries.map(s => (<div key={s.id} className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s, setSalOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s, setSalOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div><div><p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p><p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p></div></div><div className="flex items-center gap-3">{s.slip && <button onClick={(e) => { e.stopPropagation(); setViewingSlip(s.slip); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<span className="font-bold text-green-500">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span></div></div>))}{salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}</div>
-            {(showAddComp || showEditComp) && (<Modal title={showEditComp ? "Edit Company" : "Add Company"} onClose={() => { setShowAddComp(false); setShowEditComp(false); setCompOptions(null); }}><form onSubmit={handleAddOrUpdateComp} className="space-y-6"><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => logoRef.current.click()}>{newComp.logo ? <img src={newComp.logo} className="w-full h-full object-cover"/> : <Upload size={24} className="text-neutral-500"/>}<div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-[10px] text-white">Change</div></div><input type="file" ref={logoRef} accept="image/*" className="hidden" onChange={handleLogoUpload}/></div><FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>{!newComp.is_current && (<FormField label="Leaving Date"><Input type="date" value={newComp.leaving_date} onChange={e=>setNewComp({...newComp, leaving_date: e.target.value})} required/></FormField>)}</div><div className="flex items-center gap-3 bg-neutral-800 p-3 rounded-xl border border-neutral-700"><div onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})} className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${newComp.is_current ? 'bg-green-600 border-green-600' : 'border-neutral-500'}`}>{newComp.is_current && <Check size={14} className="text-white"/>}</div><span className="text-sm text-white font-medium" onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}>I currently work here</span></div><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">{showEditComp ? "Update Company" : "Add Company"}</button></form></Modal>)}
-            {(showLogSal || showEditSal) && (<Modal title={showEditSal ? "Edit Salary" : "Log Salary"} onClose={() => { setShowLogSal(false); setShowEditSal(false); setSalOptions(null); }}><form onSubmit={handleLogOrUpdateSal} className="space-y-6"><FormField label="Select Company"><Select value={newSal.company_id} onChange={e=>setNewSal({...newSal, company_id: e.target.value})} required><option value="">-- Select --</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField></div><FormField label="Salary Slip (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => slipRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSal.slip ? 'File Selected' : 'Upload Slip (PDF/Img)'}</span></div><input type="file" ref={slipRef} accept="image/*,application/pdf" className="hidden" onChange={handleSlipUpload}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-green-500 transition-colors">{showEditSal ? "Update Record" : "Log Credit"}</button></form></Modal>)}
+            {(showAddComp || showEditComp) && (<Modal title={showEditComp ? "Edit Company" : "Add Company"} onClose={() => { setShowAddComp(false); setShowEditComp(false); setCompOptions(null); }}><form onSubmit={handleAddOrUpdateComp} className="space-y-6"><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => logoRef.current.click()}>{newComp.logo ? <img src={newComp.logo} className="w-full h-full object-cover"/> : <Upload size={24} className="text-neutral-500"/>}<div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-[10px] text-white">Change</div></div><input type="file" ref={logoRef} className="hidden" onChange={handleLogoUpload}/></div><FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>{!newComp.is_current && (<FormField label="Leaving Date"><Input type="date" value={newComp.leaving_date} onChange={e=>setNewComp({...newComp, leaving_date: e.target.value})} required/></FormField>)}</div><div className="flex items-center gap-3 bg-neutral-800 p-3 rounded-xl border border-neutral-700"><div onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})} className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${newComp.is_current ? 'bg-green-600 border-green-600' : 'border-neutral-500'}`}>{newComp.is_current && <Check size={14} className="text-white"/>}</div><span className="text-sm text-white font-medium" onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}>I currently work here</span></div><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">{showEditComp ? "Update Company" : "Add Company"}</button></form></Modal>)}
+            {(showLogSal || showEditSal) && (<Modal title={showEditSal ? "Edit Salary" : "Log Salary"} onClose={() => { setShowLogSal(false); setShowEditSal(false); setSalOptions(null); }}><form onSubmit={handleLogOrUpdateSal} className="space-y-6"><FormField label="Select Company"><Select value={newSal.company_id} onChange={e=>setNewSal({...newSal, company_id: e.target.value})} required><option value="">-- Select --</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField></div><FormField label="Salary Slip (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => slipRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSal.slip ? 'File Selected' : 'Upload Slip (PDF/Img)'}</span></div><input type="file" ref={slipRef} className="hidden" onChange={handleSlipUpload}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-green-500 transition-colors">{showEditSal ? "Update Record" : "Log Credit"}</button></form></Modal>)}
             {viewCompany && (
                 <Modal title={viewCompany.name} onClose={() => setViewCompany(null)}>
                     <div className="text-center py-6 border-b border-neutral-800 mb-4">
@@ -1158,6 +1149,81 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
        </div>
     </div>
   );
+};
+
+const AnalyticsPage = ({ currentUser }) => {
+    const [data, setData] = useState({ monthly: [], category: [] });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAnalytics = async () => {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await axios.get(`${API_URL}/transactions/analytics`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setData(res.data);
+            } catch (err) { console.error(err); } finally { setLoading(false); }
+        };
+        fetchAnalytics();
+    }, []);
+
+    if (loading) return <div className="text-center py-20 text-neutral-600 animate-pulse">Analyzing data...</div>;
+    
+    if (data.monthly.length === 0 && data.category.length === 0) {
+        return (
+            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
+                <TrendingUp className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
+                <h3 className="text-lg font-medium text-white">No data yet</h3>
+                <p className="text-neutral-500">Log some transactions to see insights.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Monthly Spending</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.monthly}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                            <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}k`} />
+                            <Tooltip cursor={{fill: '#262626'}} contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
+                            <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div>
+                <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
+                <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.category}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                                stroke="none"
+                            >
+                                {data.category.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // --- 6. AUTH APP & LOGIN ---
