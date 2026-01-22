@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.8.5';
+const APP_VERSION = 'v2.8.6';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -56,13 +56,22 @@ const formatMoney = (amount, currency, privacy) => {
     return `${currency} ${amount.toLocaleString()}`;
 };
 
+const handleError = (err, context = "Action") => {
+    console.error(err);
+    if (err.response && (err.response.status === 413 || err.response.status === 431)) {
+        alert(`${context} Failed: The attachment file is too large for the server. Please try a smaller file (under 800KB).`);
+    } else {
+        alert(`${context} Failed: ${err.response?.data?.detail || err.message}`);
+    }
+};
+
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject("No file");
     
-    // Check size (2MB Limit)
-    if (file.size > 2 * 1024 * 1024) {
-        return reject("File too large. Max 2MB.");
+    // Strict Size Limit: 800KB (Safe for 1MB server limit after Base64 encoding)
+    if (file.size > 800 * 1024) {
+        return reject("File too large. Max size is 800KB.");
     }
 
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
@@ -213,18 +222,20 @@ const SubscriptionsPage = ({ currency, privacy }) => {
             }
             setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs();
             setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
-        } catch(err) { alert("Failed to save subscription: " + (err.response?.data?.detail || err.message)); }
+        } catch(err) { handleError(err, "Save Subscription"); }
     };
 
     const handleDelete = async (id) => {
         if(!confirm("Stop tracking this subscription?")) return;
         const token = localStorage.getItem('token');
-        await axios.delete(`${API_URL}/subscriptions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-        setOptions(null); fetchSubs();
+        try {
+            await axios.delete(`${API_URL}/subscriptions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            setOptions(null); fetchSubs();
+        } catch(err) { handleError(err, "Delete Subscription"); }
     };
     
     const handleFile = async (e) => {
-        try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert("Error processing file: " + e); }
+        try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert(e); }
     };
     
     const handleTouchStart = (s) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setOptions(s); }, 500); };
@@ -289,17 +300,17 @@ const LendingPage = ({ currentUser, privacy }) => {
                 await axios.post(`${API_URL}/lending/`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
             }
             setShowAdd(false); setShowEdit(false); setLendOptions(null); fetchLending(); setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); 
-        } catch(e) { alert("Failed to save"); } 
+        } catch(e) { handleError(e, "Save Lending"); } 
     };
     
     const handleDelete = async (id) => {
         if(!confirm("Delete record?")) return;
         const token = localStorage.getItem('token');
-        try { await axios.delete(`${API_URL}/lending/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setLendOptions(null); fetchLending(); } catch(e) { alert("Failed"); }
+        try { await axios.delete(`${API_URL}/lending/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setLendOptions(null); fetchLending(); } catch(e) { handleError(e, "Delete Lending"); }
     };
 
-    const handleReturn = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { await axios.put(`${API_URL}/lending/${showReturn}/return`, { is_returned: true, returned_date: new Date(returnItem.returned_date).toISOString(), attachment_returned: returnItem.attachment_returned }, { headers: { Authorization: `Bearer ${token}` } }); setShowReturn(null); fetchLending(); } catch(e) { alert("Failed to update"); } };
-    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert("Error processing image: " + e); } };
+    const handleReturn = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { await axios.put(`${API_URL}/lending/${showReturn}/return`, { is_returned: true, returned_date: new Date(returnItem.returned_date).toISOString(), attachment_returned: returnItem.attachment_returned }, { headers: { Authorization: `Bearer ${token}` } }); setShowReturn(null); fetchLending(); } catch(e) { handleError(e, "Update Lending"); } };
+    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert(e); } };
     
     const handleTouchStart = (item) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setLendOptions(item); }, 500); };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
@@ -341,12 +352,12 @@ const IncomePage = ({ currentUser, privacy }) => {
     const fetchData = async () => { const token = localStorage.getItem('token'); const [c, s] = await Promise.all([axios.get(`${API_URL}/income/companies`, { headers: { Authorization: `Bearer ${token}` } }), axios.get(`${API_URL}/income/salary`, { headers: { Authorization: `Bearer ${token}` } })]); setCompanies(c.data); setSalaries(s.data); };
     useEffect(() => { fetchData(); }, []);
 
-    const handleAddOrUpdateComp = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { const payload = { name: newComp.name, joining_date: new Date(newComp.joining_date).toISOString(), leaving_date: newComp.leaving_date ? new Date(newComp.leaving_date).toISOString() : null, is_current: newComp.is_current, logo: newComp.logo }; if (showEditComp && compOptions) { await axios.put(`${API_URL}/income/companies/${compOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/companies`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowAddComp(false); setShowEditComp(false); setCompOptions(null); fetchData(); setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' }); } catch(err) { alert("Failed to save company"); } };
-    const handleDeleteComp = async (id) => { if(!confirm("Delete this company?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setCompOptions(null); fetchData(); } catch(err) { alert("Failed to delete company"); } };
-    const handleLogOrUpdateSal = async (e) => { e.preventDefault(); if(!newSal.company_id) { alert("Please select a company"); return; } const token = localStorage.getItem('token'); try { const payload = { amount: parseFloat(newSal.amount), date: new Date(newSal.date).toISOString(), company_id: parseInt(newSal.company_id), slip: newSal.slip || null }; if (showEditSal && salOptions) { await axios.put(`${API_URL}/income/salary/${salOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/salary`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowLogSal(false); setShowEditSal(false); setSalOptions(null); fetchData(); setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); } catch(err) { alert("Failed to save salary: " + (err.response?.data?.detail || err.message)); } };
-    const handleDeleteSal = async (id) => { if(!confirm("Delete this record?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/salary/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setSalOptions(null); fetchData(); } catch(err) { alert("Failed to delete salary"); } };
-    const handleLogoUpload = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewComp(prev => ({...prev, logo: b64})); } catch(err) { alert("Error uploading logo"); } };
-    const handleSlipUpload = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewSal(prev => ({...prev, slip: b64})); } catch(err) { alert("Error uploading slip: " + err); } };
+    const handleAddOrUpdateComp = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { const payload = { name: newComp.name, joining_date: new Date(newComp.joining_date).toISOString(), leaving_date: newComp.leaving_date ? new Date(newComp.leaving_date).toISOString() : null, is_current: newComp.is_current, logo: newComp.logo }; if (showEditComp && compOptions) { await axios.put(`${API_URL}/income/companies/${compOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/companies`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowAddComp(false); setShowEditComp(false); setCompOptions(null); fetchData(); setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' }); } catch(err) { handleError(err, "Save Company"); } };
+    const handleDeleteComp = async (id) => { if(!confirm("Delete this company?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setCompOptions(null); fetchData(); } catch(err) { handleError(err, "Delete Company"); } };
+    const handleLogOrUpdateSal = async (e) => { e.preventDefault(); if(!newSal.company_id) { alert("Please select a company"); return; } const token = localStorage.getItem('token'); try { const payload = { amount: parseFloat(newSal.amount), date: new Date(newSal.date).toISOString(), company_id: parseInt(newSal.company_id), slip: newSal.slip || null }; if (showEditSal && salOptions) { await axios.put(`${API_URL}/income/salary/${salOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/salary`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowLogSal(false); setShowEditSal(false); setSalOptions(null); fetchData(); setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); } catch(err) { handleError(err, "Save Salary"); } };
+    const handleDeleteSal = async (id) => { if(!confirm("Delete this record?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/salary/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setSalOptions(null); fetchData(); } catch(err) { handleError(err, "Delete Salary"); } };
+    const handleLogoUpload = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewComp(prev => ({...prev, logo: b64})); } catch(err) { alert(err); } };
+    const handleSlipUpload = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewSal(prev => ({...prev, slip: b64})); } catch(err) { alert(err); } };
     const handleTouchStart = (item, setter) => { longPressTimer.current = setTimeout(() => { if (navigator.vibrate) navigator.vibrate(50); setter(item); }, 500); };
     const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
     const startEditComp = (comp) => { setNewComp({ name: comp.name, joining_date: new Date(comp.joining_date).toISOString().split('T')[0], leaving_date: comp.leaving_date ? new Date(comp.leaving_date).toISOString().split('T')[0] : '', is_current: comp.is_current, logo: comp.logo || '' }); setCompOptions(comp); setShowEditComp(true); };
