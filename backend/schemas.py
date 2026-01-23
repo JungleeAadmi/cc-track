@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
-# --- Base Models ---
+# --- Auth ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -10,6 +10,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
+# --- User ---
 class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
@@ -44,7 +45,7 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-# --- SUBSCRIPTION ---
+# --- Subscription ---
 class SubscriptionBase(BaseModel):
     name: str
     amount: float
@@ -67,7 +68,7 @@ class Subscription(SubscriptionBase):
     class Config:
         from_attributes = True
 
-# --- LENDING ---
+# --- Lending ---
 class LendingReturnBase(BaseModel):
     date: datetime
     amount: float
@@ -89,8 +90,6 @@ class LendingBase(BaseModel):
     reminder_date: Optional[datetime] = None
     attachment_lent: Optional[str] = None
     is_returned: bool = False
-    
-    # Deprecated fields kept for compatibility if needed, but we rely on 'returns' list now
     returned_date: Optional[datetime] = None
     attachment_returned: Optional[str] = None
 
@@ -103,7 +102,6 @@ class LendingUpdate(BaseModel):
     lent_date: Optional[datetime] = None
     reminder_date: Optional[datetime] = None
     attachment_lent: Optional[str] = None
-    # We generally won't update is_returned manually anymore, it's calculated
     is_returned: Optional[bool] = None
 
 class Lending(LendingBase):
@@ -113,7 +111,7 @@ class Lending(LendingBase):
     class Config:
         from_attributes = True
 
-# --- SALARY ---
+# --- Income ---
 class SalaryBase(BaseModel):
     amount: float
     date: datetime
@@ -157,7 +155,7 @@ class Company(CompanyBase):
     class Config:
         from_attributes = True
 
-# --- EXISTING CARDS/TXNS ---
+# --- Cards ---
 class StatementBase(BaseModel):
     date: datetime
     amount: float
@@ -225,6 +223,7 @@ class Card(CardBase):
     class Config:
         from_attributes = True
 
+# --- Transactions ---
 class TransactionBase(BaseModel):
     description: str
     amount: float

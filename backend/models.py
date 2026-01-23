@@ -14,6 +14,7 @@ class User(Base):
     ntfy_topic = Column(String, nullable=True)
     ntfy_server = Column(String, default="https://ntfy.sh")
     
+    # Notification Preferences
     notify_card_add = Column(Boolean, default=True)
     notify_txn_add = Column(Boolean, default=True)
     notify_card_del = Column(Boolean, default=True)
@@ -21,6 +22,7 @@ class User(Base):
     notify_due_dates = Column(Boolean, default=True)
     notify_payment_done = Column(Boolean, default=True)
     
+    # Relationships
     cards = relationship("Card", back_populates="owner", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="owner", cascade="all, delete-orphan")
     lending = relationship("Lending", back_populates="owner", cascade="all, delete-orphan")
@@ -99,7 +101,19 @@ class Lending(Base):
     returned_date = Column(DateTime, nullable=True)
     attachment_returned = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
     owner = relationship("User", back_populates="lending")
+    returns = relationship("LendingReturn", back_populates="lending", cascade="all, delete-orphan")
+
+class LendingReturn(Base):
+    __tablename__ = "lending_returns"
+    id = Column(Integer, primary_key=True, index=True)
+    amount = Column(Float)
+    date = Column(DateTime, default=datetime.utcnow)
+    attachment = Column(Text, nullable=True)
+    lending_id = Column(Integer, ForeignKey("lending.id"))
+    
+    lending = relationship("Lending", back_populates="returns")
 
 class Company(Base):
     __tablename__ = "companies"
@@ -110,6 +124,7 @@ class Company(Base):
     is_current = Column(Boolean, default=True)
     logo = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
     owner = relationship("User", back_populates="companies")
     salaries = relationship("Salary", back_populates="company", cascade="all, delete-orphan")
 
@@ -118,8 +133,9 @@ class Salary(Base):
     id = Column(Integer, primary_key=True, index=True)
     amount = Column(Float)
     date = Column(DateTime)
-    slip = Column(Text, nullable=True) 
+    slip = Column(Text, nullable=True)
     company_id = Column(Integer, ForeignKey("companies.id"))
+    
     company = relationship("Company", back_populates="salaries")
 
 class Subscription(Base):
@@ -129,6 +145,7 @@ class Subscription(Base):
     amount = Column(Float)
     billing_cycle = Column(String)
     next_due_date = Column(DateTime)
-    attachment = Column(Text, nullable=True) # NEW
+    attachment = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
     owner = relationship("User", back_populates="subscriptions")

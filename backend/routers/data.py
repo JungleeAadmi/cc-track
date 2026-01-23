@@ -89,12 +89,11 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(datab
         contents = await file.read()
         wb = openpyxl.load_workbook(io.BytesIO(contents))
         
-        # 1. Import Cards First (Dependencies)
+        # 1. Import Cards
         if "Cards" in wb.sheetnames:
             ws = wb["Cards"]
             for row in ws.iter_rows(min_row=2, values_only=True):
-                if not row[0]: continue # Skip empty
-                # Check if card exists
+                if not row[0]: continue 
                 exists = db.query(models.Card).filter(models.Card.name == row[0], models.Card.owner_id == current_user.id).first()
                 if not exists:
                     new_card = models.Card(
@@ -112,10 +111,8 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(datab
             ws = wb["Transactions"]
             for row in ws.iter_rows(min_row=2, values_only=True):
                 if not row[0]: continue
-                # Find Card ID
                 card = db.query(models.Card).filter(models.Card.name == row[1], models.Card.owner_id == current_user.id).first()
                 if card:
-                    # Tag Logic
                     tag_id = None
                     if row[6]:
                         tag_name = str(row[6]).strip().title()
@@ -126,7 +123,6 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(datab
                             db.commit()
                         tag_id = tag.id
                     
-                    # Avoid Duplicates (Simple check: same date, amount, description)
                     txn_date = row[0] if isinstance(row[0], datetime) else datetime.strptime(str(row[0]), "%Y-%m-%d")
                     exists = db.query(models.Transaction).filter(
                         models.Transaction.card_id == card.id,
@@ -137,50 +133,13 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(datab
                     
                     if not exists:
                         new_txn = models.Transaction(
-                            date=txn_date,
-                            type=row[2],
-                            mode=row[3],
-                            amount=float(row[4]),
-                            description=row[5],
-                            tag_id=tag_id,
-                            is_emi=(row[7] == "Yes"),
-                            emi_tenure=int(row[8]) if row[8] else None,
+                            date=txn_date, type=row[2], mode=row[3], amount=float(row[4]), description=row[5],
+                            tag_id=tag_id, is_emi=(row[7] == "Yes"), emi_tenure=int(row[8]) if row[8] else None,
                             card_id=card.id
                         )
                         db.add(new_txn)
             db.commit()
             
-        # 3. Import Lending
-        if "Lending" in wb.sheetnames:
-            ws = wb["Lending"]
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                if not row[0]: continue
-                lent_date = row[2] if isinstance(row[2], datetime) else datetime.strptime(str(row[2]), "%Y-%m-%d")
-                
-                # Check duplicate
-                exists = db.query(models.Lending).filter(
-                    models.Lending.borrower_name == row[0],
-                    models.Lending.amount == float(row[1]),
-                    models.Lending.lent_date == lent_date,
-                    models.Lending.owner_id == current_user.id
-                ).first()
-                
-                if not exists:
-                    ret_date = None
-                    if row[4]:
-                        ret_date = row[4] if isinstance(row[4], datetime) else datetime.strptime(str(row[4]), "%Y-%m-%d")
-
-                    new_lend = models.Lending(
-                        borrower_name=row[0],
-                        amount=float(row[1]),
-                        lent_date=lent_date,
-                        is_returned=(row[3] == "Yes"),
-                        returned_date=ret_date,
-                        owner_id=current_user.id
-                    )
-                    db.add(new_lend)
-            db.commit()
-
         return {"message": "Import successful"}
 
     except Exception as e:

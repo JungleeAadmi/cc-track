@@ -8,6 +8,7 @@ from utils import send_ntfy_alert
 router = APIRouter(prefix="/income", tags=["Income"])
 
 # --- COMPANIES ---
+
 @router.post("/companies", response_model=schemas.Company)
 def create_company(
     comp: schemas.CompanyCreate, 
@@ -60,13 +61,13 @@ def delete_company(
     return {"message": "Company deleted"}
 
 # --- SALARIES ---
+
 @router.post("/salary", response_model=schemas.Salary)
 def add_salary(
     sal: schemas.SalaryCreate, 
     db: Session = Depends(database.get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # Verify company
     comp = db.query(models.Company).filter(models.Company.id == sal.company_id, models.Company.owner_id == current_user.id).first()
     if not comp:
         raise HTTPException(status_code=404, detail="Company not found")

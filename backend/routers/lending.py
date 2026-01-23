@@ -31,7 +31,7 @@ def read_lending(
     db: Session = Depends(database.get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # Eager load returns if needed, but SQLAlchemy defaults usually handle this lazy or implicit
+    # Eager load returns logic handled by SQLAlchemy relationships in schemas
     return db.query(models.Lending).filter(
         models.Lending.owner_id == current_user.id
     ).order_by(desc(models.Lending.lent_date)).all()
@@ -54,7 +54,7 @@ def update_lending(
     db.refresh(lend)
     return lend
 
-# --- New Partial Return Logic ---
+# --- Partial Returns Logic ---
 @router.post("/{lending_id}/returns", response_model=schemas.LendingReturn)
 def add_return(
     lending_id: int,
@@ -70,12 +70,12 @@ def add_return(
     db.add(new_ret)
     db.commit()
     
-    # Check if fully paid
+    # Check if fully paid to update main record status
     total_returned = db.query(func.sum(models.LendingReturn.amount)).filter(models.LendingReturn.lending_id == lending_id).scalar() or 0
     
     if total_returned >= lend.amount:
         lend.is_returned = True
-        lend.returned_date = ret.date # Set latest return date
+        lend.returned_date = ret.date 
     else:
         lend.is_returned = False
     
