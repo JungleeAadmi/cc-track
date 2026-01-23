@@ -12,22 +12,34 @@ import {
   PieChart, Pie, Cell 
 } from 'recharts';
 
+// ============================================================================
+// 1. GLOBAL CONSTANTS (Defined at top to prevent ReferenceError)
+// ============================================================================
+
 const API_URL = '/api';
-const APP_VERSION = 'v3.0.0';
-const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
+const APP_VERSION = 'v3.0.2';
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
 const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
+const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
+
+// Moved CURRENCIES here to ensure it is visible to SettingsPage
+const CURRENCIES = [
+  { code: 'USD', label: '$ USD' }, { code: 'EUR', label: '€ EUR' }, { code: 'GBP', label: '£ GBP' },
+  { code: 'INR', label: '₹ INR' }, { code: 'JPY', label: '¥ JPY' }, { code: 'AUD', label: '$ AUD' },
+  { code: 'CAD', label: '$ CAD' }, { code: 'CNY', label: '¥ CNY' }, { code: 'AED', label: 'د.إ AED' },
+  { code: 'SAR', label: '﷼ SAR' }, { code: 'SGD', label: '$ SGD' },
+];
+
 // ============================================================================
-// 1. CONFIGURATION & UTILS
+// 2. CONFIGURATION & UTILS
 // ============================================================================
 
 axios.interceptors.response.use(
   response => response,
   error => {
     if (error.response && error.response.status === 401) {
-      console.warn("Session expired.");
       localStorage.removeItem('token');
       localStorage.removeItem('username');
       if (window.location.pathname !== '/') window.location.href = '/';
@@ -90,7 +102,7 @@ const processImage = (file) => {
         return;
     }
 
-    // Image Handling with Compression
+    // Image Handling
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -122,13 +134,14 @@ const processImage = (file) => {
 };
 
 // ============================================================================
-// 2. UI COMPONENTS
+// 3. UI COMPONENTS
 // ============================================================================
 
 const NetworkLogo = ({ network }) => {
   const style = "h-8 w-12 object-contain";
-  if (network?.toLowerCase() === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
-  if (network?.toLowerCase() === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
+  const net = network ? network.toLowerCase() : '';
+  if (net === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
+  if (net === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -163,7 +176,7 @@ const Select = (props) => (
 );
 
 // ============================================================================
-// 3. PAGE COMPONENTS
+// 4. PAGE COMPONENTS
 // ============================================================================
 
 const SearchPage = ({ currency, privacy }) => {
@@ -255,7 +268,7 @@ const SubscriptionsPage = ({ currency, privacy }) => {
         <div className="space-y-6 animate-in fade-in relative">
             {options && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Subscriptions</h2><button onClick={() => { setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700"><Plus size={20}/></button></div>
-            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="text-right flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
+            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform cursor-pointer" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="text-right flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
             {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-4"><FormField label="Service Name"><Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/></FormField><FormField label="Cycle"><Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}><option>Monthly</option><option>Yearly</option></Select></FormField></div><FormField label="Next Billing Date"><Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/></FormField><FormField label="Attachment (Invoice/Receipt)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File (PDF/Img)'}</span></div><input type="file" ref={fileRef} accept="image/*,application/pdf" className="hidden" onChange={handleFile}/></FormField><button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">Track Subscription</button></form></Modal>}
             {viewingSubAtt && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSubAtt(null)}><button onClick={() => setViewingSubAtt(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingSubAtt.startsWith('data:application/pdf') ? <iframe src={viewingSubAtt} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingSubAtt} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
@@ -417,9 +430,9 @@ const IncomePage = ({ currentUser, privacy }) => {
     );
 };
 
-// =================================================================================================
-// 5. DASHBOARD & SETTINGS
-// =================================================================================================
+// ============================================================================
+// 5. SETTINGS, ANALYTICS & DASHBOARD
+// ============================================================================
 
 const AnalyticsPage = ({ currentUser }) => {
     const [data, setData] = useState({ monthly: [], category: [] });
@@ -466,6 +479,7 @@ const AnalyticsPage = ({ currentUser }) => {
                     </ResponsiveContainer>
                 </div>
             </div>
+
             <div>
                 <h2 className="text-xl font-bold text-white mb-4">Spending by Category</h2>
                 <div className="h-64 bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex items-center justify-center">
@@ -693,10 +707,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-// =================================================================================================
-// 6. MAIN AUTHENTICATED WRAPPER
-// =================================================================================================
-
 const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, onShowTxnList, onShowSummary, privacy }) => {
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
   const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
@@ -775,6 +785,7 @@ const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, 
   );
 };
 
+// --- 6. AUTH APP & LOGIN ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ 
