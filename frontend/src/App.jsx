@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v3.2.0';
+const APP_VERSION = 'v3.2.1';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CURRENCIES = [
@@ -166,7 +166,7 @@ const Select = (props) => (
 );
 
 // ============================================================================
-// 3. FEATURE MODALS (Card, Transactions, Summary)
+// 3. FEATURE MODALS
 // ============================================================================
 
 const CardSummaryModal = ({ cards, currency, onClose }) => {
@@ -238,7 +238,7 @@ const TransactionsModal = ({ onClose, currency }) => {
                 <form onSubmit={handleUpdate} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
                     <FormField label="Description"><Input value={editingTxn.description} onChange={e => setEditingTxn({...editingTxn, description: e.target.value})} /></FormField>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} /></FormField><FormField label="Date"><Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} /></FormField></div>
-                    <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50"><button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-3 rounded-xl text-xs font-bold transition-colors">Cancel</button><button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-bold transition-colors">Save</button></div>
+                    <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50"><button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-neutral-700">Cancel</button><button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-bold transition-colors">Save</button></div>
                 </form>
             ) : (
                 <div className="space-y-2">{loading ? <p className="text-center text-neutral-500 py-4">Loading...</p> : transactions.map(t => (<div key={t.id} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 flex justify-between items-center"><div><p className="text-white font-medium text-sm">{t.description}</p><p className="text-[10px] text-neutral-500">{formatDate(t.date)} • {t.mode}</p></div><div className="text-right"><p className="text-white font-bold text-sm">{currency} {t.amount.toLocaleString()}</p><div className="flex gap-2 justify-end mt-2"><button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white p-1"><Edit2 size={14}/></button><button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500 p-1"><Trash2 size={14}/></button></div></div></div>))}</div>
@@ -351,9 +351,9 @@ const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
   );
 };
 
-// ============================================================================
+// =================================================================================================
 // 4. PAGE COMPONENTS (DEFINED BEFORE USAGE)
-// ============================================================================
+// =================================================================================================
 
 const SearchPage = ({ currency, privacy }) => {
     const [results, setResults] = useState([]);
@@ -393,31 +393,52 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     const [subs, setSubs] = useState([]);
     const [showAdd, setShowAdd] = useState(false);
     const [newSub, setNewSub] = useState({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
+    
     const [options, setOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const [viewingSubAtt, setViewingSubAtt] = useState(null);
     const longPressTimer = useRef(null);
     const fileRef = useRef(null);
 
-    const fetchSubs = async () => { const token = localStorage.getItem('token'); try { const res = await axios.get(`${API_URL}/subscriptions/`, { headers: { Authorization: `Bearer ${token}` } }); setSubs(res.data); } catch(e) { console.error(e); } };
+    const fetchSubs = async () => {
+        const token = localStorage.getItem('token');
+        try { const res = await axios.get(`${API_URL}/subscriptions/`, { headers: { Authorization: `Bearer ${token}` } }); setSubs(res.data); } catch(e) { console.error(e); }
+    };
     useEffect(() => { fetchSubs(); }, []);
 
     const handleAddOrUpdate = async (e) => {
         e.preventDefault(); const token = localStorage.getItem('token');
         const payload = { ...newSub, amount: parseFloat(newSub.amount), next_due_date: new Date(newSub.next_due_date).toISOString() };
         try {
-            if (showEdit && options) { await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } }); }
-            setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs(); setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
+            if (showEdit && options) {
+                await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            } else {
+                await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            }
+            setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs();
+            setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
         } catch(err) { handleError(err, "Save Subscription"); }
     };
+
     const handleDelete = async (id) => {
-        if(!confirm("Stop tracking?")) return; const token = localStorage.getItem('token');
-        try { await axios.delete(`${API_URL}/subscriptions/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setOptions(null); fetchSubs(); } catch(err) { handleError(err, "Delete Subscription"); }
+        if(!confirm("Stop tracking this subscription?")) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`${API_URL}/subscriptions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            setOptions(null); fetchSubs();
+        } catch(err) { handleError(err, "Delete Subscription"); }
     };
-    const handleFile = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert("Error: " + e); } };
+    
+    const handleFile = async (e) => {
+        try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert("Error processing file"); }
+    };
+    
     const handleTouchStart = (s) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setOptions(s); }, 500); };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
-    const startEdit = (s) => { setNewSub({ name: s.name, amount: s.amount, billing_cycle: s.billing_cycle, next_due_date: new Date(s.next_due_date).toISOString().split('T')[0], attachment: s.attachment || '' }); setOptions(s); setShowEdit(true); };
+    const startEdit = (s) => {
+        setNewSub({ name: s.name, amount: s.amount, billing_cycle: s.billing_cycle, next_due_date: new Date(s.next_due_date).toISOString().split('T')[0], attachment: s.attachment || '' });
+        setOptions(s); setShowEdit(true);
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in relative">
@@ -502,10 +523,56 @@ const LendingPage = ({ currentUser, privacy }) => {
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Debt Portfolio</h2><button onClick={() => { setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700"><Plus size={16}/> Lend Money</button></div>
             <div className="space-y-3">{lendingList.map(item => { const totalReturned = getReturnedTotal(item); const remaining = item.amount - totalReturned; const progress = Math.min((totalReturned / item.amount) * 100, 100); return (<div key={item.id} className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} onTouchStart={() => handleTouchStart(item)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(item)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex justify-between items-start mb-2"><div><h3 className="font-bold text-white text-lg">{item.borrower_name}</h3><p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p></div><div className="text-right"><span className={`font-bold text-lg ${item.is_returned ? 'text-green-500' : 'text-white'}`}>{formatMoney(item.amount, currentUser.currency, privacy)}</span>{remaining > 0 && <p className="text-xs text-red-400">Pending: {formatMoney(remaining, currentUser.currency, privacy)}</p>}</div></div><div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden mb-3"><div className={`h-full ${item.is_returned ? 'bg-green-500' : 'bg-blue-500'}`} style={{width: `${progress}%`}}></div></div><div className="flex justify-between items-center">{item.attachment_lent ? <button className="text-blue-400 text-xs flex items-center gap-1" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}><Eye size={12}/> Proof</button> : <span></span>}{remaining > 0 ? (<button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); setReturnItem(prev => ({...prev, amount: remaining})); }} className="bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-600/50 hover:bg-blue-600/30">Record Return</button>) : (<span className="text-green-500 text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> Fully Returned</span>)}</div>{item.returns && item.returns.length > 0 && (<div className="mt-3 pt-3 border-t border-neutral-800/50 space-y-1"><p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">Return History</p>{item.returns.map(ret => (<div key={ret.id} className="flex justify-between items-center text-xs text-neutral-400"><span>{formatDate(ret.date)}</span><div className="flex items-center gap-2"><span className="text-green-500">+{formatMoney(ret.amount, currentUser.currency, privacy)}</span>{ret.attachment && <button onClick={(e)=>{e.stopPropagation(); setViewingProof(ret.attachment);}}><Eye size={10} className="text-neutral-500 hover:text-white"/></button>}</div></div>))}</div>)}</div>)})}
             {lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}</div>
-            {showAdd && <Modal title="Lend Money" onClose={() => setShowAdd(false)}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>}
-            {(showEdit && lendOptions) && <Modal title="Edit Lending" onClose={() => { setShowEdit(false); setLendOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Update Record</button></form></Modal>}
-            {showReturn && <Modal title="Record Return" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><div className="grid grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={returnItem.date} onChange={e=>setReturnItem({...returnItem, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={returnItem.amount} onChange={e=>setReturnItem({...returnItem, amount: e.target.value})} required/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment')}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button></form></Modal>}
-            {viewingProof && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}><button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingProof.startsWith('data:application/pdf') ? <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
+            
+            {/* Modal for Adding/Editing Lending */}
+            {(showAdd || showEdit) && (
+                <Modal title={showEdit ? "Edit Lending" : "Lend Money"} onClose={() => { setShowAdd(false); setShowEdit(false); setLendOptions(null); }}>
+                    <form onSubmit={handleAddOrUpdate} className="space-y-6">
+                        <FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField>
+                        <FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField>
+                            <FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField>
+                        </div>
+                        <FormField label="Proof (Optional)">
+                            <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}>
+                                <Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span>
+                            </div>
+                            <input type="file" ref={fileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/>
+                        </FormField>
+                        <button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button>
+                    </form>
+                </Modal>
+            )}
+
+            {/* Modal for Recording Return */}
+            {showReturn && (
+                <Modal title="Record Return" onClose={() => setShowReturn(null)}>
+                    <form onSubmit={handleReturn} className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Date"><Input type="date" value={returnItem.date} onChange={e=>setReturnItem({...returnItem, date: e.target.value})} required/></FormField>
+                            <FormField label="Amount"><Input type="number" value={returnItem.amount} onChange={e=>setReturnItem({...returnItem, amount: e.target.value})} required/></FormField>
+                        </div>
+                        <FormField label="Proof (Optional)">
+                            <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}>
+                                <Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment ? 'File Selected' : 'Upload Screenshot'}</span>
+                            </div>
+                            <input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment')}/></FormField>
+                        <button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button>
+                    </form>
+                </Modal>
+            )}
+            
+            {/* Proof Viewer */}
+            {viewingProof && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}>
+                    <button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>
+                    {viewingProof.startsWith('data:application/pdf') ? 
+                        <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : 
+                        <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />
+                    }
+                </div>
+            )}
         </div>
     );
 };
@@ -863,7 +930,10 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-// --- 6. AUTH APP & LOGIN ---
+// =================================================================================================
+// 6. AUTH APP & LOGIN
+// =================================================================================================
+
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ 
