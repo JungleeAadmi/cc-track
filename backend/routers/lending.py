@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 import models, schemas, auth, database
 from utils import send_ntfy_alert
 
@@ -31,6 +31,7 @@ def read_lending(
     db: Session = Depends(database.get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    # Eager load returns if needed, but SQLAlchemy defaults usually handle this lazy or implicit
     return db.query(models.Lending).filter(
         models.Lending.owner_id == current_user.id
     ).order_by(desc(models.Lending.lent_date)).all()
@@ -53,32 +54,42 @@ def update_lending(
     db.refresh(lend)
     return lend
 
-@router.put("/{lending_id}/return", response_model=schemas.Lending)
-def mark_returned(
+# --- New Partial Return Logic ---
+@router.post("/{lending_id}/returns", response_model=schemas.LendingReturn)
+def add_return(
     lending_id: int,
-    update: schemas.LendingUpdate,
+    ret: schemas.LendingReturnCreate,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
     lend = db.query(models.Lending).filter(models.Lending.id == lending_id, models.Lending.owner_id == current_user.id).first()
     if not lend:
-        raise HTTPException(status_code=404, detail="Entry not found")
-        
-    lend.is_returned = update.is_returned
-    lend.returned_date = update.returned_date
-    lend.attachment_returned = update.attachment_returned
+        raise HTTPException(status_code=404, detail="Lending record not found")
+    
+    new_ret = models.LendingReturn(**ret.dict(), lending_id=lending_id)
+    db.add(new_ret)
+    db.commit()
+    
+    # Check if fully paid
+    total_returned = db.query(func.sum(models.LendingReturn.amount)).filter(models.LendingReturn.lending_id == lending_id).scalar() or 0
+    
+    if total_returned >= lend.amount:
+        lend.is_returned = True
+        lend.returned_date = ret.date # Set latest return date
+    else:
+        lend.is_returned = False
     
     db.commit()
-    db.refresh(lend)
+    db.refresh(new_ret)
     
-    if lend.is_returned:
-        send_ntfy_alert(
-            current_user,
-            "Money Returned",
-            f"{lend.borrower_name} returned {current_user.currency} {lend.amount}",
-            tags="white_check_mark,moneybag"
-        )
-    return lend
+    send_ntfy_alert(
+        current_user,
+        "Money Returned",
+        f"{lend.borrower_name} returned {current_user.currency} {ret.amount}. Pending: {max(0, lend.amount - total_returned)}",
+        tags="white_check_mark,moneybag"
+    )
+    
+    return new_ret
 
 @router.delete("/{lending_id}")
 def delete_lending(

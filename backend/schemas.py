@@ -68,6 +68,20 @@ class Subscription(SubscriptionBase):
         from_attributes = True
 
 # --- LENDING ---
+class LendingReturnBase(BaseModel):
+    date: datetime
+    amount: float
+    attachment: Optional[str] = None
+
+class LendingReturnCreate(LendingReturnBase):
+    pass
+
+class LendingReturn(LendingReturnBase):
+    id: int
+    lending_id: int
+    class Config:
+        from_attributes = True
+
 class LendingBase(BaseModel):
     borrower_name: str
     amount: float
@@ -75,6 +89,8 @@ class LendingBase(BaseModel):
     reminder_date: Optional[datetime] = None
     attachment_lent: Optional[str] = None
     is_returned: bool = False
+    
+    # Deprecated fields kept for compatibility if needed, but we rely on 'returns' list now
     returned_date: Optional[datetime] = None
     attachment_returned: Optional[str] = None
 
@@ -87,13 +103,13 @@ class LendingUpdate(BaseModel):
     lent_date: Optional[datetime] = None
     reminder_date: Optional[datetime] = None
     attachment_lent: Optional[str] = None
+    # We generally won't update is_returned manually anymore, it's calculated
     is_returned: Optional[bool] = None
-    returned_date: Optional[datetime] = None
-    attachment_returned: Optional[str] = None
 
 class Lending(LendingBase):
     id: int
     owner_id: int
+    returns: List[LendingReturn] = []
     class Config:
         from_attributes = True
 
