@@ -1,24 +1,26 @@
 import requests
 
-def send_ntfy_alert(user, title, message, priority="default", tags=None):
+def send_ntfy_alert(user, title, message, priority="default", tags=""):
     """
-    Sends a notification using the user's configured Ntfy settings.
+    Sends a push notification via ntfy.sh (or self-hosted server)
     """
     if not user.ntfy_topic:
-        return # No topic set, skip
-    
-    server = user.ntfy_server or "https://ntfy.sh"
-    # Ensure server url doesn't end with slash to avoid double slash
-    if server.endswith("/"):
-        server = server[:-1]
+        return
+
+    server_url = user.ntfy_server or "https://ntfy.sh"
+    # Ensure no trailing slash for clean URL construction
+    if server_url.endswith("/"):
+        server_url = server_url[:-1]
         
-    url = f"{server}/{user.ntfy_topic}"
+    url = f"{server_url}/{user.ntfy_topic}"
+    
+    headers = {
+        "Title": title,
+        "Priority": priority,
+        "Tags": tags
+    }
     
     try:
-        headers = {"Title": title, "Priority": priority}
-        if tags:
-            headers["Tags"] = tags
-            
-        requests.post(url, data=message, headers=headers, timeout=5)
+        requests.post(url, data=message.encode(encoding='utf-8'), headers=headers, timeout=5)
     except Exception as e:
-        print(f"Failed to send Ntfy alert to {url}: {e}")
+        print(f"Failed to send ntfy alert: {e}")
