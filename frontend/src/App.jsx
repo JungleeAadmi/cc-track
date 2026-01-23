@@ -13,8 +13,9 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v2.9.5';
+const APP_VERSION = 'v2.10.0';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // --- 1. CONFIG & UTILS ---
 axios.interceptors.response.use(
@@ -33,7 +34,7 @@ const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleString('default', { month: 'short' });
+    const month = MONTHS[date.getMonth()];
     const year = date.getFullYear().toString().slice(-2);
     return `${day}-${month}-${year}`;
 };
@@ -52,13 +53,13 @@ const getNextDate = (dayOfMonth) => {
 
 const formatMoney = (amount, currency, privacy) => {
     if (privacy) return '****';
-    return `${currency} ${amount?.toLocaleString()}`;
+    return `${currency} ${amount.toLocaleString()}`;
 };
 
 const handleError = (err, context = "Action") => {
     console.error(err);
     if (err.response && (err.response.status === 413 || err.response.status === 431)) {
-        alert(`${context} Failed: File too large. Max allowed is ~800KB.`);
+        alert(`${context} Failed: File too large (Max 800KB).`);
     } else {
         alert(`${context} Failed: ${err.response?.data?.detail || err.message}`);
     }
@@ -67,8 +68,7 @@ const handleError = (err, context = "Action") => {
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject("No file");
-    if (file.size > 800 * 1024) return reject("File too large (Max 800KB)");
-
+    
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -85,17 +85,18 @@ const processImage = (file) => {
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          let width = img.width; 
-          let height = img.height;
-          const MAX_DIM = 1024;
-          if (width > MAX_DIM || height > MAX_DIM) {
-              if (width > height) { height *= MAX_DIM / width; width = MAX_DIM; }
-              else { width *= MAX_DIM / height; height = MAX_DIM; }
+          const MAX_WIDTH = 800; 
+          const scaleSize = MAX_WIDTH / img.width;
+          if (img.width > MAX_WIDTH) {
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+          } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
           }
-          canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.6));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
         } catch (e) { reject(e); }
       };
       img.onerror = (err) => reject(err);
@@ -115,12 +116,10 @@ const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
 const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
 // --- 2. UI COMPONENTS ---
-
 const NetworkLogo = ({ network }) => {
   const style = "h-8 w-12 object-contain";
-  const n = network ? network.toLowerCase() : '';
-  if (n === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
-  if (n === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
+  if (network?.toLowerCase() === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
+  if (network?.toLowerCase() === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -154,96 +153,12 @@ const Select = (props) => (
   </div>
 );
 
-// --- 3. HELPER MODALS (Defined BEFORE Pages) ---
-
-const CardSummaryModal = ({ cards, currency, onClose }) => {
-  return (
-    <Modal title="Limits Overview" onClose={onClose}>
-      <div className="space-y-4">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-[10px] text-neutral-500 uppercase border-b border-neutral-800">
-              <tr><th className="pb-2 font-bold pl-2">Card</th><th className="pb-2 font-bold text-right">Limit</th><th className="pb-2 font-bold text-right">Spent</th><th className="pb-2 font-bold text-right pr-2">Avail</th></tr>
-            </thead>
-            <tbody className="text-neutral-300">
-              {cards.map(c => {
-                  const limit = c.manual_limit && c.manual_limit > 0 ? c.manual_limit : c.total_limit;
-                  const avail = limit - c.spent;
-                  return (
-                    <tr key={c.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
-                      <td className="py-3 pl-2 font-medium">{c.name}</td><td className="py-3 text-right">{currency} {limit.toLocaleString()}</td><td className="py-3 text-right text-red-400">{currency} {c.spent.toLocaleString()}</td><td className="py-3 text-right pr-2 text-green-500">{currency} {avail.toLocaleString()}</td>
-                    </tr>
-                  );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </Modal>
-  );
-};
-
-const TransactionsModal = ({ onClose, currency }) => {
-    const [transactions, setTransactions] = useState([]);
-    const [editingTxn, setEditingTxn] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    const fetchTxns = async () => { const token = localStorage.getItem('token'); try { const res = await axios.get(`${API_URL}/transactions/`, { headers: { Authorization: `Bearer ${token}` } }); setTransactions(res.data); } catch(err) { console.error(err); } finally { setLoading(false); } };
-    useEffect(() => { fetchTxns(); }, []);
-
-    const handleDelete = async (id) => { if(!confirm("Delete?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/transactions/${id}`, { headers: { Authorization: `Bearer ${token}` } }); fetchTxns(); } catch(err) { alert("Failed"); } };
-    const handleUpdate = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { await axios.put(`${API_URL}/transactions/${editingTxn.id}`, { description: editingTxn.description, amount: parseFloat(editingTxn.amount), date: new Date(editingTxn.date).toISOString() }, { headers: { Authorization: `Bearer ${token}` } }); setEditingTxn(null); fetchTxns(); } catch(err) { alert("Failed"); } };
-
-    return (
-        <Modal title="Transaction History" onClose={onClose}>
-            {editingTxn ? (
-                <form onSubmit={handleUpdate} className="space-y-4"><FormField label="Description"><Input value={editingTxn.description} onChange={e => setEditingTxn({...editingTxn, description: e.target.value})} /></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} /></FormField><FormField label="Date"><Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} /></FormField></div><button className="w-full bg-red-600 text-white py-3 rounded-xl mt-2 font-bold">Save</button></form>
-            ) : (
-                <div className="space-y-2">{loading ? <p className="text-center text-neutral-500">Loading...</p> : transactions.map(t => (<div key={t.id} className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex justify-between items-center"><div><p className="text-white font-medium text-sm">{t.description}</p><p className="text-[10px] text-neutral-500">{formatDate(t.date)}</p></div><div className="text-right"><p className="text-white font-bold text-sm">{currency} {t.amount.toLocaleString()}</p><div className="flex gap-2 justify-end mt-1"><button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white"><Edit2 size={12}/></button><button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500"><Trash2 size={12}/></button></div></div></div>))}</div>
-            )}
-        </Modal>
-    );
-};
-
-const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
-  const [formData, setFormData] = useState({ ...card });
-  const [isEditing, setIsEditing] = useState(false);
-  const [tab, setTab] = useState('view');
-  const [statements, setStatements] = useState([]);
-  const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
-  const [editingStmtId, setEditingStmtId] = useState(null);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [stmtOptions, setStmtOptions] = useState(null); 
-  const longPressTimer = useRef(null);
-
-  useEffect(() => { if (tab === 'statements') fetchStatements(); }, [tab]);
-
-  const fetchStatements = async () => { const token = localStorage.getItem('token'); try { const res = await axios.get(`${API_URL}/cards/${card.id}/statements`, { headers: { Authorization: `Bearer ${token}` } }); setStatements(res.data); } catch(err) { console.error(err); } };
-  const handleUpdateCard = async () => { const token = localStorage.getItem('token'); try { const payload = { ...formData, total_limit: parseFloat(formData.total_limit) || 0, manual_limit: formData.manual_limit ? parseFloat(formData.manual_limit) : null, statement_date: parseInt(formData.statement_date) || 1, payment_due_date: parseInt(formData.payment_due_date) || 1 }; const res = await axios.put(`${API_URL}/cards/${card.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); onUpdate(res.data); setIsEditing(false); alert("Updated"); } catch (err) { handleError(err, "Update Card"); } };
-  const handleAddOrUpdateStatement = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { const payload = { date: new Date(newStmt.date).toISOString(), amount: parseFloat(newStmt.amount), card_id: card.id }; if (editingStmtId) { await axios.put(`${API_URL}/cards/${card.id}/statements/${editingStmtId}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/cards/${card.id}/statements`, payload, { headers: { Authorization: `Bearer ${token}` } }); } fetchStatements(); setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); } catch(err) { handleError(err, "Statement"); } };
-  const toggleStatementPaid = async (stmt) => { const token = localStorage.getItem('token'); try { await axios.put(`${API_URL}/cards/${card.id}/statements/${stmt.id}`, { is_paid: !stmt.is_paid }, { headers: { Authorization: `Bearer ${token}` } }); fetchStatements(); } catch(err) { handleError(err, "Update"); } };
-  const handleDeleteStatement = async (stmtId) => { if(!confirm("Delete?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/cards/${card.id}/statements/${stmtId}`, { headers: { Authorization: `Bearer ${token}` } }); fetchStatements(); setStmtOptions(null); } catch(err) { handleError(err, "Delete"); } };
-  const handleTouchStart = (stmt) => { longPressTimer.current = setTimeout(() => { if (navigator.vibrate) navigator.vibrate(50); setStmtOptions(stmt); }, 500); };
-  const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
-
-  return (
-    <Modal title={`Manage ${card.name}`} onClose={onClose}>
-      <div className="flex gap-2 mb-6 border-b border-neutral-800 pb-2 overflow-x-auto no-scrollbar">{['view', 'details', 'images', 'statements'].map(t => (<button key={t} onClick={() => setTab(t)} className={`flex-none px-4 pb-2 text-sm font-medium capitalize transition-all whitespace-nowrap ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400 hover:text-neutral-200'}`}>{t}</button>))}</div>
-      {tab === 'view' && (<div className="flex flex-col items-center gap-6 py-4"><div className="w-full h-48 rounded-2xl relative preserve-3d cursor-pointer transition-transform duration-500" style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', perspective: '1000px' }} onClick={() => setIsFlipped(!isFlipped)}><div className={`absolute inset-0 bg-gradient-to-br from-neutral-800 to-black rounded-2xl p-6 flex flex-col justify-between shadow-2xl backface-hidden border border-neutral-700 ${isFlipped ? 'hidden' : 'block'}`}><div className="flex justify-between items-start"><div className="text-white/40 text-[10px] font-mono tracking-widest">CC-TRACK VIRTUAL</div><NetworkLogo network={card.network} /></div><div className="text-white text-xl font-mono tracking-widest text-center mt-2 drop-shadow-md">{formData.full_number ? formData.full_number.match(/.{1,4}/g)?.join(' ') : `•••• •••• •••• ${formData.last_4 || '0000'}`}</div><div className="flex justify-between items-end"><div><p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Card Holder</p><p className="text-sm text-white font-medium uppercase tracking-wide truncate max-w-[120px]">{formData.card_holder || 'CARD HOLDER'}</p></div><div className="text-right"><p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Valid Thru</p><p className="text-sm text-white font-mono">{formData.valid_thru || 'MM/YY'}</p></div></div></div><div className={`absolute inset-0 bg-neutral-900 rounded-2xl flex flex-col shadow-2xl backface-hidden border border-neutral-800 ${isFlipped ? 'block' : 'hidden'}`} style={{ transform: 'rotateY(180deg)' }}><div className="w-full h-10 bg-black mt-6"></div><div className="p-6 mt-2"><div className="bg-white w-full h-10 flex items-center justify-end px-3 rounded-sm pattern-lines"><span className="font-mono text-black font-bold italic text-lg tracking-widest">{formData.cvv || '***'}</span></div><p className="text-[8px] text-neutral-500 mt-4 leading-tight text-center">This card is property of the issuer. Use for authorized transactions only.<br/>Issued by {formData.bank}.</p></div></div></div><p className="text-xs text-neutral-500 flex items-center gap-1"><Eye size={12}/> Tap card to flip</p></div>)}
-      {tab === 'details' && (<div className="space-y-6"><div className="grid grid-cols-2 gap-4"><FormField label="Nickname"><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} disabled={!isEditing} /></FormField><FormField label="Bank"><Input value={formData.bank} onChange={e => setFormData({...formData, bank: e.target.value})} disabled={!isEditing} /></FormField></div><FormField label="Card Holder"><Input value={formData.card_holder || ''} onChange={e => setFormData({...formData, card_holder: e.target.value})} disabled={!isEditing} /></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Limit"><Input type="number" value={formData.total_limit} onChange={e => setFormData({...formData, total_limit: e.target.value})} disabled={!isEditing} /></FormField><FormField label="Manual Limit"><Input type="number" value={formData.manual_limit || ''} onChange={e => setFormData({...formData, manual_limit: e.target.value})} disabled={!isEditing} /></FormField></div><div className="grid grid-cols-2 gap-4"><FormField label="Statement"><Select value={formData.statement_date} onChange={e => setFormData({...formData, statement_date: e.target.value})} disabled={!isEditing}>{[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}</Select></FormField><FormField label="Due Date"><Select value={formData.payment_due_date} onChange={e => setFormData({...formData, payment_due_date: e.target.value})} disabled={!isEditing}>{[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}</Select></FormField></div>{isEditing ? (<div className="flex gap-3 pt-4"><button onClick={() => setIsEditing(false)} className="flex-1 bg-neutral-800 text-white py-3 rounded-xl font-bold">Cancel</button><button onClick={handleUpdateCard} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold">Save</button></div>) : (<><button onClick={() => setIsEditing(true)} className="w-full bg-white text-black py-3 rounded-xl font-bold flex items-center justify-center gap-2"><Edit2 size={16}/> Edit Details</button><button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 text-red-500 py-3 rounded-xl font-bold">Delete Card</button></>)}</div>)}
-      {tab === 'images' && (<div className="space-y-6"><div className="space-y-2"><label className="text-xs text-neutral-500 font-bold">Front</label>{formData.image_front ? <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}</div><div className="space-y-2"><label className="text-xs text-neutral-500 font-bold">Back</label>{formData.image_back ? <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}</div></div>)}
-      {tab === 'statements' && (<div className="space-y-6 relative h-full"><form onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800"><div className="grid grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required /></FormField><FormField label="Amount"><Input type="number" step="0.01" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required /></FormField></div><div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">{editingStmtId && <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-800 text-white px-4 py-3 rounded-xl font-bold">Cancel</button>}<button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold">{editingStmtId ? 'Update' : 'Add'}</button></div></form><div className="space-y-2">{stmtOptions && (<div className="absolute inset-0 z-20 flex items-center justify-center animate-in fade-in"><div className="absolute inset-0 bg-black/80" onClick={() => setStmtOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] relative z-30 flex flex-col gap-1"><button onClick={() => { setNewStmt({ date: new Date(stmtOptions.date).toISOString().split('T')[0], amount: stmtOptions.amount }); setEditingStmtId(stmtOptions.id); setStmtOptions(null); }} className="w-full bg-neutral-800 text-white p-3 rounded-xl">Edit</button><button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl">Delete</button></div></div>)}{statements.map(stmt => (<div key={stmt.id} className="flex justify-between items-center p-4 bg-neutral-950 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(stmt)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(stmt)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-4"><button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-2 rounded-full ${stmt.is_paid ? 'text-green-500 bg-green-900/20' : 'text-neutral-600 border border-neutral-700'}`}>{stmt.is_paid ? <CheckCircle size={20} /> : <div className="w-5 h-5 rounded-full" />}</button><div><span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span></div></div><div className="text-right"><span className={`font-bold text-lg block ${stmt.is_paid ? 'text-green-500 line-through' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span></div></div>))}</div></div>)}
-    </Modal>
-  );
-};
-
-// --- 4. FEATURE PAGES (Defined BEFORE AuthenticatedApp) ---
+// --- 3. PAGE COMPONENTS ---
 
 const SearchPage = ({ currency, privacy }) => {
     const [results, setResults] = useState([]);
     const [filters, setFilters] = useState({ search: '', min_amount: '', max_amount: '', start_date: '', end_date: '' });
     const [searching, setSearching] = useState(false);
-
     const handleSearch = async (e) => {
         e?.preventDefault(); setSearching(true);
         const token = localStorage.getItem('token');
@@ -258,7 +173,6 @@ const SearchPage = ({ currency, privacy }) => {
             setResults(res.data);
         } catch(err) { console.error(err); } finally { setSearching(false); }
     };
-
     return (
         <div className="space-y-6 animate-in fade-in">
             <h2 className="text-2xl font-bold text-white">Advanced Search</h2>
@@ -277,7 +191,6 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     const [subs, setSubs] = useState([]);
     const [showAdd, setShowAdd] = useState(false);
     const [newSub, setNewSub] = useState({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
-    
     const [options, setOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const [viewingSubAtt, setViewingSubAtt] = useState(null);
@@ -291,16 +204,11 @@ const SubscriptionsPage = ({ currency, privacy }) => {
         e.preventDefault(); const token = localStorage.getItem('token');
         const payload = { ...newSub, amount: parseFloat(newSub.amount), next_due_date: new Date(newSub.next_due_date).toISOString() };
         try {
-            if (showEdit && options) {
-                await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
-            } else {
-                await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } });
-            }
+            if (showEdit && options) { await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } }); }
             setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs();
             setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
         } catch(err) { handleError(err, "Save Subscription"); }
     };
-
     const handleDelete = async (id) => { if(!confirm("Stop tracking?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/subscriptions/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setOptions(null); fetchSubs(); } catch(err) { handleError(err, "Delete"); } };
     const handleFile = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { handleError({message: e}, "File Upload"); } };
     const handleTouchStart = (s) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setOptions(s); }, 500); };
@@ -309,7 +217,7 @@ const SubscriptionsPage = ({ currency, privacy }) => {
 
     return (
         <div className="space-y-6 animate-in fade-in relative">
-            {options && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700"><Edit2 size={16}/> Edit</button><button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20"><Trash2 size={16}/> Delete</button><button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white">Cancel</button></div></div>)}
+            {options && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Subscriptions</h2><button onClick={() => { setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700"><Plus size={20}/></button></div>
             <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
             {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-4"><FormField label="Service Name"><Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/></FormField><FormField label="Cycle"><Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}><option>Monthly</option><option>Yearly</option></Select></FormField></div><FormField label="Next Billing Date"><Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/></FormField><FormField label="Attachment (Invoice/Receipt)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File (PDF/Img)'}</span></div><input type="file" ref={fileRef} accept="image/*,application/pdf" className="hidden" onChange={handleFile}/></FormField><button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">Track Subscription</button></form></Modal>}
@@ -342,11 +250,11 @@ const LendingPage = ({ currentUser, privacy }) => {
     const [showReturn, setShowReturn] = useState(null); 
     const [viewingProof, setViewingProof] = useState(null); 
     const [newItem, setNewItem] = useState({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' });
-    const [returnItem, setReturnItem] = useState({ returned_date: new Date().toISOString().split('T')[0], attachment_returned: '' });
-    const fileRef = useRef(null); const returnFileRef = useRef(null);
-
+    const [returnItem, setReturnItem] = useState({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' });
     const [lendOptions, setLendOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
+    
+    const fileRef = useRef(null); const returnFileRef = useRef(null);
     const longPressTimer = useRef(null);
 
     const fetchLending = async () => { const token = localStorage.getItem('token'); try { const res = await axios.get(`${API_URL}/lending/`, { headers: { Authorization: `Bearer ${token}` } }); setLendingList(res.data); } catch (e) { console.error(e); } };
@@ -371,24 +279,81 @@ const LendingPage = ({ currentUser, privacy }) => {
         try { await axios.delete(`${API_URL}/lending/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setLendOptions(null); fetchLending(); } catch(e) { handleError(e, "Delete Lending"); }
     };
 
-    const handleReturn = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { await axios.put(`${API_URL}/lending/${showReturn}/return`, { is_returned: true, returned_date: new Date(returnItem.returned_date).toISOString(), attachment_returned: returnItem.attachment_returned }, { headers: { Authorization: `Bearer ${token}` } }); setShowReturn(null); fetchLending(); } catch(e) { handleError(e, "Update Lending"); } };
-    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert(e); } };
-    
+    const handleReturn = async (e) => { 
+        e.preventDefault(); 
+        const token = localStorage.getItem('token'); 
+        try { 
+            await axios.post(`${API_URL}/lending/${showReturn}/returns`, { 
+                date: new Date(returnItem.date).toISOString(),
+                amount: parseFloat(returnItem.amount),
+                attachment: returnItem.attachment
+            }, { headers: { Authorization: `Bearer ${token}` } }); 
+            setShowReturn(null); 
+            fetchLending(); 
+            setReturnItem({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' });
+        } catch(e) { handleError(e, "Add Return"); } 
+    };
+
+    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert("Error: " + e); } };
     const handleTouchStart = (item) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setLendOptions(item); }, 500); };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
+    const startEdit = (item) => { setNewItem({ borrower_name: item.borrower_name, amount: item.amount, lent_date: new Date(item.lent_date).toISOString().split('T')[0], reminder_date: item.reminder_date ? new Date(item.reminder_date).toISOString().split('T')[0] : '', attachment_lent: item.attachment_lent }); setLendOptions(item); setShowEdit(true); };
 
-    const startEdit = (item) => {
-        setNewItem({ borrower_name: item.borrower_name, amount: item.amount, lent_date: new Date(item.lent_date).toISOString().split('T')[0], reminder_date: item.reminder_date ? new Date(item.reminder_date).toISOString().split('T')[0] : '', attachment_lent: item.attachment_lent });
-        setLendOptions(item); setShowEdit(true);
+    // Calculate returned total locally for display
+    const getReturnedTotal = (item) => {
+        if (!item.returns) return 0;
+        return item.returns.reduce((acc, r) => acc + r.amount, 0);
     };
 
     return (
         <div className="space-y-6 animate-in fade-in relative">
             {lendOptions && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setLendOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(lendOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(lendOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setLendOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Debt Portfolio</h2><button onClick={() => { setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700"><Plus size={16}/> Lend Money</button></div>
-            <div className="space-y-3">{lendingList.map(item => (<div key={item.id} className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} onTouchStart={() => handleTouchStart(item)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(item)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex justify-between items-start mb-2"><div><h3 className="font-bold text-white text-lg">{item.borrower_name}</h3><p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p></div><div className="text-right"><span className={`font-bold text-lg ${item.is_returned ? 'text-green-500 line-through' : 'text-red-500'}`}>{formatMoney(item.amount, currentUser.currency, privacy)}</span></div></div>{item.attachment_lent && (<div className="mt-2 mb-2 p-2 bg-black/30 rounded-lg border border-white/5 flex items-center gap-2 cursor-pointer hover:bg-black/50 transition-colors" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}><Eye size={14} className="text-blue-400"/> <span className="text-xs text-blue-300">View Proof (Lent)</span></div>)}{!item.is_returned ? (<div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5"><span className="text-xs text-neutral-500 flex items-center gap-1"><Bell size={12}/> {item.reminder_date ? `Remind: ${formatDate(item.reminder_date)}` : 'No reminder'}</span><button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); }} className="bg-green-700/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-green-700/50 hover:bg-green-700/30">Mark Returned</button></div>) : (<div className="mt-2 text-xs text-green-500 flex items-center gap-1"><CheckCircle size={12}/> Returned on {formatDate(item.returned_date)}{item.attachment_returned && (<button onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_returned); }} className="ml-2 hover:text-green-300"><Eye size={12}/></button>)}</div>)}</div>))}{lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}</div>
-            {(showAdd || showEdit) && (<Modal title={showEdit ? "Edit Lending" : "Lend Money"} onClose={() => { setShowAdd(false); setShowEdit(false); setLendOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>)}
-            {showReturn && <Modal title="Mark as Returned" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><FormField label="Returned Date"><Input type="date" value={returnItem.returned_date} onChange={e=>setReturnItem({...returnItem, returned_date: e.target.value})} required/></FormField><FormField label="Proof of Return (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment_returned ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment_returned')}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button></form></Modal>}
+            <div className="space-y-3">{lendingList.map(item => {
+                const totalReturned = getReturnedTotal(item);
+                const remaining = item.amount - totalReturned;
+                const progress = Math.min((totalReturned / item.amount) * 100, 100);
+                return (
+                <div key={item.id} className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} onTouchStart={() => handleTouchStart(item)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(item)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>
+                    <div className="flex justify-between items-start mb-2">
+                        <div><h3 className="font-bold text-white text-lg">{item.borrower_name}</h3><p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p></div>
+                        <div className="text-right">
+                            <span className={`font-bold text-lg ${item.is_returned ? 'text-green-500' : 'text-white'}`}>{formatMoney(item.amount, currentUser.currency, privacy)}</span>
+                            {remaining > 0 && <p className="text-xs text-red-400">Pending: {formatMoney(remaining, currentUser.currency, privacy)}</p>}
+                        </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden mb-3">
+                         <div className={`h-full ${item.is_returned ? 'bg-green-500' : 'bg-blue-500'}`} style={{width: `${progress}%`}}></div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        {item.attachment_lent ? <button className="text-blue-400 text-xs flex items-center gap-1" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}><Eye size={12}/> Proof</button> : <span></span>}
+                        {remaining > 0 ? (
+                            <button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); setReturnItem(prev => ({...prev, amount: remaining})); }} className="bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-600/50 hover:bg-blue-600/30">Record Return</button>
+                        ) : (
+                            <span className="text-green-500 text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> Fully Returned</span>
+                        )}
+                    </div>
+                    {/* Partial Returns List */}
+                    {item.returns && item.returns.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-neutral-800/50 space-y-1">
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">Return History</p>
+                            {item.returns.map(ret => (
+                                <div key={ret.id} className="flex justify-between items-center text-xs text-neutral-400">
+                                    <span>{formatDate(ret.date)}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-green-500">+{formatMoney(ret.amount, currentUser.currency, privacy)}</span>
+                                        {ret.attachment && <button onClick={(e)=>{e.stopPropagation(); setViewingProof(ret.attachment);}}><Eye size={10} className="text-neutral-500 hover:text-white"/></button>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )})}
+            {lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}</div>
+            {showAdd && <Modal title="Lend Money" onClose={() => setShowAdd(false)}><form onSubmit={handleAdd} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>}
+            {showReturn && <Modal title="Record Return" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><div className="grid grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={returnItem.date} onChange={e=>setReturnItem({...returnItem, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={returnItem.amount} onChange={e=>setReturnItem({...returnItem, amount: e.target.value})} required/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment')}/></FormField><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Add Return</button></form></Modal>}
             {viewingProof && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}><button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingProof.startsWith('data:application/pdf') ? <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
     );
@@ -432,7 +397,7 @@ const IncomePage = ({ currentUser, privacy }) => {
             {salOptions && !showEditSal && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSalOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Salary Options</div><button onClick={() => startEditSal(salOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDeleteSal(salOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setSalOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Income Streams</h2><div className="flex gap-2"><button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button><button onClick={() => { setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); setShowLogSal(true); }} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button></div></div>
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{companies.map(c => (<div key={c.id} onClick={() => setViewCompany(c)} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95 cursor-pointer" onTouchStart={() => handleTouchStart(c, setCompOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(c, setCompOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>{c.logo ? (<img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />) : (<Briefcase size={24} className="text-blue-500 mb-1"/>)}<div><p className="font-bold text-white text-sm truncate">{c.name}</p><p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p><p className="text-xs font-bold text-green-500 mt-1">{formatMoney(getCompanyTotal(c.id), currentUser.currency, privacy)}</p></div>{c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}</div>))}<button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600"><Plus size={24}/></button></div>
-            <div className="space-y-3"><h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>{salaries.map(s => (<div key={s.id} className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s, setSalOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s, setSalOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div><div><p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p><p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p></div></div><div className="flex items-center gap-3">{s.slip && <button onClick={(e) => { e.stopPropagation(); setViewingSlip(s.slip); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<span className="font-bold text-green-500">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span></div></div>))}{salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}</div>
+            <div className="space-y-3"><h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>{salaries.map(s => (<div key={s.id} className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s, setSalOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s, setSalOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div><div><p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p><p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p></div></div><span className="font-bold text-green-500">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span></div>))}{salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}</div>
             {(showAddComp || showEditComp) && (<Modal title={showEditComp ? "Edit Company" : "Add Company"} onClose={() => { setShowAddComp(false); setShowEditComp(false); setCompOptions(null); }}><form onSubmit={handleAddOrUpdateComp} className="space-y-6"><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => logoRef.current.click()}>{newComp.logo ? <img src={newComp.logo} className="w-full h-full object-cover"/> : <Upload size={24} className="text-neutral-500"/>}<div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-[10px] text-white">Change</div></div><input type="file" ref={logoRef} accept="image/*" className="hidden" onChange={handleLogoUpload}/></div><FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>{!newComp.is_current && (<FormField label="Leaving Date"><Input type="date" value={newComp.leaving_date} onChange={e=>setNewComp({...newComp, leaving_date: e.target.value})} required/></FormField>)}</div><div className="flex items-center gap-3 bg-neutral-800 p-3 rounded-xl border border-neutral-700"><div onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})} className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${newComp.is_current ? 'bg-green-600 border-green-600' : 'border-neutral-500'}`}>{newComp.is_current && <Check size={14} className="text-white"/>}</div><span className="text-sm text-white font-medium" onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}>I currently work here</span></div><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">{showEditComp ? "Update Company" : "Add Company"}</button></form></Modal>)}
             {(showLogSal || showEditSal) && (<Modal title={showEditSal ? "Edit Salary" : "Log Salary"} onClose={() => { setShowLogSal(false); setShowEditSal(false); setSalOptions(null); }}><form onSubmit={handleLogOrUpdateSal} className="space-y-6"><FormField label="Select Company"><Select value={newSal.company_id} onChange={e=>setNewSal({...newSal, company_id: e.target.value})} required><option value="">-- Select --</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField></div><FormField label="Salary Slip (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => slipRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSal.slip ? 'File Selected' : 'Upload Slip (PDF/Img)'}</span></div><input type="file" ref={slipRef} accept="image/*,application/pdf" className="hidden" onChange={handleSlipUpload}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-green-500 transition-colors">{showEditSal ? "Update Record" : "Log Credit"}</button></form></Modal>)}
             {viewCompany && (
@@ -815,7 +780,7 @@ const AuthenticatedApp = () => {
       try {
         const compressedBase64 = await processImage(file);
         setNewCard(prev => ({ ...prev, [side]: compressedBase64 }));
-      } catch (err) { handleError({message: err}, "Image Upload"); }
+      } catch (err) { alert("Failed to process image: " + err); }
     }
   };
 
