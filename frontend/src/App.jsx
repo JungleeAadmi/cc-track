@@ -12,21 +12,22 @@ import {
   PieChart, Pie, Cell 
 } from 'recharts';
 
+// =================================================================================================
+// 1. CONFIGURATION & UTILITIES
+// =================================================================================================
+
 const API_URL = '/api';
-const APP_VERSION = 'v2.13.1';
+const APP_VERSION = 'v3.1.0-FIXED';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
 const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
-// =================================================================================================
-// 1. CONFIG & UTILS
-// =================================================================================================
-
 axios.interceptors.response.use(
   response => response,
   error => {
     if (error.response && error.response.status === 401) {
+      console.warn("Session expired.");
       localStorage.removeItem('token');
       localStorage.removeItem('username');
       if (window.location.pathname !== '/') window.location.href = '/';
@@ -65,7 +66,7 @@ const formatMoney = (amount, currency, privacy) => {
 const handleError = (err, context = "Action") => {
     console.error(err);
     if (err.response && (err.response.status === 413 || err.response.status === 431)) {
-        alert(`${context} Failed: File too large. Please use a file under 750KB.`);
+        alert(`${context} Failed: File too large. Max size is ~750KB.`);
     } else {
         alert(`${context} Failed: ${err.response?.data?.detail || err.message}`);
     }
@@ -75,7 +76,7 @@ const processImage = (file) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject("No file selected");
     
-    // Size check
+    // Size check (750KB limit to be safe for 1MB server payload)
     if (file.size > 750 * 1024) {
         return reject("File too large. Please select a file under 750KB.");
     }
@@ -89,7 +90,7 @@ const processImage = (file) => {
         return;
     }
 
-    // Image Handling
+    // Image Handling with Compression
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -120,15 +121,8 @@ const processImage = (file) => {
   });
 };
 
-const CURRENCIES = [
-  { code: 'USD', label: '$ USD' }, { code: 'EUR', label: '€ EUR' }, { code: 'GBP', label: '£ GBP' },
-  { code: 'INR', label: '₹ INR' }, { code: 'JPY', label: '¥ JPY' }, { code: 'AUD', label: '$ AUD' },
-  { code: 'CAD', label: '$ CAD' }, { code: 'CNY', label: '¥ CNY' }, { code: 'AED', label: 'د.إ AED' },
-  { code: 'SAR', label: '﷼ SAR' }, { code: 'SGD', label: '$ SGD' },
-];
-
 // =================================================================================================
-// 2. UI COMPONENTS
+// 2. UI COMPONENTS (Reusable)
 // =================================================================================================
 
 const NetworkLogo = ({ network }) => {
@@ -171,7 +165,473 @@ const Select = (props) => (
 );
 
 // =================================================================================================
-// 3. PAGE COMPONENTS
+// 3. COMPLEX MODALS (RESTORED MISSING COMPONENTS)
+// =================================================================================================
+
+const CardSummaryModal = ({ cards, currency, onClose }) => {
+  return (
+    <Modal title="Limits Overview" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-[10px] text-neutral-500 uppercase border-b border-neutral-800">
+              <tr>
+                <th className="pb-2 font-bold pl-2">Card</th>
+                <th className="pb-2 font-bold text-right">Limit</th>
+                <th className="pb-2 font-bold text-right">Spent</th>
+                <th className="pb-2 font-bold text-right pr-2">Avail</th>
+              </tr>
+            </thead>
+            <tbody className="text-neutral-300">
+              {cards.map(c => {
+                  const limit = c.manual_limit && c.manual_limit > 0 ? c.manual_limit : c.total_limit;
+                  const avail = limit - c.spent;
+                  return (
+                    <tr key={c.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
+                      <td className="py-3 pl-2 font-medium">{c.name}</td>
+                      <td className="py-3 text-right">{currency} {limit.toLocaleString()}</td>
+                      <td className="py-3 text-right text-red-400">{currency} {c.spent.toLocaleString()}</td>
+                      <td className="py-3 text-right pr-2 text-green-500">{currency} {avail.toLocaleString()}</td>
+                    </tr>
+                  );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+const TransactionsModal = ({ onClose, currency }) => {
+    const [transactions, setTransactions] = useState([]);
+    const [editingTxn, setEditingTxn] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const fetchTxns = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await axios.get(`${API_URL}/transactions/`, { headers: { Authorization: `Bearer ${token}` } });
+            setTransactions(res.data);
+        } catch(err) { console.error(err); } finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchTxns(); }, []);
+
+    const handleDelete = async (id) => {
+        if(!confirm("Delete this transaction?")) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`${API_URL}/transactions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            fetchTxns();
+        } catch(err) { alert("Failed to delete"); }
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        try {
+            await axios.put(`${API_URL}/transactions/${editingTxn.id}`, {
+                description: editingTxn.description,
+                amount: parseFloat(editingTxn.amount),
+                date: new Date(editingTxn.date).toISOString()
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            setEditingTxn(null);
+            fetchTxns();
+        } catch(err) { alert("Failed to update"); }
+    };
+
+    return (
+        <Modal title="Transaction History" onClose={onClose}>
+            {editingTxn ? (
+                <form onSubmit={handleUpdate} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                    <FormField label="Description">
+                        <Input value={editingTxn.description} onChange={e => setEditingTxn({...editingTxn, description: e.target.value})} />
+                    </FormField>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField label="Amount">
+                            <Input type="number" step="0.01" value={editingTxn.amount} onChange={e => setEditingTxn({...editingTxn, amount: e.target.value})} />
+                        </FormField>
+                        <FormField label="Date">
+                            <Input type="date" value={new Date(editingTxn.date).toISOString().split('T')[0]} onChange={e => setEditingTxn({...editingTxn, date: e.target.value})} />
+                        </FormField>
+                    </div>
+                    <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">
+                        <button type="button" onClick={() => setEditingTxn(null)} className="bg-neutral-800 text-white px-4 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-neutral-700">Cancel</button>
+                        <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-bold transition-colors hover:bg-red-500">Save</button>
+                    </div>
+                </form>
+            ) : (
+                <div className="space-y-2">
+                    {loading ? <p className="text-center text-neutral-500 py-4">Loading...</p> : 
+                     transactions.map(t => (
+                        <div key={t.id} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 flex justify-between items-center">
+                            <div>
+                                <p className="text-white font-medium text-sm">{t.description}</p>
+                                <p className="text-[10px] text-neutral-500">{formatDate(t.date)} • {t.mode}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-white font-bold text-sm">{currency} {t.amount.toLocaleString()}</p>
+                                <div className="flex gap-2 justify-end mt-2">
+                                    <button onClick={() => setEditingTxn(t)} className="text-neutral-500 hover:text-white p-1"><Edit2 size={14}/></button>
+                                    <button onClick={() => handleDelete(t.id)} className="text-neutral-500 hover:text-red-500 p-1"><Trash2 size={14}/></button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {transactions.length === 0 && !loading && <p className="text-center text-neutral-500 py-4">No transactions found.</p>}
+                </div>
+            )}
+        </Modal>
+    );
+};
+
+const EditCardModal = ({ card, onClose, onDelete, onUpdate }) => {
+  const [formData, setFormData] = useState({ ...card });
+  const [isEditing, setIsEditing] = useState(false);
+  const [tab, setTab] = useState('view'); 
+  const [statements, setStatements] = useState([]);
+  const [newStmt, setNewStmt] = useState({ date: new Date().toISOString().split('T')[0], amount: '' });
+  const [editingStmtId, setEditingStmtId] = useState(null);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [stmtOptions, setStmtOptions] = useState(null); 
+  const longPressTimer = useRef(null);
+  const formRef = useRef(null); 
+
+  useEffect(() => {
+    if (tab === 'statements') fetchStatements();
+  }, [tab]);
+
+  const fetchStatements = async () => {
+    const token = localStorage.getItem('token');
+    try {
+        const res = await axios.get(`${API_URL}/cards/${card.id}/statements`, { headers: { Authorization: `Bearer ${token}` } });
+        setStatements(res.data);
+    } catch(err) { console.error(err); }
+  };
+
+  const handleUpdateCard = async () => {
+      const token = localStorage.getItem('token');
+      try {
+          const payload = {
+              name: formData.name,
+              bank: formData.bank,
+              network: formData.network,
+              card_type: formData.card_type,
+              total_limit: parseFloat(formData.total_limit) || 0,
+              manual_limit: formData.manual_limit ? parseFloat(formData.manual_limit) : null,
+              statement_date: parseInt(formData.statement_date) || 1,
+              payment_due_date: parseInt(formData.payment_due_date) || 1,
+              card_holder: formData.card_holder,
+              last_4: formData.last_4,
+              full_number: formData.full_number,
+              cvv: formData.cvv,
+              valid_thru: formData.valid_thru
+          };
+
+          const res = await axios.put(`${API_URL}/cards/${card.id}`, payload, {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+          onUpdate(res.data); 
+          setIsEditing(false);
+          alert("Card updated successfully");
+      } catch (err) { alert("Failed to update card"); }
+  };
+
+  const handleAddOrUpdateStatement = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    try {
+        if (editingStmtId) {
+            await axios.put(`${API_URL}/cards/${card.id}/statements/${editingStmtId}`, {
+                date: new Date(newStmt.date).toISOString(),
+                amount: parseFloat(newStmt.amount),
+                card_id: card.id
+            }, { headers: { Authorization: `Bearer ${token}` } });
+        } else {
+            await axios.post(`${API_URL}/cards/${card.id}/statements`, {
+                date: new Date(newStmt.date).toISOString(),
+                amount: parseFloat(newStmt.amount),
+                card_id: card.id
+            }, { headers: { Authorization: `Bearer ${token}` } });
+        }
+        fetchStatements();
+        setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' });
+        setEditingStmtId(null);
+    } catch(err) { alert("Failed to save statement"); }
+  };
+
+  const toggleStatementPaid = async (stmt) => {
+      const token = localStorage.getItem('token');
+      try {
+          await axios.put(`${API_URL}/cards/${card.id}/statements/${stmt.id}`, {
+              is_paid: !stmt.is_paid
+          }, { headers: { Authorization: `Bearer ${token}` } });
+          fetchStatements();
+      } catch(err) { alert("Failed to update status"); }
+  };
+
+  const handleDeleteStatement = async (stmtId) => {
+      if(!confirm("Delete this statement?")) return;
+      const token = localStorage.getItem('token');
+      try {
+          await axios.delete(`${API_URL}/cards/${card.id}/statements/${stmtId}`, { 
+              headers: { Authorization: `Bearer ${token}` } 
+          });
+          fetchStatements();
+          setStmtOptions(null);
+      } catch(err) { alert("Failed to delete statement"); }
+  };
+
+  const startEditStatement = (stmt) => {
+      try {
+          let dateStr = new Date().toISOString().split('T')[0];
+          if (stmt.date) {
+            dateStr = new Date(stmt.date).toISOString().split('T')[0];
+          }
+          setNewStmt({ date: dateStr, amount: stmt.amount });
+          setEditingStmtId(stmt.id);
+          setStmtOptions(null);
+          if(formRef.current) {
+              formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const handleTouchStart = (stmt) => {
+      longPressTimer.current = setTimeout(() => {
+          if (navigator.vibrate) navigator.vibrate(50);
+          setStmtOptions(stmt);
+      }, 500);
+  };
+
+  const handleTouchEnd = () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  return (
+    <Modal title={`Manage ${card.name}`} onClose={onClose}>
+      <div className="flex gap-2 mb-6 border-b border-neutral-800 pb-2 overflow-x-auto no-scrollbar">
+        {['view', 'details', 'images', 'statements'].map(t => (
+            <button key={t} onClick={() => setTab(t)} className={`flex-none px-4 pb-2 text-sm font-medium capitalize transition-all whitespace-nowrap ${tab===t ? 'text-red-500 border-b-2 border-red-500' : 'text-neutral-400 hover:text-neutral-200'}`}>{t}</button>
+        ))}
+      </div>
+
+      {tab === 'view' && (
+          <div className="flex flex-col items-center gap-6 py-4">
+              <div 
+                  className="w-full h-48 rounded-2xl relative preserve-3d cursor-pointer transition-transform duration-500"
+                  style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', perspective: '1000px' }}
+                  onClick={() => setIsFlipped(!isFlipped)}
+              >
+                  {/* Front */}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-neutral-800 to-black rounded-2xl p-6 flex flex-col justify-between shadow-2xl backface-hidden border border-neutral-700 ${isFlipped ? 'hidden' : 'block'}`}>
+                      <div className="flex justify-between items-start">
+                           <div className="text-white/40 text-[10px] font-mono tracking-widest">CC-TRACK VIRTUAL</div>
+                           <NetworkLogo network={card.network} />
+                      </div>
+                      <div className="text-white text-xl font-mono tracking-widest text-center mt-2 drop-shadow-md">
+                          {formData.full_number ? formData.full_number.match(/.{1,4}/g)?.join(' ') : `•••• •••• •••• ${formData.last_4 || '0000'}`}
+                      </div>
+                      <div className="flex justify-between items-end">
+                          <div>
+                              <p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Card Holder</p>
+                              <p className="text-sm text-white font-medium uppercase tracking-wide truncate max-w-[120px]">{formData.card_holder || 'CARD HOLDER'}</p>
+                          </div>
+                          <div className="text-right">
+                              <p className="text-[8px] text-white/50 uppercase tracking-wide mb-1">Valid Thru</p>
+                              <p className="text-sm text-white font-mono">{formData.valid_thru || 'MM/YY'}</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Back */}
+                  <div className={`absolute inset-0 bg-neutral-900 rounded-2xl flex flex-col shadow-2xl backface-hidden border border-neutral-800 ${isFlipped ? 'block' : 'hidden'}`} style={{ transform: 'rotateY(180deg)' }}>
+                      <div className="w-full h-10 bg-black mt-6"></div>
+                      <div className="p-6 mt-2">
+                          <div className="bg-white w-full h-10 flex items-center justify-end px-3 rounded-sm pattern-lines">
+                              <span className="font-mono text-black font-bold italic text-lg tracking-widest">{formData.cvv || '***'}</span>
+                          </div>
+                          <p className="text-[8px] text-neutral-500 mt-4 leading-tight text-center">
+                              This card is property of the issuer. Use for authorized transactions only.
+                              <br/>Issued by {formData.bank}.
+                          </p>
+                      </div>
+                  </div>
+              </div>
+              <p className="text-xs text-neutral-500 flex items-center gap-1"><Eye size={12}/> Tap card to flip</p>
+          </div>
+      )}
+
+      {tab === 'details' && (
+        <div className="space-y-6">
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <FormField label="Nickname">
+                  <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} disabled={!isEditing} />
+               </FormField>
+               <FormField label="Bank">
+                  <Input value={formData.bank} onChange={e => setFormData({...formData, bank: e.target.value})} disabled={!isEditing} />
+               </FormField>
+           </div>
+           
+           <FormField label="Card Holder Name">
+              <Input value={formData.card_holder || ''} onChange={e => setFormData({...formData, card_holder: e.target.value})} disabled={!isEditing} />
+           </FormField>
+
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Total Limit">
+                 <Input type="number" value={formData.total_limit} onChange={e => setFormData({...formData, total_limit: e.target.value})} disabled={!isEditing} />
+              </FormField>
+              <FormField label="Manual Limit">
+                 <Input type="number" value={formData.manual_limit || ''} onChange={e => setFormData({...formData, manual_limit: e.target.value})} disabled={!isEditing} />
+              </FormField>
+           </div>
+           
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Full Card Number">
+                  <Input value={formData.full_number || ''} onChange={e => {
+                      const val = e.target.value.replace(/\D/g,'').substring(0,16);
+                      setFormData({...formData, full_number: val, last_4: val.slice(-4)});
+                  }} disabled={!isEditing} className="font-mono"/>
+              </FormField>
+              <div className="grid grid-cols-2 gap-2">
+                  <FormField label="Valid Thru">
+                      <Input value={formData.valid_thru || ''} onChange={e => setFormData({...formData, valid_thru: e.target.value})} disabled={!isEditing} />
+                  </FormField>
+                  <FormField label="CVV">
+                      <Input value={formData.cvv || ''} onChange={e => setFormData({...formData, cvv: e.target.value})} disabled={!isEditing} type="password"/>
+                  </FormField>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Statement Date">
+                  <Select value={formData.statement_date} onChange={e => setFormData({...formData, statement_date: e.target.value})} disabled={!isEditing}>
+                      {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                  </Select>
+              </FormField>
+              <FormField label="Due Date">
+                  <Select value={formData.payment_due_date} onChange={e => setFormData({...formData, payment_due_date: e.target.value})} disabled={!isEditing}>
+                      {[...Array(31)].map((_, i) => <option key={i} value={i+1}>{i+1}th</option>)}
+                  </Select>
+              </FormField>
+           </div>
+
+           {isEditing ? (
+              <div className="flex gap-3 pt-4">
+                  <button onClick={() => setIsEditing(false)} className="flex-1 bg-neutral-800 text-white py-3.5 rounded-xl font-bold hover:bg-neutral-700 transition-colors">Cancel</button>
+                  <button onClick={handleUpdateCard} className="flex-1 bg-red-600 text-white py-3.5 rounded-xl font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20">Save Changes</button>
+              </div>
+           ) : (
+              <>
+                 <button onClick={() => setIsEditing(true)} className="w-full bg-white text-black py-3.5 rounded-xl font-bold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
+                     <Edit2 size={16}/> Edit Card Details
+                 </button>
+                 <button onClick={() => onDelete(card.id)} className="w-full border border-red-900/30 bg-red-900/10 text-red-500 py-3.5 rounded-xl hover:bg-red-900/20 flex items-center justify-center gap-2 font-bold transition-colors">
+                     <Trash2 size={16}/> Delete Card
+                 </button>
+              </>
+           )}
+        </div>
+      )}
+      
+      {tab === 'images' && (
+        <div className="space-y-6">
+           <div className="space-y-4">
+              <label className="text-xs text-neutral-500 uppercase font-bold">Front Side</label>
+              {formData.image_front ? <img src={formData.image_front} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
+           </div>
+           <div className="space-y-4">
+              <label className="text-xs text-neutral-500 uppercase font-bold">Back Side</label>
+              {formData.image_back ? <img src={formData.image_back} className="w-full rounded-xl border border-neutral-700 shadow-md"/> : <div className="h-32 border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600">No Image</div>}
+           </div>
+        </div>
+      )}
+
+      {tab === 'statements' && (
+          <div className="space-y-6 relative h-full">
+              {/* Add Form */}
+              <form ref={formRef} onSubmit={handleAddOrUpdateStatement} className="flex flex-col gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-800 transition-colors duration-500">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField label="Statement Date">
+                        <Input type="date" value={newStmt.date} onChange={e => setNewStmt({...newStmt, date: e.target.value})} required />
+                      </FormField>
+                      <FormField label="Total Amount">
+                        <Input type="number" step="0.01" placeholder="0.00" value={newStmt.amount} onChange={e => setNewStmt({...newStmt, amount: e.target.value})} required />
+                      </FormField>
+                  </div>
+                  
+                  <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800/50">
+                     {editingStmtId && (
+                         <button type="button" onClick={() => { setNewStmt({ date: new Date().toISOString().split('T')[0], amount: '' }); setEditingStmtId(null); }} className="bg-neutral-800 text-white px-4 py-3 rounded-xl hover:bg-neutral-700 text-xs font-bold transition-colors">Cancel</button>
+                     )}
+                     <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-500 text-xs font-bold flex items-center gap-2 transition-colors shadow-lg shadow-red-900/20 w-full justify-center sm:w-auto">
+                         {editingStmtId ? <Check size={16}/> : <Plus size={16}/>} {editingStmtId ? 'Update Statement' : 'Add Statement'}
+                     </button>
+                  </div>
+              </form>
+              
+              <div className="space-y-2 relative pb-20">
+                  {/* Options Overlay (Professional Look) */}
+                  {stmtOptions && (
+                     <div className="absolute inset-0 z-20 flex items-center justify-center animate-in fade-in duration-200">
+                         {/* Backdrop */}
+                         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm rounded-xl" onClick={() => setStmtOptions(null)}></div>
+                         {/* Card */}
+                         <div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl transform scale-100 relative z-30 flex flex-col gap-1">
+                             <div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div>
+                             <button onClick={() => startEditStatement(stmtOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors">
+                                <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div>
+                                <span className="font-medium text-sm">Edit</span>
+                             </button>
+                             <button onClick={() => handleDeleteStatement(stmtOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors">
+                                <div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div>
+                                <span className="font-medium text-sm">Delete</span>
+                             </button>
+                             <button onClick={() => setStmtOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button>
+                         </div>
+                     </div>
+                  )}
+
+                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-1 space-y-2">
+                      {statements.map(stmt => (
+                          <div 
+                            key={stmt.id} 
+                            className={`flex justify-between items-center p-4 rounded-xl border select-none transition-all mb-2 ${stmt.is_paid ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-800/40 border-neutral-800 active:scale-[0.98]'}`}
+                            onTouchStart={() => handleTouchStart(stmt)}
+                            onTouchEnd={handleTouchEnd}
+                            onMouseDown={() => handleTouchStart(stmt)}
+                            onMouseUp={handleTouchEnd}
+                            onMouseLeave={handleTouchEnd}
+                          >
+                              <div className="flex items-center gap-4">
+                                  <button onClick={(e) => { e.stopPropagation(); toggleStatementPaid(stmt); }} className={`p-2 rounded-full transition-colors ${stmt.is_paid ? 'text-green-500 bg-green-900/20' : 'text-neutral-600 hover:text-white bg-neutral-900 border border-neutral-700'}`}>
+                                      {stmt.is_paid ? <CheckCircle size={20} fill="currentColor" className="text-green-900" /> : <div className="w-5 h-5 rounded-full" />}
+                                  </button>
+                                  <div className="flex flex-col">
+                                      <span className="text-sm text-neutral-300 block font-medium">{formatDate(stmt.date)}</span>
+                                      {stmt.is_paid && <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide flex items-center gap-1"><Check size={10}/> Paid</span>}
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <span className={`font-bold text-lg block ${stmt.is_paid ? 'text-green-500 line-through opacity-70' : 'text-white'}`}>{parseFloat(stmt.amount).toLocaleString()}</span>
+                              </div>
+                          </div>
+                      ))}
+                      {statements.length === 0 && <div className="text-center py-8 bg-neutral-900/30 rounded-xl border border-dashed border-neutral-800">
+                          <Receipt className="mx-auto h-8 w-8 text-neutral-700 mb-2"/>
+                          <p className="text-xs text-neutral-500">No statements logged.</p>
+                      </div>}
+                  </div>
+              </div>
+          </div>
+      )}
+    </Modal>
+  );
+};
+
+// =================================================================================================
+// 4. PAGE & FEATURE COMPONENTS
 // =================================================================================================
 
 const SearchPage = ({ currency, privacy }) => {
@@ -212,6 +672,7 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     const [subs, setSubs] = useState([]);
     const [showAdd, setShowAdd] = useState(false);
     const [newSub, setNewSub] = useState({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
+    
     const [options, setOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const [viewingSubAtt, setViewingSubAtt] = useState(null);
@@ -262,7 +723,7 @@ const SubscriptionsPage = ({ currency, privacy }) => {
         <div className="space-y-6 animate-in fade-in relative">
             {options && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Subscriptions</h2><button onClick={() => { setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700"><Plus size={20}/></button></div>
-            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform cursor-pointer" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="text-right flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
+            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="text-right flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
             {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-4"><FormField label="Service Name"><Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/></FormField><FormField label="Cycle"><Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}><option>Monthly</option><option>Yearly</option></Select></FormField></div><FormField label="Next Billing Date"><Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/></FormField><FormField label="Attachment (Invoice/Receipt)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File (PDF/Img)'}</span></div><input type="file" ref={fileRef} accept="image/*,application/pdf" className="hidden" onChange={handleFile}/></FormField><button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">Track Subscription</button></form></Modal>}
             {viewingSubAtt && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSubAtt(null)}><button onClick={() => setViewingSubAtt(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingSubAtt.startsWith('data:application/pdf') ? <iframe src={viewingSubAtt} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingSubAtt} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
         </div>
@@ -295,6 +756,7 @@ const LendingPage = ({ currentUser, privacy }) => {
     const [newItem, setNewItem] = useState({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' });
     const [returnItem, setReturnItem] = useState({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' });
     const fileRef = useRef(null); const returnFileRef = useRef(null);
+
     const [lendOptions, setLendOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const longPressTimer = useRef(null);
@@ -424,7 +886,7 @@ const IncomePage = ({ currentUser, privacy }) => {
 };
 
 // =================================================================================================
-// 5. SETTINGS, ANALYTICS & DASHBOARD
+// 5. DASHBOARD & SETTINGS
 // =================================================================================================
 
 const AnalyticsPage = ({ currentUser }) => {
@@ -696,84 +1158,6 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
              </button>
           </div>
        </div>
-    </div>
-  );
-};
-
-const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, onShowTxnList, onShowSummary, privacy }) => {
-  const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
-  const totalSpent = cards.reduce((acc, card) => acc + (card.spent || 0), 0);
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div onClick={onShowSummary} className="bg-gradient-to-br from-red-900 to-neutral-900 rounded-2xl p-5 text-white border border-red-800/30 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform">
-                <p className="text-red-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">Total Available</p>
-                <h2 className="text-2xl font-bold tracking-tight">{formatMoney(totalAvailable, currentUser.currency, privacy)}</h2>
-            </div>
-             <div onClick={onShowTxnList} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 shadow-md cursor-pointer hover:border-red-500/50 transition-all active:scale-95">
-                <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between mb-1">
-                    Total Spent <TrendingUp size={14} className="text-neutral-600"/>
-                </p>
-                <h2 className="text-2xl font-bold text-white">{formatMoney(totalSpent, currentUser.currency, privacy)}</h2>
-            </div>
-        </div>
-
-        {cards.length === 0 && !loading && (
-            <div className="text-center py-20 bg-neutral-900/50 rounded-2xl border border-dashed border-neutral-800">
-                <CreditCard className="mx-auto h-12 w-12 text-neutral-600 mb-3" />
-                <h3 className="text-lg font-medium text-white">No cards yet</h3>
-                <p className="text-neutral-500">Add your first credit card to start tracking.</p>
-            </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cards.map(card => (
-                <div key={card.id} onClick={() => onEditCard(card)} className="group bg-neutral-800/80 p-5 rounded-2xl shadow-lg border border-neutral-700/50 hover:border-red-500/30 transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]">
-                    <div className="relative z-10 flex items-start justify-between mb-4">
-                        <div className="bg-black/40 p-2 rounded-xl border border-white/5 backdrop-blur-sm">
-                            <NetworkLogo network={card.network} />
-                        </div>
-                        <div className="text-right">
-                          <span className="text-neutral-400 font-mono tracking-widest text-sm font-bold block">•••• {card.last_4 || 'XXXX'}</span>
-                          <span className="text-[10px] text-neutral-500 uppercase">{card.card_type}</span>
-                        </div>
-                    </div>
-
-                    <div className="relative z-10">
-                        <h4 className="font-bold text-white text-xl tracking-wide leading-tight mb-1">{card.name}</h4>
-                        <p className="text-xs text-neutral-400 mb-6 uppercase tracking-wider font-semibold">{card.bank}</p>
-                        
-                        <div className="bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
-                          <div className="flex justify-between text-sm mb-2">
-                            <span className="text-neutral-400 text-xs font-medium">Used</span>
-                            <span className="text-white font-bold text-xs">{formatMoney(card.spent, currentUser.currency, privacy)}</span>
-                          </div>
-                          <div className="w-full bg-neutral-700 h-1.5 rounded-full overflow-hidden">
-                             <div className="bg-red-600 h-full" style={{width: `${Math.min((card.spent / card.total_limit) * 100, 100)}%`}}></div>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 border-t border-white/5 pt-3 mt-1">
-                            <div>
-                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Statement</span>
-                                <span className="text-neutral-200 font-mono">{getNextDate(card.statement_date)}</span>
-                            </div>
-                            <div className="text-right">
-                                <span className="block text-neutral-500 uppercase font-bold mb-0.5">Due Date</span>
-                                <span className="text-red-400 font-bold font-mono">{getNextDate(card.payment_due_date)}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-        
-        {loading && <div className="text-center py-12 text-neutral-600 animate-pulse">Syncing data...</div>}
     </div>
   );
 };
