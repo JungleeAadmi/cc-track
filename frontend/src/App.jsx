@@ -12,19 +12,23 @@ import {
   PieChart, Pie, Cell 
 } from 'recharts';
 
+// ============================================================================
+// 1. CONFIGURATION & CONSTANTS
+// ============================================================================
+
 const API_URL = '/api';
-const APP_VERSION = 'v2.10.4';
+const APP_VERSION = 'v3.0.0';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
+const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
-// =================================================================================================
-// 1. CONFIG & UTILS
-// =================================================================================================
-
+// Axios Interceptor for Auth
 axios.interceptors.response.use(
   response => response,
   error => {
     if (error.response && error.response.status === 401) {
+      console.warn("Session expired.");
       localStorage.removeItem('token');
       localStorage.removeItem('username');
       if (window.location.pathname !== '/') window.location.href = '/';
@@ -32,6 +36,10 @@ axios.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ============================================================================
+// 2. UTILITY FUNCTIONS
+// ============================================================================
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -56,13 +64,13 @@ const getNextDate = (dayOfMonth) => {
 
 const formatMoney = (amount, currency, privacy) => {
     if (privacy) return '****';
-    return `${currency} ${amount.toLocaleString()}`;
+    return `${currency} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const handleError = (err, context = "Action") => {
     console.error(err);
     if (err.response && (err.response.status === 413 || err.response.status === 431)) {
-        alert(`${context} Failed: File too large. Please use a file under 750KB.`);
+        alert(`${context} Failed: File too large. Max size is ~750KB.`);
     } else {
         alert(`${context} Failed: ${err.response?.data?.detail || err.message}`);
     }
@@ -70,22 +78,23 @@ const handleError = (err, context = "Action") => {
 
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
-    if (!file) return reject("No file");
+    if (!file) return reject("No file selected");
     
-    // Safety limit 750KB
-    const MAX_SIZE = 750 * 1024; 
+    // Size check (750KB limit to be safe for 1MB server payload)
+    if (file.size > 750 * 1024) {
+        return reject("File too large. Please select a file under 750KB.");
+    }
 
     // PDF Handling
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        if (file.size > MAX_SIZE) return reject(`PDF too large (${(file.size/1024).toFixed(0)}KB). Max is 750KB.`);
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(e);
+        reader.onerror = (e) => reject("Error reading PDF");
         return;
     }
 
-    // Image Handling
+    // Image Handling with Compression
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -97,10 +106,12 @@ const processImage = (file) => {
           const MAX_DIM = 1024; 
           let width = img.width;
           let height = img.height;
+          
           if (width > MAX_DIM || height > MAX_DIM) {
               if (width > height) { height *= MAX_DIM / width; width = MAX_DIM; }
               else { width *= MAX_DIM / height; height = MAX_DIM; }
           }
+          
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
@@ -108,30 +119,22 @@ const processImage = (file) => {
           resolve(canvas.toDataURL('image/jpeg', 0.6));
         } catch (e) { reject(e); }
       };
-      img.onerror = (err) => reject(err);
+      img.onerror = () => reject("Invalid image data");
     };
-    reader.onerror = (err) => reject(err);
+    reader.onerror = () => reject("Error reading file");
   });
 };
 
-const CURRENCIES = [
-  { code: 'USD', label: '$ USD' }, { code: 'EUR', label: '€ EUR' }, { code: 'GBP', label: '£ GBP' },
-  { code: 'INR', label: '₹ INR' }, { code: 'JPY', label: '¥ JPY' }, { code: 'AUD', label: '$ AUD' },
-  { code: 'CAD', label: '$ CAD' }, { code: 'CNY', label: '¥ CNY' }, { code: 'AED', label: 'د.إ AED' },
-  { code: 'SAR', label: '﷼ SAR' }, { code: 'SGD', label: '$ SGD' },
-];
-
-const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
-const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
-
-// =================================================================================================
-// 2. UI COMPONENTS
-// =================================================================================================
+// ============================================================================
+// 3. UI COMPONENTS (Reusable)
+// ============================================================================
 
 const NetworkLogo = ({ network }) => {
   const style = "h-8 w-12 object-contain";
-  if (network?.toLowerCase() === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
-  if (network?.toLowerCase() === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
+  const net = network ? network.toLowerCase() : '';
+  if (net === 'visa') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19.9 5.7h6.6l4.1 20.6h-6.6l-1-5.1h-8.1l-1.3 5.1H7L19.9 5.7zM22 16.3l-2.4-11.5-4 11.5H22zM45.6 5.7h-6.6c-2 0-3.6 1.1-4.3 2.6l-15.3 18h6.9l2.7-7.6h8.4l.8 3.8 3.5 3.8H48L45.6 5.7z"/></svg>;
+  if (net === 'mastercard') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#EB001B" cx="15" cy="16" r="14"/><circle fill="#F79E1B" cx="33" cy="16" r="14"/><path fill="#FF5F00" d="M24 6.4c-3.1 0-6 1.1-8.3 3 2.3 2 3.8 4.9 3.8 8.1s-1.5 6.1-3.8 8.1c2.3 1.9 5.2 3 8.3 3 3.1 0 6-1.1 8.3-3-2.3-2-3.8-4.9-3.8-8.1s1.5-6.1 3.8-8.1c-2.3-1.9-5.2-3-8.3-3z"/></svg>;
+  if (net === 'amex') return <svg className={style} viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><path fill="#2E77BC" d="M2 2h44v28H2z"/><path fill="#FFF" d="M29.9 14.2h-3.3v-4.1h7.5v-2h-12v15.9h12.3v-2.1h-7.8v-4.1h3.3v-3.6zM20.2 19.1l-1.9-4.8h-4.3v4.8H9.6V8.1h7.8c1.7 0 2.9.3 3.7.9.8.6 1.2 1.5 1.2 2.6 0 .9-.3 1.7-.8 2.2-.5.6-1.3 1-2.3 1.2l3.4 8.2h-2.4zm-2.7-6.5c.5-.4.7-1 .7-1.7 0-.7-.2-1.3-.7-1.7-.5-.4-1.2-.6-2.2-.6h-1.3v4.6h1.3c1 0 1.7-.2 2.2-.6z"/></svg>;
   return <CreditCard size={24} className="text-neutral-400"/>;
 };
 
@@ -166,7 +169,7 @@ const Select = (props) => (
 );
 
 // =================================================================================================
-// 3. PAGE COMPONENTS (DEFINED BEFORE USAGE)
+// 4. FEATURE PAGE COMPONENTS
 // =================================================================================================
 
 const SearchPage = ({ currency, privacy }) => {
@@ -196,7 +199,7 @@ const SearchPage = ({ currency, privacy }) => {
                 <FormField label="Keyword"><Input placeholder="Merchant, Tag, Card..." value={filters.search} onChange={e=>setFilters({...filters, search:e.target.value})}/></FormField>
                 <div className="grid grid-cols-2 gap-4"><FormField label="Min Amount"><Input type="number" value={filters.min_amount} onChange={e=>setFilters({...filters, min_amount:e.target.value})}/></FormField><FormField label="Max Amount"><Input type="number" value={filters.max_amount} onChange={e=>setFilters({...filters, max_amount:e.target.value})}/></FormField></div>
                 <div className="grid grid-cols-2 gap-4"><FormField label="Start Date"><Input type="date" value={filters.start_date} onChange={e=>setFilters({...filters, start_date:e.target.value})}/></FormField><FormField label="End Date"><Input type="date" value={filters.end_date} onChange={e=>setFilters({...filters, end_date:e.target.value})}/></FormField></div>
-                <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Search Transactions</button>
+                <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">Search Transactions</button>
             </form>
             <div className="space-y-2">{results.map(t => (<div key={t.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center"><div><p className="text-white font-medium text-sm">{t.description}</p><p className="text-[10px] text-neutral-500">{formatDate(t.date)}</p></div><p className="text-white font-bold text-sm">{formatMoney(t.amount, currency, privacy)}</p></div>))}{results.length === 0 && !searching && <p className="text-center text-neutral-500 py-4">No results found.</p>}</div>
         </div>
@@ -244,7 +247,7 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     };
     
     const handleFile = async (e) => {
-        try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert("Error processing file"); }
+        try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert(e); }
     };
     
     const handleTouchStart = (s) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setOptions(s); }, 500); };
@@ -318,7 +321,20 @@ const LendingPage = ({ currentUser, privacy }) => {
         try { await axios.delete(`${API_URL}/lending/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setLendOptions(null); fetchLending(); } catch(e) { handleError(e, "Delete Lending"); }
     };
 
-    const handleReturn = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { await axios.post(`${API_URL}/lending/${showReturn}/returns`, { date: new Date(returnItem.date).toISOString(), amount: parseFloat(returnItem.amount), attachment: returnItem.attachment }, { headers: { Authorization: `Bearer ${token}` } }); setShowReturn(null); fetchLending(); setReturnItem({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' }); } catch(e) { handleError(e, "Add Return"); } };
+    // FIXED RETURN LOGIC (POST to /returns)
+    const handleReturn = async (e) => { 
+        e.preventDefault(); const token = localStorage.getItem('token'); 
+        try { 
+            await axios.post(`${API_URL}/lending/${showReturn}/returns`, { 
+                date: new Date(returnItem.date).toISOString(), 
+                amount: parseFloat(returnItem.amount), 
+                attachment: returnItem.attachment 
+            }, { headers: { Authorization: `Bearer ${token}` } }); 
+            setShowReturn(null); fetchLending(); 
+            setReturnItem({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' }); 
+        } catch(e) { handleError(e, "Add Return"); } 
+    };
+
     const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert("Error processing image"); } };
     
     const handleTouchStart = (item) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setLendOptions(item); }, 500); };
