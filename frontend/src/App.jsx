@@ -17,11 +17,9 @@ import {
 // ============================================================================
 
 const API_URL = '/api';
-const APP_VERSION = 'v3.0.0';
+const APP_VERSION = 'v3.0.1';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
-const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
 
 // Axios Interceptor for Auth
 axios.interceptors.response.use(
@@ -64,6 +62,7 @@ const getNextDate = (dayOfMonth) => {
 
 const formatMoney = (amount, currency, privacy) => {
     if (privacy) return '****';
+    if (amount === undefined || amount === null) return `${currency} 0.00`;
     return `${currency} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -125,6 +124,16 @@ const processImage = (file) => {
   });
 };
 
+const CURRENCIES = [
+  { code: 'USD', label: '$ USD' }, { code: 'EUR', label: '€ EUR' }, { code: 'GBP', label: '£ GBP' },
+  { code: 'INR', label: '₹ INR' }, { code: 'JPY', label: '¥ JPY' }, { code: 'AUD', label: '$ AUD' },
+  { code: 'CAD', label: '$ CAD' }, { code: 'CNY', label: '¥ CNY' }, { code: 'AED', label: 'د.إ AED' },
+  { code: 'SAR', label: '﷼ SAR' }, { code: 'SGD', label: '$ SGD' },
+];
+
+const CARD_TYPES = ["Credit Card", "Debit Card", "Gift Card", "Prepaid Card"];
+const TXN_MODES = ["Online", "Swipe", "NFC", "Others"];
+
 // ============================================================================
 // 3. UI COMPONENTS (Reusable)
 // ============================================================================
@@ -158,12 +167,18 @@ const FormField = ({ label, children }) => (
 );
 
 const Input = (props) => (
-  <input {...props} className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px] appearance-none ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`} style={{ colorScheme: 'dark' }} />
+  <input 
+    {...props} 
+    className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all placeholder:text-neutral-700 h-[48px] appearance-none ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    style={{ colorScheme: 'dark' }} 
+  />
 );
 
 const Select = (props) => (
   <div className="relative w-full">
-    <select {...props} className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px] ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{props.children}</select>
+    <select {...props} className={`w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all appearance-none h-[48px] ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+        {props.children}
+    </select>
     <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 rotate-90 pointer-events-none" size={16} />
   </div>
 );
@@ -178,7 +193,8 @@ const SearchPage = ({ currency, privacy }) => {
     const [searching, setSearching] = useState(false);
 
     const handleSearch = async (e) => {
-        e?.preventDefault(); setSearching(true);
+        e?.preventDefault(); 
+        setSearching(true);
         const token = localStorage.getItem('token');
         try {
             const params = new URLSearchParams();
@@ -197,11 +213,28 @@ const SearchPage = ({ currency, privacy }) => {
             <h2 className="text-2xl font-bold text-white">Advanced Search</h2>
             <form onSubmit={handleSearch} className="space-y-4 bg-neutral-900 p-4 rounded-xl border border-neutral-800">
                 <FormField label="Keyword"><Input placeholder="Merchant, Tag, Card..." value={filters.search} onChange={e=>setFilters({...filters, search:e.target.value})}/></FormField>
-                <div className="grid grid-cols-2 gap-4"><FormField label="Min Amount"><Input type="number" value={filters.min_amount} onChange={e=>setFilters({...filters, min_amount:e.target.value})}/></FormField><FormField label="Max Amount"><Input type="number" value={filters.max_amount} onChange={e=>setFilters({...filters, max_amount:e.target.value})}/></FormField></div>
-                <div className="grid grid-cols-2 gap-4"><FormField label="Start Date"><Input type="date" value={filters.start_date} onChange={e=>setFilters({...filters, start_date:e.target.value})}/></FormField><FormField label="End Date"><Input type="date" value={filters.end_date} onChange={e=>setFilters({...filters, end_date:e.target.value})}/></FormField></div>
-                <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">Search Transactions</button>
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Min Amount"><Input type="number" value={filters.min_amount} onChange={e=>setFilters({...filters, min_amount:e.target.value})}/></FormField>
+                    <FormField label="Max Amount"><Input type="number" value={filters.max_amount} onChange={e=>setFilters({...filters, max_amount:e.target.value})}/></FormField>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Start Date"><Input type="date" value={filters.start_date} onChange={e=>setFilters({...filters, start_date:e.target.value})}/></FormField>
+                    <FormField label="End Date"><Input type="date" value={filters.end_date} onChange={e=>setFilters({...filters, end_date:e.target.value})}/></FormField>
+                </div>
+                <button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Search Transactions</button>
             </form>
-            <div className="space-y-2">{results.map(t => (<div key={t.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center"><div><p className="text-white font-medium text-sm">{t.description}</p><p className="text-[10px] text-neutral-500">{formatDate(t.date)}</p></div><p className="text-white font-bold text-sm">{formatMoney(t.amount, currency, privacy)}</p></div>))}{results.length === 0 && !searching && <p className="text-center text-neutral-500 py-4">No results found.</p>}</div>
+            <div className="space-y-2">
+                {results.map(t => (
+                    <div key={t.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center">
+                        <div>
+                            <p className="text-white font-medium text-sm">{t.description}</p>
+                            <p className="text-[10px] text-neutral-500">{formatDate(t.date)}</p>
+                        </div>
+                        <p className="text-white font-bold text-sm">{formatMoney(t.amount, currency, privacy)}</p>
+                    </div>
+                ))}
+                {results.length === 0 && !searching && <p className="text-center text-neutral-500 py-4">No results found.</p>}
+            </div>
         </div>
     );
 };
@@ -211,6 +244,7 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     const [showAdd, setShowAdd] = useState(false);
     const [newSub, setNewSub] = useState({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
     
+    // Edit/Delete State
     const [options, setOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const [viewingSubAtt, setViewingSubAtt] = useState(null);
@@ -224,15 +258,23 @@ const SubscriptionsPage = ({ currency, privacy }) => {
     useEffect(() => { fetchSubs(); }, []);
 
     const handleAddOrUpdate = async (e) => {
-        e.preventDefault(); const token = localStorage.getItem('token');
-        const payload = { ...newSub, amount: parseFloat(newSub.amount), next_due_date: new Date(newSub.next_due_date).toISOString() };
+        e.preventDefault(); 
+        const token = localStorage.getItem('token');
+        const payload = { 
+            ...newSub, 
+            amount: parseFloat(newSub.amount), 
+            next_due_date: new Date(newSub.next_due_date).toISOString() 
+        };
         try {
             if (showEdit && options) {
                 await axios.put(`${API_URL}/subscriptions/${options.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
             } else {
                 await axios.post(`${API_URL}/subscriptions/`, payload, { headers: { Authorization: `Bearer ${token}` } });
             }
-            setShowAdd(false); setShowEdit(false); setOptions(null); fetchSubs();
+            setShowAdd(false); 
+            setShowEdit(false); 
+            setOptions(null); 
+            fetchSubs();
             setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
         } catch(err) { handleError(err, "Save Subscription"); }
     };
@@ -242,28 +284,147 @@ const SubscriptionsPage = ({ currency, privacy }) => {
         const token = localStorage.getItem('token');
         try {
             await axios.delete(`${API_URL}/subscriptions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-            setOptions(null); fetchSubs();
+            setOptions(null); 
+            fetchSubs();
         } catch(err) { handleError(err, "Delete Subscription"); }
     };
     
     const handleFile = async (e) => {
-        try { const b64 = await processImage(e.target.files[0]); setNewSub(prev => ({...prev, attachment: b64})); } catch(e) { alert(e); }
+        try { 
+            const b64 = await processImage(e.target.files[0]); 
+            setNewSub(prev => ({...prev, attachment: b64})); 
+        } catch(e) { alert("Error processing file: " + e); }
     };
     
-    const handleTouchStart = (s) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setOptions(s); }, 500); };
+    // Mobile Long Press Handlers
+    const handleTouchStart = (s) => { 
+        longPressTimer.current = setTimeout(() => { 
+            if(navigator.vibrate) navigator.vibrate(50); 
+            setOptions(s); 
+        }, 500); 
+    };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
+    
     const startEdit = (s) => {
-        setNewSub({ name: s.name, amount: s.amount, billing_cycle: s.billing_cycle, next_due_date: new Date(s.next_due_date).toISOString().split('T')[0], attachment: s.attachment || '' });
-        setOptions(s); setShowEdit(true);
+        setNewSub({ 
+            name: s.name, 
+            amount: s.amount, 
+            billing_cycle: s.billing_cycle, 
+            next_due_date: new Date(s.next_due_date).toISOString().split('T')[0], 
+            attachment: s.attachment || '' 
+        });
+        setOptions(s); 
+        setShowEdit(true);
     };
 
     return (
         <div className="space-y-6 animate-in fade-in relative">
-            {options && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
-            <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Subscriptions</h2><button onClick={() => { setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700"><Plus size={20}/></button></div>
-            <div className="grid gap-3">{subs.map(s => (<div key={s.id} className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> <div><p className="text-white font-bold text-sm">{s.name}</p><p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p></div></div><div className="flex items-center gap-3">{s.attachment && <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p></div></div>))}{subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}</div>
-            {(showAdd || showEdit) && <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}><form onSubmit={handleAddOrUpdate} className="space-y-4"><FormField label="Service Name"><Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/></FormField><div className="grid grid-cols-2 gap-4"><FormField label="Amount"><Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/></FormField><FormField label="Cycle"><Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}><option>Monthly</option><option>Yearly</option></Select></FormField></div><FormField label="Next Billing Date"><Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/></FormField><FormField label="Attachment (Invoice/Receipt)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File (PDF/Img)'}</span></div><input type="file" ref={fileRef} accept="image/*,application/pdf" className="hidden" onChange={handleFile}/></FormField><button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">Track Subscription</button></form></Modal>}
-            {viewingSubAtt && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSubAtt(null)}><button onClick={() => setViewingSubAtt(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingSubAtt.startsWith('data:application/pdf') ? <iframe src={viewingSubAtt} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingSubAtt} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
+            {/* Context Menu Modal */}
+            {options && !showEdit && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setOptions(null)}></div>
+                    <div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1">
+                        <div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div>
+                        <button onClick={() => startEdit(options)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors">
+                            <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div>
+                            <span className="font-medium text-sm">Edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(options.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors">
+                            <div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div>
+                            <span className="font-medium text-sm">Delete</span>
+                        </button>
+                        <button onClick={() => setOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-white">Subscriptions</h2>
+                <button onClick={() => { 
+                    setNewSub({ name: '', amount: '', billing_cycle: 'Monthly', next_due_date: '', attachment: '' });
+                    setShowAdd(true); 
+                }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700">
+                    <Plus size={20}/>
+                </button>
+            </div>
+
+            <div className="grid gap-3">
+                {subs.map(s => (
+                    <div 
+                        key={s.id} 
+                        className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center select-none active:scale-95 transition-transform cursor-pointer"
+                        onTouchStart={() => handleTouchStart(s)} 
+                        onTouchEnd={handleTouchEnd} 
+                        onMouseDown={() => handleTouchStart(s)} 
+                        onMouseUp={handleTouchEnd} 
+                        onMouseLeave={handleTouchEnd}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400"><RefreshCw size={18}/></div> 
+                            <div>
+                                <p className="text-white font-bold text-sm">{s.name}</p>
+                                <p className="text-[10px] text-neutral-500">Next: {formatDate(s.next_due_date)} • {s.billing_cycle}</p>
+                            </div>
+                        </div>
+                        <div className="text-right flex items-center gap-3">
+                             {s.attachment && (
+                                <button onClick={(e) => { e.stopPropagation(); setViewingSubAtt(s.attachment); }} className="text-neutral-500 hover:text-white">
+                                    <Eye size={16}/>
+                                </button>
+                             )}
+                             <p className="text-white font-bold text-sm">{formatMoney(s.amount, currency, privacy)}</p>
+                        </div>
+                    </div>
+                ))}
+                {subs.length === 0 && <div className="text-center py-10 text-neutral-500">No active subscriptions.</div>}
+            </div>
+
+            {/* Add/Edit Modal */}
+            {(showAdd || showEdit) && (
+                <Modal title={showEdit ? "Edit Subscription" : "Add Subscription"} onClose={() => { setShowAdd(false); setShowEdit(false); setOptions(null); }}>
+                    <form onSubmit={handleAddOrUpdate} className="space-y-4">
+                        <FormField label="Service Name">
+                            <Input value={newSub.name} onChange={e=>setNewSub({...newSub, name: e.target.value})} required/>
+                        </FormField>
+                        <div className="grid grid-cols-2 gap-4">
+                             <FormField label="Amount">
+                                 <Input type="number" value={newSub.amount} onChange={e=>setNewSub({...newSub, amount: e.target.value})} required/>
+                             </FormField>
+                             <FormField label="Cycle">
+                                 <Select value={newSub.billing_cycle} onChange={e=>setNewSub({...newSub, billing_cycle: e.target.value})}>
+                                     <option>Monthly</option><option>Yearly</option>
+                                 </Select>
+                             </FormField>
+                        </div>
+                        <FormField label="Next Billing Date">
+                            <Input type="date" value={newSub.next_due_date} onChange={e=>setNewSub({...newSub, next_due_date: e.target.value})} required/>
+                        </FormField>
+                        <FormField label="Attachment (Invoice/Receipt)">
+                            <div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}>
+                                <Upload className="mx-auto text-neutral-500 mb-2"/>
+                                <span className="text-xs text-neutral-400">{newSub.attachment ? 'File Selected' : 'Upload File (PDF/Img)'}</span>
+                            </div>
+                            <input type="file" ref={fileRef} accept="image/*,application/pdf" className="hidden" onChange={handleFile}/>
+                        </FormField>
+                        <button className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold mt-2">
+                            {showEdit ? "Update Subscription" : "Track Subscription"}
+                        </button>
+                    </form>
+                </Modal>
+            )}
+
+            {/* File Viewer */}
+            {viewingSubAtt && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSubAtt(null)}>
+                    <button onClick={() => setViewingSubAtt(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]">
+                        <X size={24} />
+                    </button>
+                    {viewingSubAtt.startsWith('data:application/pdf') ? 
+                        <iframe src={viewingSubAtt} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : 
+                        <img src={viewingSubAtt} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />
+                    }
+                </div>
+            )}
         </div>
     );
 };
@@ -273,15 +434,43 @@ const CalendarPage = ({ cards, currency }) => {
     const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
     const startDay = new Date(today.getFullYear(), today.getMonth(), 1).getDay(); 
     const events = [];
-    cards.forEach(c => { events.push({ day: c.payment_due_date, type: 'due', label: `${c.name} Due` }); events.push({ day: c.statement_date, type: 'stmt', label: `${c.name} Stmt` }); });
+    
+    // Add card events
+    cards.forEach(c => { 
+        if(c.payment_due_date) events.push({ day: c.payment_due_date, type: 'due', label: `${c.name} Due` }); 
+        if(c.statement_date) events.push({ day: c.statement_date, type: 'stmt', label: `${c.name} Stmt` }); 
+    });
+
     const getDayEvents = (d) => events.filter(e => e.day === d);
 
     return (
         <div className="space-y-6 animate-in fade-in">
             <h2 className="text-2xl font-bold text-white mb-4">{today.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2">{['S','M','T','W','T','F','S'].map(d => <div key={d} className="text-xs text-neutral-500 font-bold">{d}</div>)}</div>
-            <div className="grid grid-cols-7 gap-1">{[...Array(startDay)].map((_, i) => <div key={`empty-${i}`} className="aspect-square"></div>)}{[...Array(daysInMonth)].map((_, i) => { const day = i + 1; const evts = getDayEvents(day); const isToday = day === today.getDate(); return (<div key={day} className={`aspect-square bg-neutral-900 border border-neutral-800 rounded-lg p-1 relative flex flex-col items-center ${isToday ? 'border-red-500' : ''}`}><span className={`text-xs font-medium ${isToday ? 'text-red-500' : 'text-neutral-400'}`}>{day}</span><div className="flex gap-0.5 mt-1 flex-wrap justify-center">{evts.map((e, idx) => (<div key={idx} className={`w-1.5 h-1.5 rounded-full ${e.type === 'due' ? 'bg-red-500' : 'bg-blue-500'}`} title={e.label}></div>))}</div></div>); })}</div>
-            <div className="flex gap-4 justify-center text-xs text-neutral-500 mt-4"><div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Due Date</div><div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Statement</div></div>
+            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                {['S','M','T','W','T','F','S'].map(d => <div key={d} className="text-xs text-neutral-500 font-bold">{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+                {[...Array(startDay)].map((_, i) => <div key={`empty-${i}`} className="aspect-square"></div>)}
+                {[...Array(daysInMonth)].map((_, i) => { 
+                    const day = i + 1; 
+                    const evts = getDayEvents(day); 
+                    const isToday = day === today.getDate(); 
+                    return (
+                        <div key={day} className={`aspect-square bg-neutral-900 border border-neutral-800 rounded-lg p-1 relative flex flex-col items-center ${isToday ? 'border-red-500' : ''}`}>
+                            <span className={`text-xs font-medium ${isToday ? 'text-red-500' : 'text-neutral-400'}`}>{day}</span>
+                            <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
+                                {evts.map((e, idx) => (
+                                    <div key={idx} className={`w-1.5 h-1.5 rounded-full ${e.type === 'due' ? 'bg-red-500' : 'bg-blue-500'}`} title={e.label}></div>
+                                ))}
+                            </div>
+                        </div>
+                    ); 
+                })}
+            </div>
+            <div className="flex gap-4 justify-center text-xs text-neutral-500 mt-4">
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Due Date</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Statement</div>
+            </div>
         </div>
     );
 };
@@ -293,35 +482,56 @@ const LendingPage = ({ currentUser, privacy }) => {
     const [viewingProof, setViewingProof] = useState(null); 
     const [newItem, setNewItem] = useState({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' });
     const [returnItem, setReturnItem] = useState({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' });
-    const fileRef = useRef(null); const returnFileRef = useRef(null);
+    const fileRef = useRef(null); 
+    const returnFileRef = useRef(null);
 
     const [lendOptions, setLendOptions] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
     const longPressTimer = useRef(null);
 
-    const fetchLending = async () => { const token = localStorage.getItem('token'); try { const res = await axios.get(`${API_URL}/lending/`, { headers: { Authorization: `Bearer ${token}` } }); setLendingList(res.data); } catch (e) { console.error(e); } };
+    const fetchLending = async () => { 
+        const token = localStorage.getItem('token'); 
+        try { 
+            const res = await axios.get(`${API_URL}/lending/`, { headers: { Authorization: `Bearer ${token}` } }); 
+            setLendingList(res.data); 
+        } catch (e) { console.error(e); } 
+    };
+    
     useEffect(() => { fetchLending(); }, []);
 
     const handleAddOrUpdate = async (e) => { 
         e.preventDefault(); const token = localStorage.getItem('token'); 
         try { 
-            const payload = { ...newItem, amount: parseFloat(newItem.amount), lent_date: new Date(newItem.lent_date).toISOString(), reminder_date: newItem.reminder_date ? new Date(newItem.reminder_date).toISOString() : null };
+            const payload = { 
+                ...newItem, 
+                amount: parseFloat(newItem.amount), 
+                lent_date: new Date(newItem.lent_date).toISOString(), 
+                reminder_date: newItem.reminder_date ? new Date(newItem.reminder_date).toISOString() : null 
+            };
             if (showEdit && lendOptions) {
                 await axios.put(`${API_URL}/lending/${lendOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
             } else {
                 await axios.post(`${API_URL}/lending/`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
             }
-            setShowAdd(false); setShowEdit(false); setLendOptions(null); fetchLending(); setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); 
+            setShowAdd(false); 
+            setShowEdit(false); 
+            setLendOptions(null); 
+            fetchLending(); 
+            setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); 
         } catch(e) { handleError(e, "Save Lending"); } 
     };
     
     const handleDelete = async (id) => {
         if(!confirm("Delete record?")) return;
         const token = localStorage.getItem('token');
-        try { await axios.delete(`${API_URL}/lending/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setLendOptions(null); fetchLending(); } catch(e) { handleError(e, "Delete Lending"); }
+        try { 
+            await axios.delete(`${API_URL}/lending/${id}`, { headers: { Authorization: `Bearer ${token}` } }); 
+            setLendOptions(null); 
+            fetchLending(); 
+        } catch(e) { handleError(e, "Delete Lending"); }
     };
 
-    // FIXED RETURN LOGIC (POST to /returns)
+    // FIXED RETURN LOGIC using POST
     const handleReturn = async (e) => { 
         e.preventDefault(); const token = localStorage.getItem('token'); 
         try { 
@@ -330,32 +540,155 @@ const LendingPage = ({ currentUser, privacy }) => {
                 amount: parseFloat(returnItem.amount), 
                 attachment: returnItem.attachment 
             }, { headers: { Authorization: `Bearer ${token}` } }); 
-            setShowReturn(null); fetchLending(); 
+            setShowReturn(null); 
+            fetchLending(); 
             setReturnItem({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' }); 
         } catch(e) { handleError(e, "Add Return"); } 
     };
 
-    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert("Error processing image"); } };
+    const handleFile = async (e, setter, field) => { 
+        try { 
+            const b64 = await processImage(e.target.files[0]); 
+            setter(prev => ({...prev, [field]: b64})); 
+        } catch(e) { alert("Error processing image: " + e); } 
+    };
     
-    const handleTouchStart = (item) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setLendOptions(item); }, 500); };
+    const handleTouchStart = (item) => { 
+        longPressTimer.current = setTimeout(() => { 
+            if(navigator.vibrate) navigator.vibrate(50); 
+            setLendOptions(item); 
+        }, 500); 
+    };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
 
     const startEdit = (item) => {
-        setNewItem({ borrower_name: item.borrower_name, amount: item.amount, lent_date: new Date(item.lent_date).toISOString().split('T')[0], reminder_date: item.reminder_date ? new Date(item.reminder_date).toISOString().split('T')[0] : '', attachment_lent: item.attachment_lent });
-        setLendOptions(item); setShowEdit(true);
+        setNewItem({ 
+            borrower_name: item.borrower_name, 
+            amount: item.amount, 
+            lent_date: new Date(item.lent_date).toISOString().split('T')[0], 
+            reminder_date: item.reminder_date ? new Date(item.reminder_date).toISOString().split('T')[0] : '', 
+            attachment_lent: item.attachment_lent 
+        });
+        setLendOptions(item); 
+        setShowEdit(true);
     };
 
-    const getReturnedTotal = (item) => { if (!item.returns) return 0; return item.returns.reduce((acc, r) => acc + r.amount, 0); };
+    const getReturnedTotal = (item) => { 
+        if (!item.returns) return 0; 
+        return item.returns.reduce((acc, r) => acc + r.amount, 0); 
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in relative">
-            {lendOptions && !showEdit && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setLendOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div><button onClick={() => startEdit(lendOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDelete(lendOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setLendOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
-            <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Debt Portfolio</h2><button onClick={() => { setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); setShowAdd(true); }} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700"><Plus size={16}/> Lend Money</button></div>
-            <div className="space-y-3">{lendingList.map(item => { const totalReturned = getReturnedTotal(item); const remaining = item.amount - totalReturned; const progress = Math.min((totalReturned / item.amount) * 100, 100); return (<div key={item.id} className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} onTouchStart={() => handleTouchStart(item)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(item)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex justify-between items-start mb-2"><div><h3 className="font-bold text-white text-lg">{item.borrower_name}</h3><p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p></div><div className="text-right"><span className={`font-bold text-lg ${item.is_returned ? 'text-green-500' : 'text-white'}`}>{formatMoney(item.amount, currentUser.currency, privacy)}</span>{remaining > 0 && <p className="text-xs text-red-400">Pending: {formatMoney(remaining, currentUser.currency, privacy)}</p>}</div></div><div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden mb-3"><div className={`h-full ${item.is_returned ? 'bg-green-500' : 'bg-blue-500'}`} style={{width: `${progress}%`}}></div></div><div className="flex justify-between items-center">{item.attachment_lent ? <button className="text-blue-400 text-xs flex items-center gap-1" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}><Eye size={12}/> Proof</button> : <span></span>}{remaining > 0 ? (<button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); setReturnItem(prev => ({...prev, amount: remaining})); }} className="bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-600/50 hover:bg-blue-600/30">Record Return</button>) : (<span className="text-green-500 text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> Fully Returned</span>)}</div>{item.returns && item.returns.length > 0 && (<div className="mt-3 pt-3 border-t border-neutral-800/50 space-y-1"><p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">Return History</p>{item.returns.map(ret => (<div key={ret.id} className="flex justify-between items-center text-xs text-neutral-400"><span>{formatDate(ret.date)}</span><div className="flex items-center gap-2"><span className="text-green-500">+{formatMoney(ret.amount, currentUser.currency, privacy)}</span>{ret.attachment && <button onClick={(e)=>{e.stopPropagation(); setViewingProof(ret.attachment);}}><Eye size={10} className="text-neutral-500 hover:text-white"/></button>}</div></div>))}</div>)}</div>)})}
-            {lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}</div>
+            {lendOptions && !showEdit && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setLendOptions(null)}></div>
+                    <div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1">
+                        <div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Options</div>
+                        <button onClick={() => startEdit(lendOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors">
+                            <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div>
+                            <span className="font-medium text-sm">Edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(lendOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors">
+                            <div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div>
+                            <span className="font-medium text-sm">Delete</span>
+                        </button>
+                        <button onClick={() => setLendOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button>
+                    </div>
+                </div>
+            )}
+            
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-white">Debt Portfolio</h2>
+                <button onClick={() => { 
+                    setNewItem({ borrower_name: '', amount: '', lent_date: new Date().toISOString().split('T')[0], reminder_date: '', attachment_lent: '' }); 
+                    setShowAdd(true); 
+                }} className="bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold border border-neutral-700">
+                    <Plus size={16}/> Lend Money
+                </button>
+            </div>
+            
+            <div className="space-y-3">
+                {lendingList.map(item => { 
+                    const totalReturned = getReturnedTotal(item); 
+                    const remaining = item.amount - totalReturned; 
+                    const progress = Math.min((totalReturned / item.amount) * 100, 100); 
+                    return (
+                        <div 
+                            key={item.id} 
+                            className={`p-4 rounded-xl border select-none transition-transform active:scale-[0.98] cursor-pointer ${item.is_returned ? 'bg-green-900/10 border-green-900/30' : 'bg-neutral-900 border-neutral-800'}`} 
+                            onTouchStart={() => handleTouchStart(item)} 
+                            onTouchEnd={handleTouchEnd} 
+                            onMouseDown={() => handleTouchStart(item)} 
+                            onMouseUp={handleTouchEnd} 
+                            onMouseLeave={handleTouchEnd}
+                        >
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <h3 className="font-bold text-white text-lg">{item.borrower_name}</h3>
+                                    <p className="text-xs text-neutral-500">Lent on {formatDate(item.lent_date)}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`font-bold text-lg ${item.is_returned ? 'text-green-500' : 'text-white'}`}>
+                                        {formatMoney(item.amount, currentUser.currency, privacy)}
+                                    </span>
+                                    {remaining > 0 && <p className="text-xs text-red-400">Pending: {formatMoney(remaining, currentUser.currency, privacy)}</p>}
+                                </div>
+                            </div>
+                            
+                            <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden mb-3">
+                                <div className={`h-full ${item.is_returned ? 'bg-green-500' : 'bg-blue-500'}`} style={{width: `${progress}%`}}></div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                                {item.attachment_lent ? 
+                                    <button className="text-blue-400 text-xs flex items-center gap-1" onClick={(e) => { e.stopPropagation(); setViewingProof(item.attachment_lent); }}>
+                                        <Eye size={12}/> Proof
+                                    </button> 
+                                : <span></span>}
+                                
+                                {remaining > 0 ? (
+                                    <button onClick={(e) => { e.stopPropagation(); setShowReturn(item.id); setReturnItem(prev => ({...prev, amount: remaining})); }} className="bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-600/50 hover:bg-blue-600/30">
+                                        Record Return
+                                    </button>
+                                ) : (
+                                    <span className="text-green-500 text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> Fully Returned</span>
+                                )}
+                            </div>
+                            
+                            {item.returns && item.returns.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-neutral-800/50 space-y-1">
+                                    <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">Return History</p>
+                                    {item.returns.map(ret => (
+                                        <div key={ret.id} className="flex justify-between items-center text-xs text-neutral-400">
+                                            <span>{formatDate(ret.date)}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-green-500">+{formatMoney(ret.amount, currentUser.currency, privacy)}</span>
+                                                {ret.attachment && <button onClick={(e)=>{e.stopPropagation(); setViewingProof(ret.attachment);}}><Eye size={10} className="text-neutral-500 hover:text-white"/></button>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                {lendingList.length === 0 && <div className="text-center py-10 text-neutral-500">No active debts.</div>}
+            </div>
+
             {showAdd && <Modal title="Lend Money" onClose={() => setShowAdd(false)}><form onSubmit={handleAdd} className="space-y-6"><FormField label="Friend Name"><Input value={newItem.borrower_name} onChange={e=>setNewItem({...newItem, borrower_name: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newItem.amount} onChange={e=>setNewItem({...newItem, amount: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Lent Date"><Input type="date" value={newItem.lent_date} onChange={e=>setNewItem({...newItem, lent_date: e.target.value})} required/></FormField><FormField label="Reminder Date"><Input type="date" value={newItem.reminder_date} onChange={e=>setNewItem({...newItem, reminder_date: e.target.value})}/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => fileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newItem.attachment_lent ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={fileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setNewItem, 'attachment_lent')}/></FormField><button className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold mt-2">Save Record</button></form></Modal>}
-            {showReturn && <Modal title="Record Return" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><div className="grid grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={returnItem.date} onChange={e=>setReturnItem({...returnItem, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={returnItem.amount} onChange={e=>setReturnItem({...returnItem, amount: e.target.value})} required/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment')}/></FormField><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2">Add Return</button></form></Modal>}
-            {viewingProof && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}><button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingProof.startsWith('data:application/pdf') ? <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
+            {showReturn && <Modal title="Record Return" onClose={() => setShowReturn(null)}><form onSubmit={handleReturn} className="space-y-6"><div className="grid grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={returnItem.date} onChange={e=>setReturnItem({...returnItem, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={returnItem.amount} onChange={e=>setReturnItem({...returnItem, amount: e.target.value})} required/></FormField></div><FormField label="Proof (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => returnFileRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{returnItem.attachment ? 'File Selected' : 'Upload Screenshot'}</span></div><input type="file" ref={returnFileRef} accept="image/*,.pdf" className="hidden" onChange={(e) => handleFile(e, setReturnItem, 'attachment')}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2">Confirm Return</button></form></Modal>}
+            
+            {/* Viewer for Proofs */}
+            {viewingProof && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingProof(null)}>
+                    <button onClick={() => setViewingProof(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>
+                    {viewingProof.startsWith('data:application/pdf') ? 
+                        <iframe src={viewingProof} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : 
+                        <img src={viewingProof} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />
+                    }
+                </div>
+            )}
         </div>
     );
 };
@@ -365,45 +698,181 @@ const IncomePage = ({ currentUser, privacy }) => {
     const [salaries, setSalaries] = useState([]);
     const [showAddComp, setShowAddComp] = useState(false);
     const [showLogSal, setShowLogSal] = useState(false);
+    
+    // Edit/Delete State
     const [compOptions, setCompOptions] = useState(null); 
     const [showEditComp, setShowEditComp] = useState(false); 
     const [salOptions, setSalOptions] = useState(null);
     const [showEditSal, setShowEditSal] = useState(false);
+    
+    // View Details
     const [viewCompany, setViewCompany] = useState(null);
     const [viewingSlip, setViewingSlip] = useState(null);
+    
     const longPressTimer = useRef(null);
     const [newComp, setNewComp] = useState({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' });
     const [newSal, setNewSal] = useState({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' });
     const logoRef = useRef(null);
     const slipRef = useRef(null);
 
-    const fetchData = async () => { const token = localStorage.getItem('token'); const [c, s] = await Promise.all([axios.get(`${API_URL}/income/companies`, { headers: { Authorization: `Bearer ${token}` } }), axios.get(`${API_URL}/income/salary`, { headers: { Authorization: `Bearer ${token}` } })]); setCompanies(c.data); setSalaries(s.data); };
+    const fetchData = async () => { 
+        const token = localStorage.getItem('token'); 
+        const [c, s] = await Promise.all([
+            axios.get(`${API_URL}/income/companies`, { headers: { Authorization: `Bearer ${token}` } }), 
+            axios.get(`${API_URL}/income/salary`, { headers: { Authorization: `Bearer ${token}` } })
+        ]); 
+        setCompanies(c.data); 
+        setSalaries(s.data); 
+    };
     useEffect(() => { fetchData(); }, []);
 
-    const handleAddOrUpdateComp = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { const payload = { name: newComp.name, joining_date: new Date(newComp.joining_date).toISOString(), leaving_date: newComp.leaving_date ? new Date(newComp.leaving_date).toISOString() : null, is_current: newComp.is_current, logo: newComp.logo }; if (showEditComp && compOptions) { await axios.put(`${API_URL}/income/companies/${compOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/companies`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowAddComp(false); setShowEditComp(false); setCompOptions(null); fetchData(); setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' }); } catch(err) { handleError(err, "Save Company"); } };
-    const handleDeleteComp = async (id) => { if(!confirm("Delete this company?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setCompOptions(null); fetchData(); } catch(err) { handleError(err, "Delete Company"); } };
-    const handleLogOrUpdateSal = async (e) => { e.preventDefault(); if(!newSal.company_id) { alert("Please select a company"); return; } const token = localStorage.getItem('token'); try { const payload = { amount: parseFloat(newSal.amount), date: new Date(newSal.date).toISOString(), company_id: parseInt(newSal.company_id), slip: newSal.slip || null }; if (showEditSal && salOptions) { await axios.put(`${API_URL}/income/salary/${salOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); } else { await axios.post(`${API_URL}/income/salary`, payload, { headers: { Authorization: `Bearer ${token}` } }); } setShowLogSal(false); setShowEditSal(false); setSalOptions(null); fetchData(); setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); } catch(err) { handleError(err, "Save Salary"); } };
-    const handleDeleteSal = async (id) => { if(!confirm("Delete this record?")) return; const token = localStorage.getItem('token'); try { await axios.delete(`${API_URL}/income/salary/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setSalOptions(null); fetchData(); } catch(err) { handleError(err, "Delete Salary"); } };
+    const handleAddOrUpdateComp = async (e) => { 
+        e.preventDefault(); const token = localStorage.getItem('token'); 
+        try { 
+            const payload = { name: newComp.name, joining_date: new Date(newComp.joining_date).toISOString(), leaving_date: newComp.leaving_date ? new Date(newComp.leaving_date).toISOString() : null, is_current: newComp.is_current, logo: newComp.logo }; 
+            if (showEditComp && compOptions) { 
+                await axios.put(`${API_URL}/income/companies/${compOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
+            } else { 
+                await axios.post(`${API_URL}/income/companies`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
+            } 
+            setShowAddComp(false); setShowEditComp(false); setCompOptions(null); fetchData(); 
+            setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], leaving_date: '', is_current: true, logo: '' }); 
+        } catch(err) { handleError(err, "Save Company"); } 
+    };
+    
+    const handleDeleteComp = async (id) => { 
+        if(!confirm("Delete this company?")) return; 
+        const token = localStorage.getItem('token'); 
+        try { await axios.delete(`${API_URL}/income/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setCompOptions(null); fetchData(); } catch(err) { handleError(err, "Delete Company"); } 
+    };
+    
+    const handleLogOrUpdateSal = async (e) => { 
+        e.preventDefault(); 
+        if(!newSal.company_id) { alert("Please select a company"); return; } 
+        const token = localStorage.getItem('token'); 
+        try { 
+            const payload = { 
+                amount: parseFloat(newSal.amount), 
+                date: new Date(newSal.date).toISOString(), 
+                company_id: parseInt(newSal.company_id), 
+                slip: newSal.slip || null 
+            }; 
+            if (showEditSal && salOptions) { 
+                await axios.put(`${API_URL}/income/salary/${salOptions.id}`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
+            } else { 
+                await axios.post(`${API_URL}/income/salary`, payload, { headers: { Authorization: `Bearer ${token}` } }); 
+            } 
+            setShowLogSal(false); setShowEditSal(false); setSalOptions(null); fetchData(); 
+            setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); 
+        } catch(err) { handleError(err, "Save Salary"); } 
+    };
+    
+    const handleDeleteSal = async (id) => { 
+        if(!confirm("Delete this record?")) return; 
+        const token = localStorage.getItem('token'); 
+        try { await axios.delete(`${API_URL}/income/salary/${id}`, { headers: { Authorization: `Bearer ${token}` } }); setSalOptions(null); fetchData(); } catch(err) { handleError(err, "Delete Salary"); } 
+    };
+    
     const handleLogoUpload = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewComp(prev => ({...prev, logo: b64})); } catch(err) { alert(err); } };
     const handleSlipUpload = async (e) => { try { const b64 = await processImage(e.target.files[0]); setNewSal(prev => ({...prev, slip: b64})); } catch(err) { alert(err); } };
+    
     const handleTouchStart = (item, setter) => { longPressTimer.current = setTimeout(() => { if (navigator.vibrate) navigator.vibrate(50); setter(item); }, 500); };
     const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
-    const startEditComp = (comp) => { setNewComp({ name: comp.name, joining_date: new Date(comp.joining_date).toISOString().split('T')[0], leaving_date: comp.leaving_date ? new Date(comp.leaving_date).toISOString().split('T')[0] : '', is_current: comp.is_current, logo: comp.logo || '' }); setCompOptions(comp); setShowEditComp(true); };
-    const startEditSal = (sal) => { setNewSal({ amount: sal.amount, date: new Date(sal.date).toISOString().split('T')[0], company_id: sal.company_id, slip: sal.slip || '' }); setSalOptions(sal); setShowEditSal(true); };
+    
+    const startEditComp = (comp) => { 
+        setNewComp({ name: comp.name, joining_date: new Date(comp.joining_date).toISOString().split('T')[0], leaving_date: comp.leaving_date ? new Date(comp.leaving_date).toISOString().split('T')[0] : '', is_current: comp.is_current, logo: comp.logo || '' }); 
+        setCompOptions(comp); setShowEditComp(true); 
+    };
+    
+    const startEditSal = (sal) => { 
+        setNewSal({ amount: sal.amount, date: new Date(sal.date).toISOString().split('T')[0], company_id: sal.company_id, slip: sal.slip || '' }); 
+        setSalOptions(sal); setShowEditSal(true); 
+    };
+    
     const getCompanyTotal = (id) => salaries.filter(s => s.company_id === id).reduce((acc, curr) => acc + curr.amount, 0);
 
     return (
         <div className="space-y-8 animate-in fade-in relative">
+            {/* Options Modals for Long Press */}
             {compOptions && !showEditComp && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setCompOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Company Options</div><button onClick={() => startEditComp(compOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDeleteComp(compOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setCompOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
             {salOptions && !showEditSal && (<div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200"><div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSalOptions(null)}></div><div className="bg-neutral-900 border border-neutral-700 p-1 rounded-2xl w-3/4 max-w-[200px] shadow-2xl relative z-50 flex flex-col gap-1"><div className="text-center py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800">Salary Options</div><button onClick={() => startEditSal(salOptions)} className="w-full bg-neutral-800 text-white p-3 rounded-xl flex items-center gap-3 hover:bg-neutral-700 transition-colors"><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Edit2 size={16}/></div><span className="font-medium text-sm">Edit</span></button><button onClick={() => handleDeleteSal(salOptions.id)} className="w-full bg-neutral-800 text-red-400 p-3 rounded-xl flex items-center gap-3 hover:bg-red-900/20 transition-colors"><div className="bg-red-500/20 p-2 rounded-lg text-red-500"><Trash2 size={16}/></div><span className="font-medium text-sm">Delete</span></button><button onClick={() => setSalOptions(null)} className="w-full text-neutral-500 text-sm py-3 hover:text-white transition-colors">Cancel</button></div></div>)}
-            <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Income Streams</h2><div className="flex gap-2"><button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button><button onClick={() => { setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); setShowLogSal(true); }} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button></div></div>
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{companies.map(c => (<div key={c.id} onClick={() => setViewCompany(c)} className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95 cursor-pointer" onTouchStart={() => handleTouchStart(c, setCompOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(c, setCompOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>{c.logo ? (<img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />) : (<Briefcase size={24} className="text-blue-500 mb-1"/>)}<div><p className="font-bold text-white text-sm truncate">{c.name}</p><p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p><p className="text-xs font-bold text-green-500 mt-1">{formatMoney(getCompanyTotal(c.id), currentUser.currency, privacy)}</p></div>{c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}</div>))}<button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600"><Plus size={24}/></button></div>
-            <div className="space-y-3"><h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>{salaries.map(s => (<div key={s.id} className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" onTouchStart={() => handleTouchStart(s, setSalOptions)} onTouchEnd={handleTouchEnd} onMouseDown={() => handleTouchStart(s, setSalOptions)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}><div className="flex items-center gap-3"><div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div><div><p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p><p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p></div></div><div className="flex items-center gap-3">{s.slip && <button onClick={(e) => { e.stopPropagation(); setViewingSlip(s.slip); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}<span className="font-bold text-green-500">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span></div></div>))}{salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}</div>
+            
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-white">Income Streams</h2>
+                <div className="flex gap-2">
+                    <button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="bg-neutral-800 text-white p-2 rounded-lg border border-neutral-700 hover:bg-neutral-700"><Briefcase size={20}/></button>
+                    <button onClick={() => { setNewSal({ amount: '', date: new Date().toISOString().split('T')[0], company_id: '', slip: '' }); setShowLogSal(true); }} className="bg-green-700 text-white p-2 rounded-lg hover:bg-green-600"><Plus size={20}/></button>
+                </div>
+            </div>
+
+            {/* Companies Horizontal List */}
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                {companies.map(c => (
+                    <div 
+                        key={c.id} 
+                        onClick={() => setViewCompany(c)} 
+                        className="min-w-[150px] bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col justify-between h-28 relative select-none transition-transform active:scale-95 cursor-pointer" 
+                        onTouchStart={() => handleTouchStart(c, setCompOptions)} 
+                        onTouchEnd={handleTouchEnd} 
+                        onMouseDown={() => handleTouchStart(c, setCompOptions)} 
+                        onMouseUp={handleTouchEnd} 
+                        onMouseLeave={handleTouchEnd}
+                    >
+                        {c.logo ? (
+                            <img src={c.logo} className="w-8 h-8 object-contain rounded mb-1" alt="logo" />
+                        ) : (
+                            <Briefcase size={24} className="text-blue-500 mb-1"/>
+                        )}
+                        <div>
+                            <p className="font-bold text-white text-sm truncate">{c.name}</p>
+                            <p className="text-[10px] text-neutral-500">{formatDate(c.joining_date)} - {c.is_current ? 'Present' : formatDate(c.leaving_date)}</p>
+                            <p className="text-xs font-bold text-green-500 mt-1">{formatMoney(getCompanyTotal(c.id), currentUser.currency, privacy)}</p>
+                        </div>
+                        {c.is_current && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}
+                    </div>
+                ))}
+                <button onClick={() => { setNewComp({ name: '', joining_date: new Date().toISOString().split('T')[0], is_current: true, logo: '' }); setShowAddComp(true); }} className="min-w-[60px] bg-neutral-900/50 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white hover:border-neutral-600"><Plus size={24}/></button>
+            </div>
+
+            <div className="space-y-3">
+                <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Recent Credits</h3>
+                {salaries.map(s => (
+                    <div 
+                        key={s.id} 
+                        className="flex justify-between items-center p-4 bg-neutral-900 rounded-xl border border-neutral-800 select-none active:scale-95 transition-transform" 
+                        onTouchStart={() => handleTouchStart(s, setSalOptions)} 
+                        onTouchEnd={handleTouchEnd} 
+                        onMouseDown={() => handleTouchStart(s, setSalOptions)} 
+                        onMouseUp={handleTouchEnd} 
+                        onMouseLeave={handleTouchEnd}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-green-900/20 p-2 rounded-lg text-green-500"><DollarSign size={18}/></div>
+                            <div>
+                                <p className="text-white font-medium text-sm">{companies.find(c=>c.id===s.company_id)?.name || 'Unknown'}</p>
+                                <p className="text-[10px] text-neutral-500">{formatDate(s.date)}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {s.slip && <button onClick={(e) => { e.stopPropagation(); setViewingSlip(s.slip); }} className="text-neutral-500 hover:text-white"><Eye size={16}/></button>}
+                            <span className="font-bold text-green-500">+ {formatMoney(s.amount, currentUser.currency, privacy)}</span>
+                        </div>
+                    </div>
+                ))}
+                {salaries.length === 0 && <div className="text-center py-10 text-neutral-500">No salary history.</div>}
+            </div>
+
+            {/* Modals for Add/Edit */}
             {(showAddComp || showEditComp) && (<Modal title={showEditComp ? "Edit Company" : "Add Company"} onClose={() => { setShowAddComp(false); setShowEditComp(false); setCompOptions(null); }}><form onSubmit={handleAddOrUpdateComp} className="space-y-6"><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => logoRef.current.click()}>{newComp.logo ? <img src={newComp.logo} className="w-full h-full object-cover"/> : <Upload size={24} className="text-neutral-500"/>}<div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-[10px] text-white">Change</div></div><input type="file" ref={logoRef} accept="image/*,application/pdf" className="hidden" onChange={handleLogoUpload}/></div><FormField label="Company Name"><Input value={newComp.name} onChange={e=>setNewComp({...newComp, name: e.target.value})} required/></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Joining Date"><Input type="date" value={newComp.joining_date} onChange={e=>setNewComp({...newComp, joining_date: e.target.value})} required/></FormField>{!newComp.is_current && (<FormField label="Leaving Date"><Input type="date" value={newComp.leaving_date} onChange={e=>setNewComp({...newComp, leaving_date: e.target.value})} required/></FormField>)}</div><div className="flex items-center gap-3 bg-neutral-800 p-3 rounded-xl border border-neutral-700"><div onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})} className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${newComp.is_current ? 'bg-green-600 border-green-600' : 'border-neutral-500'}`}>{newComp.is_current && <Check size={14} className="text-white"/>}</div><span className="text-sm text-white font-medium" onClick={() => setNewComp({...newComp, is_current: !newComp.is_current})}>I currently work here</span></div><button className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-blue-500 transition-colors">{showEditComp ? "Update Company" : "Add Company"}</button></form></Modal>)}
             {(showLogSal || showEditSal) && (<Modal title={showEditSal ? "Edit Salary" : "Log Salary"} onClose={() => { setShowLogSal(false); setShowEditSal(false); setSalOptions(null); }}><form onSubmit={handleLogOrUpdateSal} className="space-y-6"><FormField label="Select Company"><Select value={newSal.company_id} onChange={e=>setNewSal({...newSal, company_id: e.target.value})} required><option value="">-- Select --</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField label="Date"><Input type="date" value={newSal.date} onChange={e=>setNewSal({...newSal, date: e.target.value})} required/></FormField><FormField label="Amount"><Input type="number" value={newSal.amount} onChange={e=>setNewSal({...newSal, amount: e.target.value})} required/></FormField></div><FormField label="Salary Slip (Optional)"><div className="border-2 border-dashed border-neutral-700 rounded-xl p-4 text-center cursor-pointer hover:bg-neutral-800" onClick={() => slipRef.current.click()}><Upload className="mx-auto text-neutral-500 mb-2"/><span className="text-xs text-neutral-400">{newSal.slip ? 'File Selected' : 'Upload Slip (PDF/Img)'}</span></div><input type="file" ref={slipRef} accept="image/*,application/pdf" className="hidden" onChange={handleSlipUpload}/></FormField><button className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold mt-2 hover:bg-green-500 transition-colors">{showEditSal ? "Update Record" : "Log Credit"}</button></form></Modal>)}
+            
+            {/* Detailed Company View Modal */}
             {viewCompany && (
                 <Modal title={viewCompany.name} onClose={() => setViewCompany(null)}>
                     <div className="text-center py-6 border-b border-neutral-800 mb-4">
+                        <div className="w-20 h-20 mx-auto rounded-full bg-neutral-800 flex items-center justify-center mb-3">
+                            {viewCompany.logo ? <img src={viewCompany.logo} className="w-full h-full object-cover rounded-full"/> : <Briefcase size={32} className="text-neutral-500"/>}
+                        </div>
                         <p className="text-neutral-500 text-xs uppercase tracking-wider">Lifetime Earnings</p>
                         <h2 className="text-3xl font-bold text-white mt-2">{formatMoney(getCompanyTotal(viewCompany.id), currentUser.currency, privacy)}</h2>
                         <p className="text-xs text-neutral-600 mt-2">{formatDate(viewCompany.joining_date)} - {viewCompany.is_current ? 'Present' : formatDate(viewCompany.leaving_date)}</p>
@@ -431,12 +900,24 @@ const IncomePage = ({ currentUser, privacy }) => {
                     </div>
                 </Modal>
             )}
-            {viewingSlip && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSlip(null)}><button onClick={() => setViewingSlip(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>{viewingSlip.startsWith('data:application/pdf') ? <iframe src={viewingSlip} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : <img src={viewingSlip} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />}</div>}
+
+            {/* Slip Viewer */}
+            {viewingSlip && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setViewingSlip(null)}>
+                    <button onClick={() => setViewingSlip(null)} className="absolute top-6 right-6 bg-neutral-800/80 text-white p-3 rounded-full hover:bg-neutral-700 transition-colors z-[80]"><X size={24} /></button>
+                    {viewingSlip.startsWith('data:application/pdf') ? 
+                        <iframe src={viewingSlip} className="w-full h-[85vh] rounded-lg shadow-2xl border-none" /> : 
+                        <img src={viewingSlip} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" onClick={(e) => e.stopPropagation()} alt="Proof" />
+                    }
+                </div>
+            )}
         </div>
     );
 };
 
-// --- 5. DASHBOARD & SETTINGS ---
+// ============================================================================
+// 5. DASHBOARD & SETTINGS
+// ============================================================================
 
 const Dashboard = ({ cards, loading, currentUser, onEditCard, onAnalyticsClick, onShowTxnList, onShowSummary, privacy }) => {
   const totalAvailable = cards.reduce((acc, card) => acc + (card.available || 0), 0);
@@ -714,7 +1195,10 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-// --- 6. AUTH APP & LOGIN ---
+// =================================================================================================
+// 6. MAIN AUTHENTICATED WRAPPER
+// =================================================================================================
+
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ 
@@ -728,7 +1212,6 @@ const AuthenticatedApp = () => {
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
   
-  // New Modals
   const [showTxnList, setShowTxnList] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [privacy, setPrivacy] = useState(false);
