@@ -6,7 +6,7 @@ export default function Dashboard() {
   const [cards, setCards] = useState([]);
 
   useEffect(() => {
-    api.get('/cards').then(res => setCards(res.data));
+    api.get('/cards/').then(res => setCards(res.data));
   }, []);
 
   return (

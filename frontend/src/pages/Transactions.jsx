@@ -6,7 +6,7 @@ export default function Transactions() {
   const [txns, setTxns] = useState([]);
 
   useEffect(() => {
-    api.get('/transactions').then(res => setTxns(res.data));
+    api.get('/transactions/').then(res => setTxns(res.data));
   }, []);
 
   return (

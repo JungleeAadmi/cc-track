@@ -6,7 +6,7 @@ export default function Lending() {
   const [items, setItems] = useState([]);
 
   useEffect(() => {
-    api.get('/lending').then(res => setItems(res.data));
+    api.get('/lending/').then(res => setItems(res.data));
   }, []);
 
   return (
