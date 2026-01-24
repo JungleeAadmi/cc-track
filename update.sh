@@ -11,22 +11,29 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# 2. Detect Installation Directory
 REAL_USER=${SUDO_USER:-$USER}
-if [ "$REAL_USER" == "root" ]; then
-    # Fallback if somehow running as raw root
-    USER_HOME="/root"
+
+# 2. Detect Installation Directory
+# PRIORITY: Check /opt/cc-track first as requested by user configuration
+if [ -d "/opt/cc-track" ]; then
+    PROJECT_DIR="/opt/cc-track"
+    echo "✅ Found existing installation at /opt/cc-track"
 else
-    USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
-fi
-
-PROJECT_DIR="$USER_HOME/cc-track"
-
-# Verify directory exists
-if [ ! -d "$PROJECT_DIR" ]; then
-    echo "❌ Error: Could not find CC-Track at $PROJECT_DIR"
-    echo "   If you installed it elsewhere, please run ./update.sh locally inside the folder."
-    exit 1
+    # Fallback: Check user's home directory
+    if [ "$REAL_USER" == "root" ]; then
+        USER_HOME="/root"
+    else
+        USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+    fi
+    
+    if [ -d "$USER_HOME/cc-track" ]; then
+        PROJECT_DIR="$USER_HOME/cc-track"
+        echo "✅ Found existing installation at $USER_HOME/cc-track"
+    else
+        echo "❌ Error: Could not find CC-Track in /opt/cc-track or $USER_HOME/cc-track"
+        echo "   Please run ./update.sh locally inside the app folder."
+        exit 1
+    fi
 fi
 
 echo "--- 🚀 Starting CC-Track Update [Dir: $PROJECT_DIR] ---"
@@ -50,7 +57,12 @@ chown -R "$REAL_USER:$REAL_USER" "$PROJECT_DIR"
 echo "--- 🐍 3. Updating Backend ---"
 cd backend
 if [ ! -d "venv" ]; then
-    sudo -u "$REAL_USER" python3 -m venv venv
+    # Create venv if missing
+    if [ "$REAL_USER" == "root" ]; then
+        python3 -m venv venv
+    else
+        sudo -u "$REAL_USER" python3 -m venv venv
+    fi
 fi
 source venv/bin/activate
 pip install -r requirements.txt
@@ -60,8 +72,13 @@ cd ..
 # 6. Update Frontend
 echo "--- ⚛️ 4. Rebuilding Frontend ---"
 cd frontend
-sudo -u "$REAL_USER" npm install
-sudo -u "$REAL_USER" npm run build
+if [ "$REAL_USER" == "root" ]; then
+    npm install
+    npm run build
+else
+    sudo -u "$REAL_USER" npm install
+    sudo -u "$REAL_USER" npm run build
+fi
 cd ..
 
 # 7. Restart Service
