@@ -5,7 +5,8 @@ export default function Settings() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    api.get('/users/me').then(r => setUser(r.data));
+    api.get('/users/me')
+      .then(r => setUser(r.data));
   }, []);
 
   if (!user) return null;
@@ -13,8 +14,18 @@ export default function Settings() {
   return (
     <>
       <h1>Settings</h1>
-      <p>Username: {user.username}</p>
-      <p>Currency: {user.currency}</p>
+
+      <div className="card">
+        <p><strong>Username:</strong> {user.username}</p>
+        <p><strong>Currency:</strong> {user.currency}</p>
+      </div>
+
+      <div className="card">
+        <strong>Notifications (ntfy)</strong>
+        <p className="muted">
+          Configuration & test notification coming next.
+        </p>
+      </div>
     </>
   );
 }

@@ -17,6 +17,7 @@ export default function Dashboard() {
       <h1>My Cards</h1>
       {loading && <p>Loading…</p>}
       {!loading && cards.length === 0 && <p>No cards added yet.</p>}
+
       <div className="grid">
         {cards.map(c => (
           <div key={c.id} className="card">

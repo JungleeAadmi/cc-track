@@ -117,3 +117,22 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
   gap: 16px;
 }
+
+.offline-banner {
+  background: #fde68a;
+  color: #92400e;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: #fff;
+}

@@ -3,11 +3,6 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 export default function Navbar() {
   const loc = useLocation();
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    window.location.href = '/';
-  };
-
   const nav = (to, label) => (
     <Link
       to={to}
@@ -17,23 +12,39 @@ export default function Navbar() {
     </Link>
   );
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  };
+
   return (
     <>
       <header className="header">
-        <h3>CC-Track</h3>
+        <strong>CC-Track</strong>
         <nav>
           {nav('/dashboard', 'Dashboard')}
           {nav('/transactions', 'Transactions')}
           {nav('/lending', 'Lending')}
-          {nav('/salary', 'Salary')}
           {nav('/subscriptions', 'Subscriptions')}
           {nav('/settings', 'Settings')}
-          <button onClick={logout}>Logout</button>
+          <button onClick={logout} className="link-btn">Logout</button>
         </nav>
       </header>
+
+      <OfflineBanner />
+
       <main className="main">
         <Outlet />
       </main>
     </>
+  );
+}
+
+function OfflineBanner() {
+  if (navigator.onLine) return null;
+  return (
+    <div className="offline-banner">
+      You are offline. Some actions are disabled.
+    </div>
   );
 }
