@@ -14,11 +14,19 @@ A personal finance, lending, and subscription tracker.
 
 Run this single command on your fresh Ubuntu/Debian LXC or VM.  
 It will update your system, install dependencies, clone the repo, setup security keys, and launch the app.  
-sudo bash \-c "$(curl \-fsSL \[https://raw.githubusercontent.com/JungleeAadmi/cc-track/main/install.sh\](https://raw.githubusercontent.com/JungleeAadmi/cc-track/main/install.sh))"
+```
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/JungleeAadmi/cc-track/main/install.sh)"
+```
+
 
 Once finished, access the app at: http://\<your-server-ip\>
 
 ## **🔄 Updating the App & System**
+
+
+```
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/JungleeAadmi/cc-track/main/update.sh)"
+```
 
 To update the app code AND your system packages (apt upgrade) in one go:
 
