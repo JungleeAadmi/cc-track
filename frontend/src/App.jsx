@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Lending from './pages/Lending';
@@ -19,6 +20,10 @@ export default function App() {
     <Routes>
       <Route path="/" element={
         isAuthed() ? <Navigate to="/dashboard" replace /> : <Login />
+      } />
+
+      <Route path="/signup" element={
+        isAuthed() ? <Navigate to="/dashboard" replace /> : <Signup />
       } />
 
       <Route path="/" element={<Protected><Navbar /></Protected>}>
