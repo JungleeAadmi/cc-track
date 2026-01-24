@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import requests
 
-from backend import models, schemas
-from backend.database import get_db
-from backend.deps import get_current_user
+import models
+import schemas
+from database import get_db
+from deps import get_current_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -14,13 +15,9 @@ def get_config(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    cfg = db.query(models.NtfyConfig).filter(
-        models.NtfyConfig.user_id == user.id
-    ).first()
-
+    cfg = db.query(models.NtfyConfig).filter_by(user_id=user.id).first()
     if not cfg:
         raise HTTPException(status_code=404, detail="Not configured")
-
     return cfg
 
 
@@ -30,9 +27,7 @@ def save_config(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    cfg = db.query(models.NtfyConfig).filter(
-        models.NtfyConfig.user_id == user.id
-    ).first()
+    cfg = db.query(models.NtfyConfig).filter_by(user_id=user.id).first()
 
     if cfg:
         cfg.server_url = payload.server_url
@@ -55,23 +50,17 @@ def test_notification(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    cfg = db.query(models.NtfyConfig).filter(
-        models.NtfyConfig.user_id == user.id
-    ).first()
-
+    cfg = db.query(models.NtfyConfig).filter_by(user_id=user.id).first()
     if not cfg:
         raise HTTPException(status_code=400, detail="ntfy not configured")
 
-    url = f"{cfg.server_url.rstrip('/')}/{cfg.topic}"
-
     try:
-        r = requests.post(
-            url,
+        requests.post(
+            f"{cfg.server_url.rstrip('/')}/{cfg.topic}",
             data="Test notification from CC-Track",
             headers={"Title": "CC-Track Test"},
             timeout=5,
-        )
-        r.raise_for_status()
+        ).raise_for_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1,16 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import (
-    users,
-    cards,
-    transactions,
-    lending,
-    subscriptions,
-    notifications,
-)
-from backend.database import engine
-from backend import models
+import models
+from database import engine
+
+from routers import users, cards, notifications
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -26,7 +20,4 @@ app.add_middleware(
 
 app.include_router(users.router)
 app.include_router(cards.router)
-app.include_router(transactions.router)
-app.include_router(lending.router)
-app.include_router(subscriptions.router)
 app.include_router(notifications.router)
