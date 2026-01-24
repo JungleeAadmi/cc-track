@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Input, Button, Card } from '../components/ui';
+import { User, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -25,81 +25,144 @@ const Login = () => {
       }
       navigate('/');
     } catch (err) {
-      console.error("Auth Error:", err);
-      // Detailed Error Handling
+      console.error("Auth Failure:", err);
+      
+      // Smart Error Handling
+      let msg = "Connection failed. Is the server running?";
+      
       if (err.response) {
-        // Backend returned a response code (4xx, 5xx)
-        if (err.response.status === 422) {
-            setError("Invalid input format."); 
-        } else if (err.response.status === 502) {
-            setError("Server is starting up... please wait 10s and try again.");
-        } else {
-            // Try to show backend specific message
-            setError(err.response.data?.detail || `Error: ${err.response.statusText}`);
-        }
-      } else if (err.request) {
-        // Request made but no response (Network Error / Server Down)
-        setError("Cannot connect to server. Is the backend running?");
-      } else {
-        setError("An unexpected error occurred.");
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        if (status === 401) msg = "Incorrect username or password.";
+        else if (status === 400 && data.detail) msg = data.detail; // e.g. "Username taken"
+        else if (status === 422) msg = "Please check your input format.";
+        else if (status === 500) msg = "Server Internal Error. Check backend logs.";
+        else if (status === 502) msg = "Server is starting... try again in 10s.";
+        else if (data && data.detail) msg = data.detail;
+        else msg = `Server Error (${status})`;
       }
+      
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="mb-8 text-center">
-        <img 
-          src="/logo.png" 
-          className="w-20 h-20 mx-auto mb-4 rounded-xl shadow-lg" 
-          alt="Logo" 
-          onError={(e) => {
-            e.target.onerror = null; 
-            e.target.src = '/android-chrome-192x192.png';
-          }}
-        />
-        <h1 className="text-3xl font-bold text-white tracking-tight">CC-Track</h1>
-        <p className="text-slate-400 mt-2">Personal Finance & Lending Tracker</p>
-      </div>
+    <div className="min-h-screen w-full bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      
+      {/* Ambient Blood Glow Effects */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[128px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-primary/10 rounded-full blur-[128px] pointer-events-none" />
 
-      <Card className="w-full max-w-sm bg-surface/50 backdrop-blur-sm border-slate-800">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input 
-            label="Username" 
-            value={username} 
-            onChange={(e) => setUsername(e.target.value)} 
-            required 
-          />
-          <Input 
-            label="Password" 
-            type="password" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            required 
-          />
+      <div className="w-full max-w-md relative z-10">
+        <div className="bg-surface/60 backdrop-blur-xl border border-white/5 rounded-2xl shadow-2xl overflow-hidden">
           
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-red-400 text-sm text-center font-medium">{error}</p>
+          {/* Header Section */}
+          <div className="pt-8 pb-6 px-8 text-center border-b border-white/5 bg-white/5">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-800 to-black shadow-inner mb-4 ring-1 ring-white/10">
+              <img 
+                src="/logo.png" 
+                className="w-16 h-16 object-contain drop-shadow-lg" 
+                alt="Logo" 
+                onError={(e) => { e.target.src = '/android-chrome-192x192.png'; }}
+              />
             </div>
-          )}
-          
-          <Button type="submit" className="w-full" isLoading={loading}>
-            {isLogin ? 'Login' : 'Create Account'}
-          </Button>
-        </form>
+            <h1 className="text-3xl font-bold text-white tracking-tight mb-1">
+              CC-Track
+            </h1>
+            <p className="text-sm text-slate-400 font-medium">
+              {isLogin ? 'Welcome back, Commander' : 'Join the Resistance'}
+            </p>
+          </div>
 
-        <div className="mt-6 text-center">
-          <button 
-            onClick={() => { setIsLogin(!isLogin); setError(''); }}
-            className="text-sm text-slate-400 hover:text-primary transition-colors"
-          >
-            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
-          </button>
+          {/* Form Section */}
+          <div className="p-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              
+              {/* Username Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Username</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 bg-black/40 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+                    placeholder="Enter your username"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 bg-black/40 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-in slide-in-from-top-2">
+                  <AlertCircle size={18} className="shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center py-3.5 px-4 bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    {isLogin ? 'Sign In' : 'Create Account'}
+                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Toggle Login/Signup */}
+            <div className="mt-6 text-center">
+              <p className="text-slate-500 text-sm">
+                {isLogin ? "Don't have an account?" : "Already have an account?"}
+                <button
+                  onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                  className="ml-1.5 font-semibold text-primary hover:text-red-400 transition-colors focus:outline-none"
+                >
+                  {isLogin ? 'Sign up' : 'Log in'}
+                </button>
+              </p>
+            </div>
+          </div>
         </div>
-      </Card>
+        
+        <div className="mt-8 text-center">
+          <p className="text-xs text-slate-600 font-medium tracking-wide">
+            SECURE • SELF-HOSTED • PRIVATE
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

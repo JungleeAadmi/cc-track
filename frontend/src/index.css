@@ -4,23 +4,38 @@
 
 @layer base {
   body {
-    /* Updated to use the new background variable */
     @apply bg-background text-slate-200;
+    /* Prevent rubber-banding on Mac/iOS */
+    overscroll-behavior-y: none;
   }
 }
 
-/* Custom scrollbar for webkit - Themed Dark Red */
+/* Professional Dark Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #0a0404; 
+  background: #0f0505; 
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #3f1010; /* Dark Red Thumb */
-  border-radius: 4px;
+  background: #2d1b1b; 
+  border-radius: 5px;
+  border: 2px solid #0f0505; /* Creates padding effect */
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #dc2626; /* Bright Red on Hover */
+  background: #4a1f1f; 
+}
+
+/* Animations */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.2; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
 }
