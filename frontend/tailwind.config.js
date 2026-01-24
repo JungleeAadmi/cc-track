@@ -6,8 +6,18 @@ export default {
   ],
   theme: {
     extend: {
-      // You can add custom colors here if needed, 
-      // but we are currently using standard Tailwind colors (red-900, neutral-950)
+      colors: {
+        background: "#0f172a", // Dark Slate
+        surface: "#1e293b",    // Lighter Slate (Card)
+        primary: "#2563eb",    // Blue
+        secondary: "#64748b",  // Slate 500
+        success: "#16a34a",
+        warning: "#eab308",
+        danger: "#dc2626",
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      }
     },
   },
   plugins: [],

@@ -1,122 +1,147 @@
 #!/bin/bash
-set -euo pipefail
 
-# =========================================================
-# CONFIG
-# =========================================================
-APP_NAME="cc-track"
-INSTALL_DIR="/opt/cc-track"
-BACKEND_DIR="$INSTALL_DIR/backend"
-FRONTEND_DIR="$INSTALL_DIR/frontend"
-VENV_DIR="$INSTALL_DIR/venv"
-SERVICE_FILE="/etc/systemd/system/cc-track.service"
+# CC-Track "One-Shot" Installation Script
+# Usage: sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/JungleeAadmi/cc-track/main/install.sh)"
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+set -e
 
-echo -e "${GREEN}=== CC-Track Fresh Install ===${NC}"
-
-# =========================================================
-# OS & PACKAGE MANAGER DETECTION
-# =========================================================
-if command -v apt-get >/dev/null; then
-  PKG_INSTALL="apt-get install -y"
-  PKG_UPDATE="apt-get update"
-elif command -v dnf >/dev/null; then
-  PKG_INSTALL="dnf install -y"
-  PKG_UPDATE="dnf makecache"
-else
-  echo -e "${RED}Unsupported OS: no apt or dnf found${NC}"
+# 1. Check Root
+if [ "$EUID" -ne 0 ]; then
+  echo "❌ Please run as root (sudo bash ...)"
   exit 1
 fi
 
-# =========================================================
-# INSTALL SYSTEM DEPENDENCIES
-# =========================================================
-echo -e "${YELLOW}Installing system dependencies...${NC}"
-$PKG_UPDATE
-$PKG_INSTALL \
-  git \
-  curl \
-  ca-certificates \
-  python3 \
-  python3-venv \
-  python3-pip \
-  nodejs \
-  npm
-
-# =========================================================
-# CLONE OR UPDATE REPO
-# =========================================================
-if [ -d "$INSTALL_DIR/.git" ]; then
-  echo "Updating existing repository..."
-  cd "$INSTALL_DIR"
-  git fetch origin
-  git reset --hard origin/main
+# Detect Real User (to avoid owning files as root)
+REAL_USER=${SUDO_USER:-$USER}
+if [ "$REAL_USER" == "root" ]; then
+    BASE_DIR="/opt"
 else
-  echo "Cloning repository..."
-  git clone https://github.com/JungleeAadmi/cc-track.git "$INSTALL_DIR"
-  cd "$INSTALL_DIR"
+    BASE_DIR=$(getent passwd "$REAL_USER" | cut -d: -f6)
 fi
 
-# =========================================================
-# PYTHON VIRTUAL ENVIRONMENT
-# =========================================================
-echo "Setting up Python virtual environment..."
-python3 -m venv "$VENV_DIR"
-source "$VENV_DIR/bin/activate"
+PROJECT_DIR="$BASE_DIR/cc-track"
+REPO_URL="https://github.com/JungleeAadmi/cc-track.git"
 
-pip install --upgrade pip
-pip install --no-cache-dir -r "$BACKEND_DIR/requirements.txt"
+echo "--- 🚀 Starting CC-Track Installation ---"
 
-# =========================================================
-# FRONTEND BUILD
-# =========================================================
-echo "Building frontend..."
-cd "$FRONTEND_DIR"
-rm -rf node_modules dist package-lock.json
-npm install
-npm run build
+# 2. System Updates & Dependencies
+echo "--- 🔄 System Update & Upgrade (This may take a minute) ---"
+apt-get update && apt-get upgrade -y
+apt-get install -y python3 python3-pip python3-venv nodejs npm nginx git acl openssl curl
 
-# =========================================================
-# SYSTEMD SERVICE
-# =========================================================
-echo "Installing systemd service..."
+# 3. Setup Directory & Clone
+echo "--- 📂 Setting up Application at $PROJECT_DIR ---"
 
-cat > "$SERVICE_FILE" <<EOF
+if [ -d "$PROJECT_DIR" ]; then
+    echo "Directory exists. Updating repo..."
+    cd "$PROJECT_DIR"
+    if [ -d ".git" ]; then
+        git pull
+    fi
+else
+    echo "Cloning repository..."
+    git clone "$REPO_URL" "$PROJECT_DIR"
+    cd "$PROJECT_DIR"
+fi
+
+# Fix ownership so the real user can edit files later
+chown -R "$REAL_USER:$REAL_USER" "$PROJECT_DIR"
+
+# 4. Backend Setup
+echo "--- 🐍 Setting up Backend ---"
+cd backend
+# Create venv as the real user
+sudo -u "$REAL_USER" python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+deactivate
+
+# 5. Security: Shuffle Keys
+# Replaces the default hardcoded key in app/auth.py with a random 64-char hex string
+TARGET_AUTH_FILE="app/auth.py"
+if grep -q "CHANGE_THIS_TO_A_REALLY_LONG_RANDOM_STRING_FOR_PROD" "$TARGET_AUTH_FILE"; then
+    echo "--- 🔐 Generating unique Production Secret Key ---"
+    NEW_SECRET=$(openssl rand -hex 32)
+    sed -i "s/CHANGE_THIS_TO_A_REALLY_LONG_RANDOM_STRING_FOR_PROD/$NEW_SECRET/g" "$TARGET_AUTH_FILE"
+fi
+cd ..
+
+# 6. Frontend Setup
+echo "--- ⚛️ Setting up Frontend (Building Assets) ---"
+cd frontend
+sudo -u "$REAL_USER" npm install
+sudo -u "$REAL_USER" npm run build
+cd ..
+
+# 7. Systemd Service Configuration
+echo "--- ⚙️ Configuring System Service ---"
+SERVICE_FILE="/etc/systemd/system/cc-track.service"
+
+cat > $SERVICE_FILE <<EOF
 [Unit]
-Description=CC-Track Backend
+Description=CC-Track Backend Service
 After=network.target
 
 [Service]
-User=root
-WorkingDirectory=/opt/cc-track
-ExecStart=/opt/cc-track/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000
+User=$REAL_USER
+Group=$REAL_USER
+WorkingDirectory=$PROJECT_DIR/backend
+Environment="PATH=$PROJECT_DIR/backend/venv/bin"
+ExecStart=$PROJECT_DIR/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable cc-track
 systemctl restart cc-track
 
-# =========================================================
-# HEALTH CHECK
-# =========================================================
-sleep 3
+# 8. Nginx Configuration
+echo "--- 🌐 Configuring Nginx Reverse Proxy ---"
+NGINX_CONF="/etc/nginx/sites-available/cc-track"
 
-if ! curl -sf http://127.0.0.1:8000/ >/dev/null; then
-  echo -e "${RED}ERROR: Backend failed to start${NC}"
-  systemctl status cc-track --no-pager -l
-  exit 1
-fi
+cat > $NGINX_CONF <<EOF
+server {
+    listen 80;
+    server_name _;
 
-echo -e "${GREEN}Backend is healthy${NC}"
-echo -e "${GREEN}=== CC-Track Installed Successfully ===${NC}"
-echo "Open the app in browser and hard refresh (Ctrl+Shift+R)"
+    # Serve React Frontend
+    location / {
+        root $PROJECT_DIR/frontend/dist;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # Proxy API Requests
+    location /api {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+
+    # Proxy Auth Requests
+    location /auth {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host \$host;
+    }
+
+    # Proxy Uploads
+    location /uploads {
+        proxy_pass http://127.0.0.1:8000;
+    }
+}
+EOF
+
+# Enable Site
+rm -f /etc/nginx/sites-enabled/default
+ln -sf $NGINX_CONF /etc/nginx/sites-enabled/
+nginx -t && systemctl restart nginx
+
+# 9. Final Permissions
+chown -R "$REAL_USER:$REAL_USER" "$PROJECT_DIR"
+chmod +x install.sh update.sh
+
+echo "--- ✅ Installation Complete! ---"
+echo "Access your app at: http://$(hostname -I | awk '{print $1}')"

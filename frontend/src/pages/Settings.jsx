@@ -1,86 +1,81 @@
-import { useEffect, useState } from 'react';
-import api from '../services/api';
+import React, { useEffect, useState } from 'react';
+import api from '../api';
+import { Card, Button, Input } from '../components/ui';
+import { Bell } from 'lucide-react';
 
-export default function Settings() {
-  const [user, setUser] = useState(null);
-  const [cfg, setCfg] = useState({ server_url: '', topic: '' });
-  const [status, setStatus] = useState('');
+const Settings = () => {
+  const [settings, setSettings] = useState({ currency: 'INR', ntfy_url: '', ntfy_topic: '' });
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    api.get('/users/me').then(r => setUser(r.data));
-
-    api.get('/notifications/config')
-      .then(r => setCfg(r.data))
-      .catch(() => {}); // not configured yet
+    api.get('/api/settings/').then(res => setSettings(res.data));
   }, []);
 
-  const save = async () => {
+  const handleSave = async (e) => {
+    e.preventDefault();
     setLoading(true);
-    setStatus('');
-    try {
-      await api.post('/notifications/config', cfg);
-      setStatus('Saved successfully');
-    } catch (e) {
-      setStatus(e.response?.data?.detail || 'Failed to save');
-    } finally {
-      setLoading(false);
-    }
+    await api.put('/api/settings/', settings);
+    setLoading(false);
+    setMsg('Settings saved successfully');
+    setTimeout(() => setMsg(''), 3000);
   };
 
-  const test = async () => {
-    setLoading(true);
-    setStatus('');
-    try {
-      await api.post('/notifications/test');
-      setStatus('Test notification sent');
-    } catch (e) {
-      setStatus(e.response?.data?.detail || 'Test failed');
-    } finally {
-      setLoading(false);
-    }
+  const handleTestNtfy = async () => {
+    const res = await api.post('/api/settings/test-ntfy');
+    alert(res.data.message);
   };
-
-  if (!user) return null;
 
   return (
-    <>
-      <h1>Settings</h1>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">Settings</h2>
 
-      <div className="card">
-        <p><strong>Username:</strong> {user.username}</p>
-        <p><strong>Currency:</strong> {user.currency}</p>
+      <Card>
+        <h3 className="text-lg font-semibold mb-4 border-b border-slate-700 pb-2">Profile & Preferences</h3>
+        <form onSubmit={handleSave} className="space-y-4">
+          <Input 
+            label="Currency Symbol" 
+            value={settings.currency} 
+            onChange={e => setSettings({...settings, currency: e.target.value})} 
+          />
+          
+          <div className="pt-4">
+             <div className="flex items-center gap-2 mb-2">
+                <Bell size={18} className="text-primary"/>
+                <h4 className="font-medium">Notification Settings (Ntfy.sh)</h4>
+             </div>
+             <p className="text-xs text-slate-500 mb-4">
+               Enter your self-hosted or public ntfy URL. Leave blank if not used.
+             </p>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input 
+                    label="Server URL" 
+                    placeholder="https://ntfy.sh"
+                    value={settings.ntfy_url || ''} 
+                    onChange={e => setSettings({...settings, ntfy_url: e.target.value})} 
+                />
+                <Input 
+                    label="Topic Name" 
+                    placeholder="my-secret-topic-123"
+                    value={settings.ntfy_topic || ''} 
+                    onChange={e => setSettings({...settings, ntfy_topic: e.target.value})} 
+                />
+             </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button type="submit" isLoading={loading}>Save Settings</Button>
+            <Button type="button" variant="secondary" onClick={handleTestNtfy}>Test Notification</Button>
+          </div>
+          {msg && <p className="text-green-400 text-sm mt-2">{msg}</p>}
+        </form>
+      </Card>
+      
+      <div className="text-center text-xs text-slate-600 mt-8">
+        CC-Track v1.0 • Self Hosted
       </div>
-
-      <div className="card">
-        <h3>Notifications (ntfy)</h3>
-
-        <input
-          placeholder="https://ntfy.yourdomain.com"
-          value={cfg.server_url}
-          onChange={e => setCfg({ ...cfg, server_url: e.target.value })}
-        />
-
-        <input
-          placeholder="topic-name"
-          value={cfg.topic}
-          onChange={e => setCfg({ ...cfg, topic: e.target.value })}
-        />
-
-        <button className="primary-btn" onClick={save} disabled={loading}>
-          Save
-        </button>
-
-        <button
-          className="secondary-btn"
-          onClick={test}
-          disabled={loading || !cfg.server_url || !cfg.topic}
-        >
-          Test Notification
-        </button>
-
-        {status && <p className="muted">{status}</p>}
-      </div>
-    </>
+    </div>
   );
-}
+};
+
+export default Settings;
