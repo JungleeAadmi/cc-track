@@ -2,66 +2,31 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import requests
 
-import models
-import schemas
 from database import get_db
 from deps import get_current_user
+import models
+import schemas
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("/config", response_model=schemas.NtfyConfigOut)
-def get_config(
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
+def get_cfg(db: Session = Depends(get_db), user=Depends(get_current_user)):
     cfg = db.query(models.NtfyConfig).filter_by(user_id=user.id).first()
     if not cfg:
         raise HTTPException(status_code=404, detail="Not configured")
     return cfg
 
 
-@router.post("/config", response_model=schemas.NtfyConfigOut)
-def save_config(
-    payload: schemas.NtfyConfigCreate,
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    cfg = db.query(models.NtfyConfig).filter_by(user_id=user.id).first()
-
-    if cfg:
-        cfg.server_url = payload.server_url
-        cfg.topic = payload.topic
-    else:
-        cfg = models.NtfyConfig(
-            user_id=user.id,
-            server_url=payload.server_url,
-            topic=payload.topic,
-        )
-        db.add(cfg)
-
-    db.commit()
-    db.refresh(cfg)
-    return cfg
-
-
 @router.post("/test")
-def test_notification(
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
+def test_ntfy(db: Session = Depends(get_db), user=Depends(get_current_user)):
     cfg = db.query(models.NtfyConfig).filter_by(user_id=user.id).first()
     if not cfg:
-        raise HTTPException(status_code=400, detail="ntfy not configured")
+        raise HTTPException(status_code=400, detail="Not configured")
 
-    try:
-        requests.post(
-            f"{cfg.server_url.rstrip('/')}/{cfg.topic}",
-            data="Test notification from CC-Track",
-            headers={"Title": "CC-Track Test"},
-            timeout=5,
-        ).raise_for_status()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    return {"status": "sent"}
+    requests.post(
+        f"{cfg.server_url.rstrip('/')}/{cfg.topic}",
+        data="CC-Track test",
+        timeout=5,
+    )
+    return {"ok": True}

@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import models
 from database import engine
+import models
 
 from routers import users, cards, notifications
 
@@ -21,3 +21,8 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(cards.router)
 app.include_router(notifications.router)
+
+
+@app.get("/")
+def health():
+    return {"status": "ok"}
