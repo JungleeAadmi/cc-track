@@ -25,7 +25,24 @@ const Login = () => {
       }
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Authentication failed');
+      console.error("Auth Error:", err);
+      // Detailed Error Handling
+      if (err.response) {
+        // Backend returned a response code (4xx, 5xx)
+        if (err.response.status === 422) {
+            setError("Invalid input format."); 
+        } else if (err.response.status === 502) {
+            setError("Server is starting up... please wait 10s and try again.");
+        } else {
+            // Try to show backend specific message
+            setError(err.response.data?.detail || `Error: ${err.response.statusText}`);
+        }
+      } else if (err.request) {
+        // Request made but no response (Network Error / Server Down)
+        setError("Cannot connect to server. Is the backend running?");
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -34,12 +51,10 @@ const Login = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="mb-8 text-center">
-        {/* Main Logo */}
         <img 
           src="/logo.png" 
           className="w-20 h-20 mx-auto mb-4 rounded-xl shadow-lg" 
           alt="Logo" 
-          // Fallback to the 192 icon if logo.png is missing or broken
           onError={(e) => {
             e.target.onerror = null; 
             e.target.src = '/android-chrome-192x192.png';
@@ -65,7 +80,11 @@ const Login = () => {
             required 
           />
           
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-sm text-center font-medium">{error}</p>
+            </div>
+          )}
           
           <Button type="submit" className="w-full" isLoading={loading}>
             {isLogin ? 'Login' : 'Create Account'}
@@ -74,7 +93,7 @@ const Login = () => {
 
         <div className="mt-6 text-center">
           <button 
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => { setIsLogin(!isLogin); setError(''); }}
             className="text-sm text-slate-400 hover:text-primary transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}

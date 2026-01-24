@@ -14,6 +14,8 @@ REAL_USER=${SUDO_USER:-$USER}
 
 echo "--- 🔄 1. Updating System Packages (OS) ---"
 apt-get update && apt-get upgrade -y
+# FIX: Install build tools for Bcrypt/Passlib
+apt-get install -y build-essential python3-dev libffi-dev
 
 echo "--- ⬇️ 2. Pulling latest App Code ---"
 git pull
