@@ -253,3 +253,18 @@ class Transaction(BaseModel):
     tag_id: Optional[int]
     class Config:
         from_attributes = True
+
+class NtfyConfigBase(BaseModel):
+    server_url: str
+    topic: str
+
+
+class NtfyConfigCreate(NtfyConfigBase):
+    pass
+
+
+class NtfyConfigOut(NtfyConfigBase):
+    id: int
+
+    class Config:
+        from_attributes = True

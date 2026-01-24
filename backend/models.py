@@ -149,3 +149,14 @@ class Subscription(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
     
     owner = relationship("User", back_populates="subscriptions")
+
+class NtfyConfig(Base):
+    __tablename__ = "ntfy_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+
+    server_url = Column(String, nullable=False)
+    topic = Column(String, nullable=False)
+
+    user = relationship("User")

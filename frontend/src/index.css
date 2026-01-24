@@ -136,3 +136,14 @@ body {
 .link-btn:hover {
   color: #fff;
 }
+
+
+.secondary-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+}

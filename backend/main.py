@@ -45,3 +45,6 @@ if os.path.exists("../frontend/dist"):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "version": "3.0.0"}
+
+from .routers import notifications
+app.include_router(notifications.router)
