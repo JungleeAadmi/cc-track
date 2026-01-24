@@ -30,27 +30,21 @@ const Layout = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-20 md:pb-0 md:flex-row bg-background">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
       
-      {/* Top Header (Mobile & Desktop) */}
-      <div className="md:hidden fixed top-0 w-full bg-surface/80 backdrop-blur-md border-b border-white/5 z-50 p-4 flex items-center gap-3">
-         <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg" onError={(e)=>e.target.src='/android-chrome-192x192.png'}/>
-         <div>
-            <h1 className="font-bold text-white text-lg leading-none">CC-Track</h1>
-            {user && <p className="text-xs text-slate-400">@{user.username}</p>}
+      {/* Top Header (Fixed for all views) */}
+      <div className="fixed top-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-md border-b border-white/5 z-50 flex items-center justify-between px-4 md:px-6">
+         <div className="flex items-center gap-3">
+             <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg" onError={(e)=>e.target.src='/android-chrome-192x192.png'}/>
+             <div>
+                <h1 className="font-bold text-white text-lg leading-none">CC-Track</h1>
+                {user && <p className="text-xs text-slate-400">@{user.username}</p>}
+             </div>
          </div>
       </div>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-white/5 h-screen sticky top-0">
-        <div className="p-6 border-b border-white/5 flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg" onError={(e)=>e.target.src='/android-chrome-192x192.png'}/>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">CC-Track</h1>
-            {user && <p className="text-xs text-slate-400 font-mono">@{user.username}</p>}
-          </div>
-        </div>
-        
+      {/* Desktop Sidebar (Adjusted for fixed header) */}
+      <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-white/5 h-[calc(100vh-64px)] fixed top-16 left-0">
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
            <NavLink to="/" className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${isActive ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:bg-white/5'}`}>
              <LayoutDashboard size={20} /> Dashboard
@@ -83,14 +77,14 @@ const Layout = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto min-h-screen pt-20 md:pt-8">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto min-h-screen pt-20 md:ml-64 pb-24">
         <div className="max-w-5xl mx-auto">
           <Outlet />
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation (Scrollable) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-xl border-t border-white/5 z-50 pb-safe">
+      {/* Mobile Bottom Navigation (Scrollable & Fixed) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-xl border-t border-white/5 z-50 pb-safe shadow-2xl">
         <div className="flex overflow-x-auto no-scrollbar py-2 px-2 gap-2">
           <NavItem to="/" icon={LayoutDashboard} label="Home" />
           <NavItem to="/transactions" icon={ArrowRightLeft} label="Txns" />
