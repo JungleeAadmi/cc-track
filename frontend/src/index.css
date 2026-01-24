@@ -4,22 +4,23 @@
 
 @layer base {
   body {
+    /* Updated to use the new background variable */
     @apply bg-background text-slate-200;
   }
 }
 
-/* Custom scrollbar for webkit */
+/* Custom scrollbar for webkit - Themed Dark Red */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a; 
+  background: #0a0404; 
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155; 
+  background: #3f1010; /* Dark Red Thumb */
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569; 
+  background: #dc2626; /* Bright Red on Hover */
 }

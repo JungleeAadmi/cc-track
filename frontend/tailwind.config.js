@@ -7,16 +7,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0f172a", // Dark Slate
-        surface: "#1e293b",    // Lighter Slate (Card)
-        primary: "#2563eb",    // Blue
-        secondary: "#64748b",  // Slate 500
-        success: "#16a34a",
-        warning: "#eab308",
-        danger: "#dc2626",
+        // Dark Blood Red Theme
+        background: "#0a0404", // Almost black with red tint
+        surface: "#1a0606",    // Dark blood card background
+        
+        primary: "#dc2626",    // Blood Red (Red-600)
+        "primary-dark": "#991b1b", // Dried Blood (Red-800) for hovers
+        
+        secondary: "#522525",  // Muted reddish-brown
+        muted: "#9ca3af",      // Neutral gray for text legibility
+        
+        success: "#15803d",    // Deep Green (remains for success states)
+        warning: "#b45309",    // Deep Amber
+        danger: "#ef4444",     // Bright Red
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       }
     },
   },

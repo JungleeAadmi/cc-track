@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
+    // Login expects FormData
     const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
@@ -42,9 +43,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async (username, password) => {
-    await api.post('/auth/signup', { username, password });
-    // Auto login after signup
-    return login(username, password);
+    // Signup sends JSON and returns the token directly
+    const res = await api.post('/auth/signup', { username, password });
+    
+    // FIX: Use the token directly from signup response
+    if (res.data.access_token) {
+      localStorage.setItem('token', res.data.access_token);
+      checkUser();
+      return true;
+    }
+    return false;
   };
 
   const logout = () => {
