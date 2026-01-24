@@ -2,6 +2,11 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
+# --- Common ---
+class SimpleResponse(BaseModel):
+    message: str
+
+# --- Auth ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -10,34 +15,88 @@ class UserCreate(BaseModel):
     username: str
     password: str
 
-class UserSettings(BaseModel):
-    currency: str
-    ntfy_url: Optional[str] = None
-    ntfy_topic: Optional[str] = None
-
 class UserOut(BaseModel):
     username: str
     currency: str
     ntfy_url: Optional[str] = None
     ntfy_topic: Optional[str] = None
+class UserSettings(BaseModel):
+    currency: str
+    ntfy_url: Optional[str] = None
+    ntfy_topic: Optional[str] = None
 
-class SimpleResponse(BaseModel):
-    message: str
-
+# --- Cards ---
 class CardCreate(BaseModel):
     name: str
+    bank_name: str
+    card_network: str
+    card_type: str
+    card_number_last4: str
+    cvv: Optional[str] = None
+    expiry_date: str
+    owner_name: str
+    limit: float
+    statement_date: Optional[int] = None
+    payment_due_date: Optional[int] = None
+    color_theme: str = "gradient-1"
+    # Files handled via Form Data, not JSON
 
 class CardOut(BaseModel):
     id: int
     name: str
+    bank_name: str
+    card_network: str
+    card_type: str
+    card_number_last4: str
+    cvv: Optional[str]
+    expiry_date: str
+    owner_name: str
+    limit: float
+    front_image_path: Optional[str]
+    back_image_path: Optional[str]
+    color_theme: str
     class Config:
         from_attributes = True
 
+# --- Companies & Salary ---
+class CompanyCreate(BaseModel):
+    name: str
+    joining_date: datetime
+    relieving_date: Optional[datetime] = None
+    is_current: bool = False
+
+class CompanyOut(BaseModel):
+    id: int
+    name: str
+    logo_path: Optional[str]
+    joining_date: datetime
+    relieving_date: Optional[datetime]
+    is_current: bool
+    class Config:
+        from_attributes = True
+
+class SalaryOut(BaseModel):
+    id: int
+    amount: float
+    month: str
+    year: int
+    attachment_path: Optional[str]
+    date_added: datetime
+    company_id: int
+    class Config:
+        from_attributes = True
+
+# --- Transactions ---
 class TransactionCreate(BaseModel):
     description: str
     amount: float
     type: str
     date: Optional[datetime] = None
+    card_id: Optional[int] = None
+    merchant_location: Optional[str] = None
+    payment_mode: str = "online"
+    is_emi: bool = False
+    emi_months: Optional[int] = None
 
 class TransactionOut(BaseModel):
     id: int
@@ -45,9 +104,16 @@ class TransactionOut(BaseModel):
     amount: float
     date: datetime
     type: str
+    card_id: Optional[int]
+    merchant_location: Optional[str]
+    payment_mode: str
+    is_emi: bool
+    emi_months: Optional[int]
+    attachment_path: Optional[str]
     class Config:
         from_attributes = True
 
+# --- Lending ---
 class LendingReturnOut(BaseModel):
     id: int
     amount: float
@@ -73,6 +139,7 @@ class LendingOut(BaseModel):
     class Config:
         from_attributes = True
 
+# --- Subscriptions ---
 class SubscriptionCreate(BaseModel):
     name: str
     amount: float
@@ -85,18 +152,7 @@ class SubscriptionOut(BaseModel):
     class Config:
         from_attributes = True
 
-class SalaryCreate(BaseModel):
-    amount: float
-    notes: Optional[str] = None
-
-class SalaryOut(BaseModel):
-    id: int
-    amount: float
-    notes: Optional[str] = None
-    date: datetime
-    class Config:
-        from_attributes = True
-
+# --- Dashboard ---
 class DashboardStats(BaseModel):
     card_count: int
     transaction_count: int

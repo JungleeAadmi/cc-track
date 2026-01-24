@@ -2,13 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .database import engine, Base
-from .routers import auth, dashboard, cards, transactions, lending, subscriptions, settings
+from .routers import auth, dashboard, cards, transactions, lending, subscriptions, settings, salary
 import os
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="CC-Track", version="1.0")
+app = FastAPI(title="CC-Track", version="2.0")
 
 # CORS - Allow frontend to talk to backend
 origins = [
@@ -30,7 +30,7 @@ app.add_middleware(
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Mount Uploads for viewing proofs
+# Mount Uploads for viewing proofs/logos
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Include Routers
@@ -41,7 +41,8 @@ app.include_router(transactions.router, prefix="/api/transactions", tags=["Trans
 app.include_router(lending.router, prefix="/api/lending", tags=["Lending"])
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(salary.router, prefix="/api/salary", tags=["Salary"]) # New
 
 @app.get("/")
 def read_root():
-    return {"status": "CC-Track Backend Running"}
+    return {"status": "CC-Track Backend v2 Running"}
