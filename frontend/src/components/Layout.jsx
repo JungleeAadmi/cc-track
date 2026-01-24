@@ -40,7 +40,16 @@ const Layout = () => {
       {/* Desktop Sidebar (Hidden on Mobile) */}
       <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-slate-800 h-screen sticky top-0">
         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="w-8 h-8" onError={(e) => e.target.style.display='none'} />
+          {/* Sidebar Logo */}
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="w-8 h-8 rounded-md" 
+            onError={(e) => {
+              e.target.onerror = null; 
+              e.target.src = '/android-chrome-192x192.png';
+            }}
+          />
           <h1 className="text-xl font-bold text-white tracking-tight">CC-Track</h1>
         </div>
         

@@ -34,7 +34,17 @@ const Login = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="mb-8 text-center">
-        <img src="/logo.png" className="w-16 h-16 mx-auto mb-4" alt="Logo" onError={(e)=>e.target.style.display='none'}/>
+        {/* Main Logo */}
+        <img 
+          src="/logo.png" 
+          className="w-20 h-20 mx-auto mb-4 rounded-xl shadow-lg" 
+          alt="Logo" 
+          // Fallback to the 192 icon if logo.png is missing or broken
+          onError={(e) => {
+            e.target.onerror = null; 
+            e.target.src = '/android-chrome-192x192.png';
+          }}
+        />
         <h1 className="text-3xl font-bold text-white tracking-tight">CC-Track</h1>
         <p className="text-slate-400 mt-2">Personal Finance & Lending Tracker</p>
       </div>

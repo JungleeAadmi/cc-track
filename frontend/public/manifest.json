@@ -1,11 +1,10 @@
 {
-  "name": "Credit Card Commander",
-  "short_name": "CC Track",
+  "name": "CC-Track",
+  "short_name": "CC-Track",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
