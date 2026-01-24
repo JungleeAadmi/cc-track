@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 const API_URL = '/api';
-const APP_VERSION = 'v3.2.1';
+const APP_VERSION = 'v3.2.2';
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CURRENCIES = [
@@ -505,7 +505,7 @@ const LendingPage = ({ currentUser, privacy }) => {
     };
 
     const handleReturn = async (e) => { e.preventDefault(); const token = localStorage.getItem('token'); try { await axios.post(`${API_URL}/lending/${showReturn}/returns`, { date: new Date(returnItem.date).toISOString(), amount: parseFloat(returnItem.amount), attachment: returnItem.attachment }, { headers: { Authorization: `Bearer ${token}` } }); setShowReturn(null); fetchLending(); setReturnItem({ date: new Date().toISOString().split('T')[0], amount: '', attachment: '' }); } catch(e) { handleError(e, "Add Return"); } };
-    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert("Error processing image: " + e); } };
+    const handleFile = async (e, setter, field) => { try { const b64 = await processImage(e.target.files[0]); setter(prev => ({...prev, [field]: b64})); } catch(e) { alert("Error processing image"); } };
     
     const handleTouchStart = (item) => { longPressTimer.current = setTimeout(() => { if(navigator.vibrate) navigator.vibrate(50); setLendOptions(item); }, 500); };
     const handleTouchEnd = () => { if(longPressTimer.current) clearTimeout(longPressTimer.current); };
@@ -930,10 +930,7 @@ const SettingsPage = ({ currentUser, onUpdateUser }) => {
   );
 };
 
-// =================================================================================================
-// 6. AUTH APP & LOGIN
-// =================================================================================================
-
+// --- 6. AUTH APP & LOGIN ---
 const AuthenticatedApp = () => {
   const [activeView, setActiveView] = useState('Dashboard');
   const [currentUser, setCurrentUser] = useState({ 
