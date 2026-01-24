@@ -38,23 +38,3 @@ def test_notification(current_user: models.User = Depends(auth.get_current_user)
         return {"message": f"Sent, status: {resp.status_code}"}
     except Exception as e:
         return {"message": f"Failed: {str(e)}"}
-
-# --- Salary (Kept here or separate, but small enough for here in v1) ---
-@router.get("/salary", response_model=List[schemas.SalaryOut])
-def get_salary(
-    current_user: models.User = Depends(auth.get_current_user),
-    db: Session = Depends(database.get_db)
-):
-    return db.query(models.Salary).filter(models.Salary.owner_id == current_user.id).order_by(models.Salary.date.desc()).all()
-
-@router.post("/salary", response_model=schemas.SalaryOut)
-def add_salary(
-    salary: schemas.SalaryCreate,
-    current_user: models.User = Depends(auth.get_current_user),
-    db: Session = Depends(database.get_db)
-):
-    new_salary = models.Salary(**salary.dict(), owner_id=current_user.id)
-    db.add(new_salary)
-    db.commit()
-    db.refresh(new_salary)
-    return new_salary

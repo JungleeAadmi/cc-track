@@ -20,6 +20,7 @@ class UserOut(BaseModel):
     currency: str
     ntfy_url: Optional[str] = None
     ntfy_topic: Optional[str] = None
+
 class UserSettings(BaseModel):
     currency: str
     ntfy_url: Optional[str] = None
@@ -39,7 +40,6 @@ class CardCreate(BaseModel):
     statement_date: Optional[int] = None
     payment_due_date: Optional[int] = None
     color_theme: str = "gradient-1"
-    # Files handled via Form Data, not JSON
 
 class CardOut(BaseModel):
     id: int
@@ -74,6 +74,13 @@ class CompanyOut(BaseModel):
     is_current: bool
     class Config:
         from_attributes = True
+
+# Added missing class
+class SalaryCreate(BaseModel):
+    amount: float
+    month: str
+    year: int
+    company_id: int
 
 class SalaryOut(BaseModel):
     id: int
