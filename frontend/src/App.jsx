@@ -3,34 +3,34 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Lending from './pages/Lending';
+import Salary from './pages/Salary';
+import Subscriptions from './pages/Subscriptions';
 import Settings from './pages/Settings';
+import Navbar from './components/Navbar';
 
-const isAuthenticated = () => !!localStorage.getItem('token');
+const isAuthed = () => !!localStorage.getItem('token');
+
+function Protected({ children }) {
+  return isAuthed() ? children : <Navigate to="/" replace />;
+}
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={
-        isAuthenticated() ? <Navigate to="/dashboard" /> : <Login />
+        isAuthed() ? <Navigate to="/dashboard" replace /> : <Login />
       } />
 
-      <Route path="/dashboard" element={
-        isAuthenticated() ? <Dashboard /> : <Navigate to="/" />
-      } />
+      <Route path="/" element={<Protected><Navbar /></Protected>}>
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="transactions" element={<Transactions />} />
+        <Route path="lending" element={<Lending />} />
+        <Route path="salary" element={<Salary />} />
+        <Route path="subscriptions" element={<Subscriptions />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
 
-      <Route path="/transactions" element={
-        isAuthenticated() ? <Transactions /> : <Navigate to="/" />
-      } />
-
-      <Route path="/lending" element={
-        isAuthenticated() ? <Lending /> : <Navigate to="/" />
-      } />
-
-      <Route path="/settings" element={
-        isAuthenticated() ? <Settings /> : <Navigate to="/" />
-      } />
-
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

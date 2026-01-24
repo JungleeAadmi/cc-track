@@ -1,8 +1,7 @@
-export const processImage = (file) =>
-  new Promise((resolve, reject) => {
-    if (!file) reject('No file');
-    const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+export const processImage = file =>
+  new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
   });

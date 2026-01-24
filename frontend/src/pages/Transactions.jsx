@@ -6,11 +6,11 @@ export default function Transactions() {
   const [txns, setTxns] = useState([]);
 
   useEffect(() => {
-    api.get('/transactions/').then(res => setTxns(res.data));
+    api.get('/transactions/').then(r => setTxns(r.data || []));
   }, []);
 
   return (
-    <div className="page">
+    <>
       <h1>Transactions</h1>
       <table>
         <thead>
@@ -26,6 +26,6 @@ export default function Transactions() {
           ))}
         </tbody>
       </table>
-    </div>
+    </>
   );
 }

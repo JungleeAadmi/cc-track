@@ -1,8 +1,5 @@
-export const formatMoney = (amount, currency = 'USD') =>
-  `${currency} ${Number(amount || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`;
+export const formatMoney = (amt, cur='USD') =>
+  `${cur} ${Number(amt || 0).toLocaleString(undefined,{minimumFractionDigits:2})}`;
 
-export const formatDate = (d) =>
+export const formatDate = d =>
   d ? new Date(d).toLocaleDateString() : '—';

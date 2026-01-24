@@ -12,12 +12,11 @@ export default function Login() {
       const fd = new FormData();
       fd.append('username', username);
       fd.append('password', password);
-
       const res = await axios.post('/api/token', fd);
       localStorage.setItem('token', res.data.access_token);
       window.location.href = '/dashboard';
     } catch {
-      setError('Invalid credentials');
+      setError('Invalid username or password');
     }
   };
 
@@ -26,8 +25,8 @@ export default function Login() {
       <form onSubmit={submit} className="card">
         <h2>Login</h2>
         {error && <p className="error">{error}</p>}
-        <input placeholder="Username" value={username} onChange={e=>setUsername(e.target.value)} />
-        <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} />
+        <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username" />
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" />
         <button>Sign In</button>
       </form>
     </div>
