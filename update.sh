@@ -31,13 +31,27 @@ if [ ! -d "$INSTALL_DIR/.git" ]; then
   exit 1
 fi
 
-if [ ! -d "$VENV_DIR" ]; then
-  echo -e "${RED}ERROR: Python venv not found at $VENV_DIR${NC}"
+# Python checks (python3 only)
+command -v python3 >/dev/null || {
+  echo -e "${RED}ERROR: python3 not found${NC}"
+  exit 1
+}
+
+# Detect pip
+if command -v pip3 >/dev/null; then
+  PIP_CMD="pip3"
+elif command -v pip >/dev/null; then
+  PIP_CMD="pip"
+else
+  echo -e "${RED}ERROR: pip not found${NC}"
   exit 1
 fi
 
-command -v python >/dev/null || { echo "python not found"; exit 1; }
-command -v npm >/dev/null || { echo "npm not found"; exit 1; }
+# Node check
+command -v npm >/dev/null || {
+  echo -e "${RED}ERROR: npm not found${NC}"
+  exit 1
+}
 
 # =========================================================
 # STOP SERVICES
@@ -86,27 +100,26 @@ if [ -d "$BACKUP_DIR/uploaded_images" ]; then
 fi
 
 # =========================================================
-# BACKEND REBUILD (CLEAN)
+# BACKEND REBUILD (PYTHON3)
 # =========================================================
 echo "Rebuilding backend..."
+
 source "$VENV_DIR/bin/activate"
 
-pip install --upgrade pip >/dev/null
-pip install --no-cache-dir -r "$BACKEND_DIR/requirements.txt"
+$PIP_CMD install --upgrade pip >/dev/null
+$PIP_CMD install --no-cache-dir -r "$BACKEND_DIR/requirements.txt"
 
 # =========================================================
-# FRONTEND REBUILD (TRULY CLEAN)
+# FRONTEND REBUILD (CLEAN)
 # =========================================================
 echo "Rebuilding frontend from scratch..."
 cd "$FRONTEND_DIR"
 
-# FULL CLEAN — this is critical
 rm -rf node_modules dist package-lock.json
 
 npm install
 npm run build
 
-# Validate build output
 if [ ! -d "dist" ]; then
   echo -e "${RED}ERROR: Frontend build failed — dist/ not found${NC}"
   exit 1
