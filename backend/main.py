@@ -1,9 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import cards, transactions, lending, subscriptions, users, notifications
-from database import engine
-import models
+from backend.routers import (
+    users,
+    cards,
+    transactions,
+    lending,
+    subscriptions,
+    notifications,
+)
+from backend.database import engine
+from backend import models
 
 models.Base.metadata.create_all(bind=engine)
 
