@@ -4,7 +4,7 @@ import {
   LayoutDashboard, 
   CreditCard, 
   ArrowRightLeft, 
-  HandCoins, 
+  Banknote, 
   Repeat, 
   Settings,
   LogOut,
@@ -64,7 +64,7 @@ const Layout = () => {
              <CreditCard size={20} /> Cards
            </NavLink>
            <NavLink to="/lending" className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:bg-slate-800'}`}>
-             <HandCoins size={20} /> Lending
+             <Banknote size={20} /> Lending
            </NavLink>
            <NavLink to="/subscriptions" className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-slate-400 hover:bg-slate-800'}`}>
              <Repeat size={20} /> Subs
@@ -96,7 +96,7 @@ const Layout = () => {
         <div className="flex justify-between items-center">
           <NavItem to="/" icon={LayoutDashboard} label="Home" />
           <NavItem to="/transactions" icon={ArrowRightLeft} label="Txns" />
-          <NavItem to="/lending" icon={HandCoins} label="Lend" />
+          <NavItem to="/lending" icon={Banknote} label="Lend" />
           <NavItem to="/settings" icon={Settings} label="Set" />
         </div>
       </div>

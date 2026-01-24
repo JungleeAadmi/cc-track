@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Card } from '../components/ui';
-import { CreditCard, ArrowRightLeft, HandCoins, Repeat, Wallet } from 'lucide-react';
+import { CreditCard, ArrowRightLeft, Banknote, Repeat, Wallet } from 'lucide-react';
 
 const StatCard = ({ icon: Icon, label, value, colorClass }) => (
   <Card className="flex items-center gap-4 hover:bg-slate-800/50 transition-colors">
     <div className={`p-3 rounded-xl ${colorClass} bg-opacity-10`}>
       <Icon className={colorClass.replace('text-', '')} size={24} /> 
-      {/* Hack: Extract color from class string logic or just use specific colors. 
-         Let's simplify: Tailwind classes need to be explicit usually. */}
     </div>
     <div>
       <p className="text-slate-400 text-sm font-medium">{label}</p>
@@ -56,13 +54,13 @@ const Dashboard = () => {
           colorClass="text-purple-500 bg-purple-500/10" 
         />
         <StatCard 
-          icon={HandCoins} 
+          icon={Banknote} 
           label="Active Lendings" 
           value={stats.active_lending_count} 
           colorClass="text-orange-500 bg-orange-500/10" 
         />
          <StatCard 
-          icon={HandCoins} 
+          icon={Banknote} 
           label="Pending Returns" 
           value={`₹${stats.pending_lending_amount}`} 
           colorClass="text-red-500 bg-red-500/10" 
