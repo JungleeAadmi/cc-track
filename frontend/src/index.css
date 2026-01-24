@@ -1,26 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  color-scheme: dark;
-}
-
 body {
-  @apply bg-neutral-950 text-neutral-200;
+  font-family: system-ui, sans-serif;
+  background: #f3f4f6;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+.center {
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
 }
-::-webkit-scrollbar-track {
-  @apply bg-neutral-900;
+
+.page {
+  padding: 24px;
 }
-::-webkit-scrollbar-thumb {
-  @apply bg-red-900 rounded-full;
+
+.card {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(240px,1fr));
+  gap: 16px;
+}
+
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+}
+
+.error {
+  color: red;
 }
