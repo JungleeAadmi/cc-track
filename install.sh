@@ -1,114 +1,104 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# --- Configuration ---
-REPO_URL="https://github.com/JungleeAadmi/cc-track.git"
+# =========================
+# CONFIG
+# =========================
+APP_NAME="cc-track"
 INSTALL_DIR="/opt/cc-track"
-BACKUP_DIR="/var/backups/cc-track"
-SERVICE_NAME="cc-track"
-DB_FILE="cc_data.db"
+BACKEND_DIR="$INSTALL_DIR/backend"
+FRONTEND_DIR="$INSTALL_DIR/frontend"
+VENV_DIR="$INSTALL_DIR/venv"
 
-# Colors
+SERVICE_FILE="/etc/systemd/system/cc-track.service"
+
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'
+NC='\033[0m'
 
-echo -e "${BLUE}--- Starting Credit Card Tracker Installer ---${NC}"
+echo -e "${GREEN}=== CC-Track Fresh Install ===${NC}"
 
-# 1. Check Root
-if [ "$EUID" -ne 0 ]; then 
-  echo "Please run as root (sudo bash install.sh)"
-  exit
-fi
+# =========================
+# PRE-CHECKS
+# =========================
+command -v git >/dev/null || { echo "git not installed"; exit 1; }
+command -v python3 >/dev/null || { echo "python3 not installed"; exit 1; }
+command -v npm >/dev/null || { echo "npm not installed"; exit 1; }
 
-# 2. Install System Dependencies
-echo -e "${GREEN}[1/6] Installing System Dependencies (Python, Node, Nginx)...${NC}"
-apt-get update -qq
-# Install Node.js 18.x (LTS)
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash - > /dev/null
-apt-get install -y python3 python3-pip python3-venv nodejs nginx git acl > /dev/null
-
-# 3. Clone or Update Repository
-if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${GREEN}[2/6] Directory exists. Triggering update mode...${NC}"
-    # If running purely from curl, we might not be inside the dir.
-    # We delegate to the update logic which handles data safety.
-    bash "$INSTALL_DIR/update.sh"
-    exit 0
+# =========================
+# CLONE / RESET APP
+# =========================
+if [ -d "$INSTALL_DIR/.git" ]; then
+  echo "Updating existing repo..."
+  cd "$INSTALL_DIR"
+  git fetch origin
+  git reset --hard origin/main
 else
-    echo -e "${GREEN}[2/6] Cloning Repository...${NC}"
-    git clone "$REPO_URL" "$INSTALL_DIR"
+  echo "Cloning repo..."
+  git clone https://github.com/JungleeAadmi/cc-track.git "$INSTALL_DIR"
+  cd "$INSTALL_DIR"
 fi
 
-cd "$INSTALL_DIR"
+# =========================
+# PYTHON VENV
+# =========================
+echo "Setting up Python virtual environment..."
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
 
-# 4. Backend Setup
-echo -e "${GREEN}[3/6] Setting up Python Backend...${NC}"
-python3 -m venv venv
-source venv/bin/activate
-pip install -r backend/requirements.txt > /dev/null
+pip install --upgrade pip
+pip install --no-cache-dir -r "$BACKEND_DIR/requirements.txt"
 
-# 5. Frontend Build
-echo -e "${GREEN}[4/6] Building React Frontend...${NC}"
-cd frontend
-npm install --silent
+# =========================
+# FRONTEND BUILD
+# =========================
+echo "Building frontend..."
+cd "$FRONTEND_DIR"
+rm -rf node_modules dist package-lock.json
+npm install
 npm run build
-cd ..
 
-# 6. Service Configuration (Systemd)
-echo -e "${GREEN}[5/6] Configuring Systemd Service...${NC}"
-cat > /etc/systemd/system/$SERVICE_NAME.service <<EOF
+# =========================
+# SYSTEMD SERVICE
+# =========================
+echo "Installing systemd service..."
+
+cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=Credit Card Tracker Backend
+Description=CC-Track Backend
 After=network.target
 
 [Service]
 User=root
-WorkingDirectory=$INSTALL_DIR/backend
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/opt/cc-track
+ExecStart=/opt/cc-track/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000
 Restart=always
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+systemctl daemon-reexec
 systemctl daemon-reload
-systemctl enable $SERVICE_NAME
-systemctl restart $SERVICE_NAME
+systemctl enable cc-track
+systemctl restart cc-track
 
-# 7. Nginx Configuration
-echo -e "${GREEN}[6/6] Configuring Nginx Reverse Proxy...${NC}"
-cat > /etc/nginx/sites-available/cc-track <<EOF
-server {
-    listen 80;
-    server_name _;
+# =========================
+# HEALTH CHECK
+# =========================
+sleep 2
 
-    root $INSTALL_DIR/frontend/dist;
-    index index.html;
+if ! curl -sf http://127.0.0.1:8000/ >/dev/null; then
+  echo -e "${RED}Backend failed health check${NC}"
+  systemctl status cc-track --no-pager
+  exit 1
+fi
 
-    # Serve React App
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
+echo -e "${GREEN}Backend is healthy${NC}"
 
-    # Proxy API requests to Python
-    location /api {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-}
-EOF
-
-# Enable site and remove default
-ln -sf /etc/nginx/sites-available/cc-track /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
-systemctl restart nginx
-
-# 8. Completion
-IP_ADDR=$(hostname -I | cut -d' ' -f1)
-echo -e "${BLUE}------------------------------------------------${NC}"
-echo -e "${GREEN} Installation Complete! ${NC}"
-echo -e "${BLUE} Open your browser: http://$IP_ADDR ${NC}"
-echo -e "${BLUE}------------------------------------------------${NC}"
+# =========================
+# DONE
+# =========================
+echo -e "${GREEN}=== CC-Track Installed Successfully ===${NC}"
+echo "Open the app in browser and hard refresh (Ctrl+Shift+R)"
