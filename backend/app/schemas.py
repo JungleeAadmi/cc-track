@@ -24,7 +24,6 @@ class UserSettings(BaseModel):
     ntfy_url: Optional[str] = None
     ntfy_topic: Optional[str] = None
 
-# --- Statements ---
 class StatementOut(BaseModel):
     id: int
     month: str
@@ -37,16 +36,14 @@ class StatementOut(BaseModel):
     paid_date: Optional[datetime]
     payment_ref: Optional[str]
     attachment_path: Optional[str]
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
-# --- Cards ---
 class CardCreate(BaseModel):
     name: str
     bank_name: str
     card_network: str
     card_type: str
-    card_number: str # Full number
+    card_number: str
     cvv: Optional[str] = None
     expiry_date: str
     owner_name: str
@@ -61,7 +58,7 @@ class CardOut(BaseModel):
     bank_name: str
     card_network: str
     card_type: str
-    card_number: str # Full number
+    card_number: str
     card_number_last4: str
     cvv: Optional[str]
     expiry_date: str
@@ -73,10 +70,8 @@ class CardOut(BaseModel):
     back_image_path: Optional[str]
     color_theme: str
     statements: List[StatementOut] = []
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
-# --- Companies & Salary ---
 class CompanyCreate(BaseModel):
     name: str
     joining_date: datetime
@@ -90,8 +85,7 @@ class CompanyOut(BaseModel):
     joining_date: datetime
     relieving_date: Optional[datetime]
     is_current: bool
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
 class SalaryCreate(BaseModel):
     amount: float
@@ -107,10 +101,8 @@ class SalaryOut(BaseModel):
     attachment_path: Optional[str]
     date_added: datetime
     company_id: int
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
-# --- Transactions ---
 class TransactionCreate(BaseModel):
     description: str
     amount: float
@@ -134,17 +126,14 @@ class TransactionOut(BaseModel):
     is_emi: bool
     emi_months: Optional[int]
     attachment_path: Optional[str]
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
-# --- Lending ---
 class LendingReturnOut(BaseModel):
     id: int
     amount: float
     return_date: datetime
     proof_image_path: Optional[str] = None
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
 class LendingCreate(BaseModel):
     person_name: str
@@ -160,23 +149,23 @@ class LendingOut(BaseModel):
     returned_amount: float
     pending_amount: float
     returns: List[LendingReturnOut] = []
-    class Config:
-        from_attributes = True
+    class Config: from_attributes = True
 
-# --- Subscriptions ---
 class SubscriptionCreate(BaseModel):
     name: str
     amount: float
+    frequency: str
+    renewal_date: Optional[datetime] = None
 
 class SubscriptionOut(BaseModel):
     id: int
     name: str
     amount: float
     active: bool
-    class Config:
-        from_attributes = True
+    frequency: str
+    renewal_date: Optional[datetime]
+    class Config: from_attributes = True
 
-# --- Dashboard ---
 class DashboardStats(BaseModel):
     card_count: int
     transaction_count: int

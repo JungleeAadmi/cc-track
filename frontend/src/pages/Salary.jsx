@@ -2,22 +2,8 @@ import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Button, Input, FileInput } from '../components/ui';
 import Modal from '../components/Modal';
-import useLongPress from '../hooks/useLongPress';
-import { Plus, Briefcase, FileText } from 'lucide-react';
+import { Plus, Briefcase, FileText, Pencil, Trash2 } from 'lucide-react';
 import FilePreviewModal from '../components/FilePreviewModal';
-
-const ActionMenu = ({ isOpen, onClose, onDelete, onEdit }) => {
-    if(!isOpen) return null;
-    return (
-        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4 bg-black/60" onClick={onClose}>
-            <div className="bg-surface w-full max-w-sm rounded-xl border border-white/10 overflow-hidden" onClick={e=>e.stopPropagation()}>
-                 <button onClick={onEdit} className="w-full p-4 text-left text-white hover:bg-white/5 border-b border-white/5">Edit Company</button>
-                <button onClick={onDelete} className="w-full p-4 text-left text-red-400 hover:bg-red-500/10 border-b border-white/5">Delete Company</button>
-                <button onClick={onClose} className="w-full p-4 text-center text-slate-500 hover:bg-white/5">Cancel</button>
-            </div>
-        </div>
-    );
-};
 
 const Salary = () => {
   const [companies, setCompanies] = useState([]);
@@ -26,9 +12,9 @@ const Salary = () => {
   
   const [showCompModal, setShowCompModal] = useState(false);
   const [showSlipModal, setShowSlipModal] = useState(false);
-  const [actionCompany, setActionCompany] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const [compForm, setCompForm] = useState({ name: '', joining_date: '', relieving_date: '', is_current: false });
@@ -62,24 +48,24 @@ const Salary = () => {
     if(compLogo) formData.append('logo', compLogo);
 
     try {
-        if(isEditing) await api.put(`/api/salary/companies/${actionCompany.id}`, formData);
+        if(isEditing) await api.put(`/api/salary/companies/${editId}`, formData);
         else await api.post('/api/salary/companies', formData);
-        setShowCompModal(false); setCompForm({ name: '', joining_date: '', relieving_date: '', is_current: false }); setCompLogo(null); setIsEditing(false); setActionCompany(null);
+        setShowCompModal(false); setCompForm({ name: '', joining_date: '', relieving_date: '', is_current: false }); setCompLogo(null); setIsEditing(false); setEditId(null);
         fetchCompanies();
     } catch(e) { alert("Failed"); } finally { setLoading(false); }
   };
   
-  const handleEdit = () => {
+  const handleEdit = (c) => {
       setCompForm({
-          name: actionCompany.name,
-          joining_date: actionCompany.joining_date.split('T')[0],
-          relieving_date: actionCompany.relieving_date ? actionCompany.relieving_date.split('T')[0] : '',
-          is_current: actionCompany.is_current
+          name: c.name,
+          joining_date: c.joining_date.split('T')[0],
+          relieving_date: c.relieving_date ? c.relieving_date.split('T')[0] : '',
+          is_current: c.is_current
       });
-      setIsEditing(true); setShowCompModal(true); setActionCompany(null);
+      setEditId(c.id); setIsEditing(true); setShowCompModal(true);
   };
 
-  const handleDelete = async () => { if(confirm("Delete company?")) { await api.delete(`/api/salary/companies/${actionCompany.id}`); fetchCompanies(); setActionCompany(null); }};
+  const handleDelete = async (id) => { if(confirm("Delete company?")) { await api.delete(`/api/salary/companies/${id}`); fetchCompanies(); }};
 
   const handleAddSlip = async (e) => {
     e.preventDefault();
@@ -96,12 +82,6 @@ const Salary = () => {
     catch(e) { alert("Failed"); } finally { setLoading(false); }
   };
 
-  const longPressProps = useLongPress(
-    (e) => { const c = companies.find(i => i.id == e.target.closest('[data-comp-id]')?.dataset.compId); if(c) setActionCompany(c); },
-    (e) => { const c = companies.find(i => i.id == e.target.closest('[data-comp-id]')?.dataset.compId); if(c) setSelectedCompany(c); },
-    { delay: 800, shouldPreventDefault: true }
-  );
-
   return (
     <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
       <div className="flex-none">
@@ -111,8 +91,12 @@ const Salary = () => {
         </div>
         <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
             {companies.map(comp => (
-                <div key={comp.id} data-comp-id={comp.id} {...longPressProps} className={`flex-none w-64 p-4 rounded-xl border cursor-pointer select-none touch-manipulation ${selectedCompany?.id === comp.id ? 'bg-primary/20 border-primary shadow-lg' : 'bg-surface border-white/5'}`}>
-                    <div className="flex items-center gap-3 mb-3">
+                <div key={comp.id} className={`flex-none w-64 p-4 rounded-xl border relative ${selectedCompany?.id === comp.id ? 'bg-primary/20 border-primary shadow-lg' : 'bg-surface border-white/5'}`}>
+                    <div className="absolute top-2 right-2 flex gap-1">
+                        <button onClick={(e)=>{e.stopPropagation(); handleEdit(comp)}} className="p-1 bg-black/40 rounded text-white"><Pencil size={12}/></button>
+                        <button onClick={(e)=>{e.stopPropagation(); handleDelete(comp.id)}} className="p-1 bg-red-900/40 rounded text-red-400"><Trash2 size={12}/></button>
+                    </div>
+                    <div onClick={() => setSelectedCompany(comp)} className="flex items-center gap-3 mb-3 cursor-pointer">
                         {comp.logo_path ? <img src={`/uploads/${comp.logo_path}`} className="w-10 h-10 rounded-full object-cover bg-white"/> : <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center"><Briefcase size={20}/></div>}
                         <div><h3 className="font-bold text-white truncate w-32">{comp.name}</h3><p className="text-[10px] text-slate-400">{new Date(comp.joining_date).getFullYear()} - {comp.is_current ? 'Present' : new Date(comp.relieving_date).getFullYear()}</p></div>
                     </div>
@@ -121,7 +105,6 @@ const Salary = () => {
         </div>
       </div>
       
-      <ActionMenu isOpen={!!actionCompany} onClose={() => setActionCompany(null)} onDelete={handleDelete} onEdit={handleEdit} />
       <FilePreviewModal isOpen={!!previewFile} fileUrl={previewFile} onClose={()=>setPreviewFile(null)} title="Salary Slip" />
 
       <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-surface/50 rounded-2xl border border-white/5">
@@ -145,7 +128,7 @@ const Salary = () => {
       <Modal isOpen={showCompModal} onClose={()=>setShowCompModal(false)} title={isEditing ? "Edit Company" : "Add Company"}>
           <form onSubmit={handleAddCompany} className="space-y-4">
               <Input label="Company Name" value={compForm.name} onChange={e=>setCompForm({...compForm, name: e.target.value})} required/>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Joining Date" type="date" value={compForm.joining_date} onChange={e=>setCompForm({...compForm, joining_date: e.target.value})} required/>
                   {!compForm.is_current && <Input label="Relieving Date" type="date" value={compForm.relieving_date} onChange={e=>setCompForm({...compForm, relieving_date: e.target.value})} />}
               </div>

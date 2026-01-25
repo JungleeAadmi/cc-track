@@ -16,49 +16,37 @@ class Card(Base):
     __tablename__ = "cards"
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
-    
     name = Column(String, index=True)
     bank_name = Column(String)
     card_network = Column(String)
     card_type = Column(String)
-    
-    # NEW: Full Card Number
     card_number = Column(String) 
-    card_number_last4 = Column(String) # Kept for quick search/legacy
-    
+    card_number_last4 = Column(String)
     cvv = Column(String, nullable=True)
     expiry_date = Column(String)
     owner_name = Column(String)
     limit = Column(Float, default=0.0)
     statement_date = Column(Integer, nullable=True)
     payment_due_date = Column(Integer, nullable=True)
-    
     color_theme = Column(String, default="gradient-1")
     front_image_path = Column(String, nullable=True)
     back_image_path = Column(String, nullable=True)
-    
     statements = relationship("CardStatement", back_populates="card", cascade="all, delete-orphan")
 
-# NEW: Statement Tracking
 class CardStatement(Base):
     __tablename__ = "card_statements"
     id = Column(Integer, primary_key=True, index=True)
     card_id = Column(Integer, ForeignKey("cards.id"))
-    
-    month = Column(String) # "January 2024"
+    month = Column(String)
     generated_date = Column(DateTime)
     due_date = Column(DateTime)
-    
     total_due = Column(Float)
     min_due = Column(Float, default=0.0)
-    
     is_paid = Column(Boolean, default=False)
     paid_amount = Column(Float, default=0.0)
     paid_date = Column(DateTime, nullable=True)
     payment_ref = Column(String, nullable=True)
-    
-    attachment_path = Column(String, nullable=True) # Statement PDF
-    
+    attachment_path = Column(String, nullable=True)
     card = relationship("Card", back_populates="statements")
 
 class Company(Base):
@@ -124,4 +112,6 @@ class Subscription(Base):
     name = Column(String)
     amount = Column(Float)
     active = Column(Boolean, default=True)
+    renewal_date = Column(DateTime, nullable=True) # New
+    frequency = Column(String, default="Monthly")  # New
     owner_id = Column(Integer, ForeignKey("users.id"))
