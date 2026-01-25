@@ -6,7 +6,10 @@ const VirtualCard = ({ card, onClick, isMasked = false }) => {
     'gradient-2': 'from-slate-900 to-black',
     'gradient-3': 'from-red-900 to-rose-900',
     'gradient-4': 'from-emerald-900 to-teal-900',
-    'gradient-5': 'from-yellow-700 to-orange-800'
+    'gradient-5': 'from-yellow-700 to-orange-800',
+    'gradient-6': 'from-pink-900 to-fuchsia-900',
+    'gradient-7': 'from-cyan-900 to-blue-800',
+    'gradient-8': 'from-indigo-900 to-violet-900'
   };
 
   const gradient = themes[card.color_theme] || themes['gradient-1'];

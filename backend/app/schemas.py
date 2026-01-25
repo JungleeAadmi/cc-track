@@ -85,6 +85,7 @@ class CompanyOut(BaseModel):
     joining_date: datetime
     relieving_date: Optional[datetime]
     is_current: bool
+    total_earned: float = 0.0
     class Config: from_attributes = True
 
 class SalaryCreate(BaseModel):

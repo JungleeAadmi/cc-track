@@ -26,7 +26,7 @@ def get_lendings(current_user: models.User = Depends(auth.get_current_user), db:
 async def create_lending(
     person_name: str = Form(...),
     total_amount: float = Form(...),
-    lent_date: str = Form(None), # Accepts ISO date string
+    lent_date: str = Form(None),
     proof: UploadFile = File(None),
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db)
@@ -49,7 +49,6 @@ async def create_lending(
     if proof:
         file_path = f"{uuid.uuid4()}.{proof.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, file_path), "wb") as buffer: shutil.copyfileobj(proof.file, buffer)
-        # Store as 0-amount return to link proof
         proof_entry = models.LendingReturn(lending_id=new_lending.id, amount=0, proof_image_path=file_path, return_date=date_val)
         db.add(proof_entry)
         db.commit()

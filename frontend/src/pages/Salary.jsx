@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Button, Input, FileInput } from '../components/ui';
+import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import { Plus, Briefcase, FileText, Pencil, Trash2 } from 'lucide-react';
 import FilePreviewModal from '../components/FilePreviewModal';
@@ -79,12 +79,12 @@ const Salary = () => {
     formData.append('year', slipForm.year);
     if(slipFile) formData.append('slip', slipFile);
 
-    try { await api.post('/api/salary/slips', formData); setShowSlipModal(false); fetchSalaries(selectedCompany.id); } 
+    try { await api.post('/api/salary/slips', formData); setShowSlipModal(false); fetchSalaries(selectedCompany.id); fetchCompanies(); } 
     catch(e) { alert("Failed"); } finally { setLoading(false); }
   };
 
   const handleDeleteSlip = async (id) => {
-      if(confirm("Delete slip?")) { await api.delete(`/api/salary/slips/${id}`); fetchSalaries(selectedCompany.id); }
+      if(confirm("Delete slip?")) { await api.delete(`/api/salary/slips/${id}`); fetchSalaries(selectedCompany.id); fetchCompanies(); }
   }
 
   return (
@@ -96,14 +96,18 @@ const Salary = () => {
         </div>
         <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
             {companies.map(comp => (
-                <div key={comp.id} className={`flex-none w-64 p-4 rounded-xl border relative ${selectedCompany?.id === comp.id ? 'bg-primary/20 border-primary shadow-lg' : 'bg-surface border-white/5'}`}>
+                <div key={comp.id} className={`flex-none w-72 p-4 rounded-xl border relative ${selectedCompany?.id === comp.id ? 'bg-primary/20 border-primary shadow-lg' : 'bg-surface border-white/5'}`}>
                     <div className="absolute top-2 right-2 flex gap-1">
                         <button onClick={(e)=>{e.stopPropagation(); handleEdit(comp)}} className="p-1 bg-black/40 rounded text-white"><Pencil size={12}/></button>
                         <button onClick={(e)=>{e.stopPropagation(); handleDelete(comp.id)}} className="p-1 bg-red-900/40 rounded text-red-400"><Trash2 size={12}/></button>
                     </div>
                     <div onClick={() => setSelectedCompany(comp)} className="flex items-center gap-3 mb-3 cursor-pointer">
-                        {comp.logo_path ? <img src={`/uploads/${comp.logo_path}`} className="w-10 h-10 rounded-full object-cover bg-white"/> : <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center"><Briefcase size={20}/></div>}
-                        <div><h3 className="font-bold text-white truncate w-32">{comp.name}</h3><p className="text-[10px] text-slate-400">{new Date(comp.joining_date).getFullYear()} - {comp.is_current ? 'Present' : new Date(comp.relieving_date).getFullYear()}</p></div>
+                        {comp.logo_path ? <img src={`/uploads/${comp.logo_path}`} className="w-12 h-12 rounded-full object-cover bg-white"/> : <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center"><Briefcase size={20}/></div>}
+                        <div>
+                            <h3 className="font-bold text-white truncate w-40">{comp.name}</h3>
+                            <p className="text-[10px] text-slate-400">{new Date(comp.joining_date).getFullYear()} - {comp.is_current ? 'Present' : new Date(comp.relieving_date).getFullYear()}</p>
+                            <p className="text-xs text-green-400 font-bold mt-1">Earned: <Money amount={comp.total_earned} /></p>
+                        </div>
                     </div>
                 </div>
             ))}
@@ -122,7 +126,7 @@ const Salary = () => {
                 <div key={slip.id} className="flex justify-between items-center p-3 bg-black/40 rounded-lg">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold text-xs">{slip.month.substring(0,3)}</div>
-                        <div><p className="font-bold text-white">₹{slip.amount.toLocaleString()}</p><p className="text-xs text-slate-400">{slip.month} {slip.year}</p></div>
+                        <div><p className="font-bold text-white"><Money amount={slip.amount}/></p><p className="text-xs text-slate-400">{slip.month} {slip.year}</p></div>
                     </div>
                     <div className="flex gap-2">
                         {slip.attachment_path && <Button variant="ghost" size="sm" onClick={() => setPreviewFile(`/uploads/${slip.attachment_path}`)}>View</Button>}
@@ -146,7 +150,6 @@ const Salary = () => {
               </div>
               <FileInput label="Company Logo" onChange={e=>setCompLogo(e.target.files[0])} accept="image/*"/>
               <Button type="submit" className="w-full" isLoading={loading}>{isEditing ? "Update" : "Save"}</Button>
-              {isEditing && <Button type="button" variant="danger" className="w-full mt-2" onClick={() => handleDelete(editId)}>Delete Company</Button>}
           </form>
       </Modal>
       

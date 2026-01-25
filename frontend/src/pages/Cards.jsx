@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Button, Input, FileInput } from '../components/ui';
+import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import VirtualCard from '../components/VirtualCard';
 import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2 } from 'lucide-react';
@@ -16,13 +16,6 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
   const [stmtFile, setStmtFile] = useState(null);
   const [payForm, setPayForm] = useState({ paid_amount: '', payment_ref: '' });
 
-  useEffect(() => {
-      // Re-fetch card data when modal opens or refreshes
-      if (isOpen && card) {
-          // Could optimize this to just fetch specific card
-      }
-  }, [card]);
-
   if (!isOpen || !card) return null;
 
   const handleAddStatement = async (e) => {
@@ -31,8 +24,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
     Object.keys(stmtForm).forEach(k => formData.append(k, stmtForm[k]));
     if(stmtFile) formData.append('attachment', stmtFile);
     await api.post(`/api/cards/${card.id}/statements`, formData);
-    setShowAddStmtModal(false); 
-    onRefresh(); // Trigger parent refresh
+    setShowAddStmtModal(false); onRefresh();
   };
 
   const handleDeleteStatement = async (stmtId) => {
@@ -48,8 +40,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
     formData.append('paid_amount', payForm.paid_amount);
     formData.append('payment_ref', payForm.payment_ref);
     await api.post(`/api/cards/statements/${selectedStmt.id}/pay`, formData);
-    setShowPayModal(false); 
-    onRefresh();
+    setShowPayModal(false); onRefresh();
   };
 
   return (
@@ -84,7 +75,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                                 <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover rounded-2xl" />
                              ) : (
                                 <div className="h-full w-full bg-slate-900 rounded-2xl border border-white/20 flex flex-col justify-center items-center relative">
-                                    <div className="w-full h-12 bg-black absolute top-6"></div>
+                                    <div className="w-full h-12 bg-black mt-6 absolute top-0"></div>
                                     <div className="w-full px-8 mt-12">
                                         <div className="w-full h-10 bg-white flex items-center justify-end px-4">
                                             <span className="font-mono text-xl tracking-widest text-black">{card.cvv || '***'}</span>
@@ -106,7 +97,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                 {activeTab === 'details' ? (
                      <div className="space-y-4 text-sm">
                         <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-xl border border-white/5">
-                            <div><p className="text-slate-500">Total Limit</p><p className="text-lg font-bold text-white">₹{card.limit.toLocaleString()}</p></div>
+                            <div><p className="text-slate-500">Total Limit</p><p className="text-lg font-bold text-white"><Money amount={card.limit} /></p></div>
                             <div><p className="text-slate-500">Network</p><p className="text-white">{card.card_network} {card.card_type}</p></div>
                             <div><p className="text-slate-500">Statement Date</p><p className="text-white">{card.statement_date ? `${card.statement_date}th` : 'N/A'}</p></div>
                             <div><p className="text-slate-500">Payment Due</p><p className="text-white">{card.payment_due_date ? `${card.payment_due_date}th` : 'N/A'}</p></div>
@@ -119,7 +110,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                             <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group">
                                 <div className="flex justify-between items-start mb-2">
                                     <div><p className="font-bold text-white">{st.month}</p><p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p></div>
-                                    <div className="text-right"><p className="font-bold text-white">₹{st.total_due.toLocaleString()}</p>{st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}</div>
+                                    <div className="text-right"><p className="font-bold text-white"><Money amount={st.total_due}/></p>{st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}</div>
                                 </div>
                                 <div className="flex gap-2 mt-2">
                                     {!st.is_paid && <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due}); setShowPayModal(true);}}>Pay</Button>}
@@ -209,6 +200,17 @@ const Cards = () => {
       }
   };
 
+  const colorThemes = [
+      { id: 'gradient-1', bg: 'bg-gradient-to-br from-purple-900 to-blue-900' },
+      { id: 'gradient-2', bg: 'bg-gradient-to-br from-slate-900 to-black' },
+      { id: 'gradient-3', bg: 'bg-gradient-to-br from-red-900 to-rose-900' },
+      { id: 'gradient-4', bg: 'bg-gradient-to-br from-emerald-900 to-teal-900' },
+      { id: 'gradient-5', bg: 'bg-gradient-to-br from-yellow-700 to-orange-800' },
+      { id: 'gradient-6', bg: 'bg-gradient-to-br from-pink-900 to-fuchsia-900' },
+      { id: 'gradient-7', bg: 'bg-gradient-to-br from-cyan-900 to-blue-800' },
+      { id: 'gradient-8', bg: 'bg-gradient-to-br from-indigo-900 to-violet-900' },
+  ];
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-center">
@@ -220,6 +222,9 @@ const Cards = () => {
         {cards.map(card => (
             <div key={card.id} className="relative group">
                 <VirtualCard card={card} isMasked={true} onClick={() => setSelectedCard(card)} />
+                <button onClick={(e)=>{e.stopPropagation(); handleEditClick(card);}} className="absolute top-4 right-4 bg-black/40 p-2 rounded-full border border-white/10 hover:bg-primary text-white transition-colors z-20">
+                    <Pencil size={14} />
+                </button>
             </div>
         ))}
       </div>
@@ -251,7 +256,17 @@ const Cards = () => {
                 <Input label="Payment Due" type="number" value={form.payment_due_date} onChange={e=>setForm({...form, payment_due_date: e.target.value})} />
             </div>
              <div className="grid grid-cols-2 gap-4"><select className="bg-slate-900 border border-slate-700 rounded p-2 text-white" value={form.card_network} onChange={e=>setForm({...form, card_network: e.target.value})}><option>Visa</option><option>Mastercard</option><option>RuPay</option><option>Amex</option></select><select className="bg-slate-900 border border-slate-700 rounded p-2 text-white" value={form.card_type} onChange={e=>setForm({...form, card_type: e.target.value})}><option>Credit</option><option>Debit</option></select></div>
-             <div className="flex gap-2 pt-2"><div onClick={()=>setForm({...form, color_theme: 'gradient-1'})} className="w-6 h-6 rounded-full bg-blue-900 border cursor-pointer"></div><div onClick={()=>setForm({...form, color_theme: 'gradient-3'})} className="w-6 h-6 rounded-full bg-red-900 border cursor-pointer"></div></div>
+             
+             {/* Extensive Color Palette */}
+             <div className="space-y-1">
+                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Card Theme</label>
+                 <div className="grid grid-cols-8 gap-2">
+                     {colorThemes.map(theme => (
+                         <div key={theme.id} onClick={()=>setForm({...form, color_theme: theme.id})} className={`w-8 h-8 rounded-full cursor-pointer border-2 ${form.color_theme === theme.id ? 'border-white ring-2 ring-white/50' : 'border-transparent'} ${theme.bg}`}></div>
+                     ))}
+                 </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4 pt-2"><FileInput label="Front" onChange={e=>setFrontImg(e.target.files[0])} accept="image/*" /><FileInput label="Back" onChange={e=>setBackImg(e.target.files[0])} accept="image/*" /></div>
             
             <Button type="submit" className="w-full" isLoading={loading}>{isEditing ? "Update" : "Save"}</Button>

@@ -2,9 +2,10 @@ import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, CreditCard, ArrowRightLeft, 
-  Banknote, Repeat, Settings, LogOut, Wallet, User
+  Banknote, Repeat, Settings, LogOut, Wallet, User, Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 const NavItem = ({ to, icon: Icon, label }) => (
   <NavLink
@@ -22,6 +23,7 @@ const NavItem = ({ to, icon: Icon, label }) => (
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const { isPrivacyMode, togglePrivacy } = usePrivacy();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -32,8 +34,8 @@ const Layout = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-background">
       
-      {/* Top Header (Fixed for all views) */}
-      <div className="fixed top-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-md border-b border-white/5 z-50 flex items-center justify-between px-4 md:px-6">
+      {/* Top Header (Fixed) */}
+      <div className="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-white/5 z-50 flex items-center justify-between px-4 md:px-6 shadow-xl">
          <div className="flex items-center gap-3">
              <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg" onError={(e)=>e.target.src='/android-chrome-192x192.png'}/>
              <div>
@@ -41,10 +43,19 @@ const Layout = () => {
                 {user && <p className="text-xs text-slate-400">@{user.username}</p>}
              </div>
          </div>
+         {/* Mobile Header Actions */}
+         <div className="flex items-center gap-3 md:hidden">
+             <button onClick={togglePrivacy} className="p-2 text-slate-400 hover:text-white">
+                 {isPrivacyMode ? <EyeOff size={22} /> : <Eye size={22} />}
+             </button>
+             <button onClick={handleLogout} className="p-2 text-red-400 hover:text-red-300">
+                 <LogOut size={22} />
+             </button>
+         </div>
       </div>
 
-      {/* Desktop Sidebar (Adjusted for fixed header) */}
-      <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-white/5 h-[calc(100vh-64px)] fixed top-16 left-0">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-white/5 h-[calc(100vh-64px)] fixed top-16 left-0 z-40">
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
            <NavLink to="/" className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${isActive ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:bg-white/5'}`}>
              <LayoutDashboard size={20} /> Dashboard
@@ -68,8 +79,13 @@ const Layout = () => {
              <Settings size={20} /> Settings
            </NavLink>
         </nav>
-
         <div className="p-4 border-t border-white/5">
+          <div className="flex justify-between items-center mb-4 px-2">
+              <span className="text-xs text-slate-500">Privacy Mode</span>
+              <button onClick={togglePrivacy} className="text-slate-300 hover:text-white">
+                 {isPrivacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+          </div>
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-900/20 hover:text-red-300 w-full rounded-xl transition-colors">
             <LogOut size={20} /> Logout
           </button>
@@ -77,14 +93,14 @@ const Layout = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto min-h-screen pt-20 md:ml-64 pb-24">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto min-h-screen pt-20 md:ml-64 pb-24 bg-background">
         <div className="max-w-5xl mx-auto">
           <Outlet />
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation (Scrollable & Fixed) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-xl border-t border-white/5 z-50 pb-safe shadow-2xl">
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-white/5 z-50 pb-safe shadow-2xl">
         <div className="flex overflow-x-auto no-scrollbar py-2 px-2 gap-2">
           <NavItem to="/" icon={LayoutDashboard} label="Home" />
           <NavItem to="/transactions" icon={ArrowRightLeft} label="Txns" />

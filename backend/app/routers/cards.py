@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 import shutil, os, uuid
 from .. import database, models, schemas, auth
@@ -8,14 +8,21 @@ from .. import database, models, schemas, auth
 router = APIRouter()
 UPLOAD_DIR = "uploads"
 
-# ... GET/POST/PUT/DELETE Cards (Keep existing from previous turn) ...
-# RE-INCLUDING FOR COMPLETENESS OF FILE
 @router.get("/", response_model=List[schemas.CardOut])
 def get_cards(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
+    # Eager load statements
     return db.query(models.Card).filter(models.Card.owner_id == current_user.id).all()
 
 @router.post("/")
-async def create_card(name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...), card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None), expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...), statement_date: int = Form(None), payment_due_date: int = Form(None), color_theme: str = Form("gradient-1"), front_image: UploadFile = File(None), back_image: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
+async def create_card(
+    name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...),
+    card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None),
+    expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...),
+    statement_date: int = Form(None), payment_due_date: int = Form(None),
+    color_theme: str = Form("gradient-1"), front_image: UploadFile = File(None),
+    back_image: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
     last4 = card_number[-4:] if len(card_number) >= 4 else card_number
     front_path = None
     if front_image:
@@ -25,16 +32,32 @@ async def create_card(name: str = Form(...), bank_name: str = Form(...), card_ne
     if back_image:
         back_path = f"{uuid.uuid4()}.{back_image.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, back_path), "wb") as buffer: shutil.copyfileobj(back_image.file, buffer)
-    new_card = models.Card(owner_id=current_user.id, name=name, bank_name=bank_name, card_network=card_network, card_type=card_type, card_number=card_number, card_number_last4=last4, cvv=cvv, expiry_date=expiry_date, owner_name=owner_name, limit=limit, statement_date=statement_date, payment_due_date=payment_due_date, color_theme=color_theme, front_image_path=front_path, back_image_path=back_path)
+
+    new_card = models.Card(
+        owner_id=current_user.id, name=name, bank_name=bank_name, card_network=card_network,
+        card_type=card_type, card_number=card_number, card_number_last4=last4, cvv=cvv,
+        expiry_date=expiry_date, owner_name=owner_name, limit=limit, statement_date=statement_date,
+        payment_due_date=payment_due_date, color_theme=color_theme, front_image_path=front_path, back_image_path=back_path
+    )
     db.add(new_card)
     db.commit()
     db.refresh(new_card)
     return new_card
 
 @router.put("/{card_id}")
-async def update_card(card_id: int, name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...), card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None), expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...), statement_date: int = Form(None), payment_due_date: int = Form(None), color_theme: str = Form("gradient-1"), front_image: UploadFile = File(None), back_image: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
+async def update_card(
+    card_id: int,
+    name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...),
+    card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None),
+    expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...),
+    statement_date: int = Form(None), payment_due_date: int = Form(None),
+    color_theme: str = Form("gradient-1"),
+    front_image: UploadFile = File(None), back_image: UploadFile = File(None),
+    current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)
+):
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
     if not card: raise HTTPException(status_code=404, detail="Card not found")
+
     card.name = name
     card.bank_name = bank_name
     card.card_network = card_network
@@ -48,14 +71,17 @@ async def update_card(card_id: int, name: str = Form(...), bank_name: str = Form
     card.statement_date = statement_date
     card.payment_due_date = payment_due_date
     card.color_theme = color_theme
+
     if front_image:
         front_path = f"{uuid.uuid4()}.{front_image.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, front_path), "wb") as buffer: shutil.copyfileobj(front_image.file, buffer)
         card.front_image_path = front_path
+    
     if back_image:
         back_path = f"{uuid.uuid4()}.{back_image.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, back_path), "wb") as buffer: shutil.copyfileobj(back_image.file, buffer)
         card.back_image_path = back_path
+
     db.commit()
     db.refresh(card)
     return card
@@ -68,7 +94,6 @@ def delete_card(card_id: int, current_user: models.User = Depends(auth.get_curre
     db.commit()
     return {"message": "Card deleted"}
 
-# --- Statements ---
 @router.post("/{card_id}/statements")
 async def add_statement(card_id: int, month: str = Form(...), generated_date: str = Form(...), due_date: str = Form(...), total_due: float = Form(...), min_due: float = Form(0.0), attachment: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
