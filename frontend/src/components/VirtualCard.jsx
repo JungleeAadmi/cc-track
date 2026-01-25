@@ -1,6 +1,6 @@
 import React from 'react';
 
-const VirtualCard = ({ card, onClick }) => {
+const VirtualCard = ({ card, onClick, isMasked = false }) => {
   const themes = {
     'gradient-1': 'from-purple-900 to-blue-900',
     'gradient-2': 'from-slate-900 to-black',
@@ -11,9 +11,12 @@ const VirtualCard = ({ card, onClick }) => {
 
   const gradient = themes[card.color_theme] || themes['gradient-1'];
 
-  // Format Card Number (XXXX XXXX XXXX XXXX)
   const formatCardNumber = (num) => {
     if(!num) return '•••• •••• •••• ••••';
+    if(isMasked) {
+        // Show only last 4, mask rest with stars
+        return `•••• •••• •••• ${num.slice(-4)}`;
+    }
     return num.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
   };
 
