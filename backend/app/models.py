@@ -112,6 +112,7 @@ class Subscription(Base):
     name = Column(String)
     amount = Column(Float)
     active = Column(Boolean, default=True)
-    renewal_date = Column(DateTime, nullable=True) # New
-    frequency = Column(String, default="Monthly")  # New
+    renewal_date = Column(DateTime, nullable=True)
+    frequency = Column(String, default="Monthly")
+    logo_path = Column(String, nullable=True) # New Field
     owner_id = Column(Integer, ForeignKey("users.id"))

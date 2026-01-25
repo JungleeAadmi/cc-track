@@ -3,17 +3,25 @@ import api from '../api';
 import { Button, Input, FileInput } from '../components/ui';
 import Modal from '../components/Modal';
 import VirtualCard from '../components/VirtualCard';
-import { Plus, RotateCw, CheckCircle, FileText, Pencil } from 'lucide-react';
+import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2 } from 'lucide-react';
 
-const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit }) => {
+const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [showPayModal, setShowPayModal] = useState(false);
   const [showAddStmtModal, setShowAddStmtModal] = useState(false);
   const [selectedStmt, setSelectedStmt] = useState(null);
+  
   const [stmtForm, setStmtForm] = useState({ month: '', generated_date: '', due_date: '', total_due: '', min_due: '' });
   const [stmtFile, setStmtFile] = useState(null);
   const [payForm, setPayForm] = useState({ paid_amount: '', payment_ref: '' });
+
+  useEffect(() => {
+      // Re-fetch card data when modal opens or refreshes
+      if (isOpen && card) {
+          // Could optimize this to just fetch specific card
+      }
+  }, [card]);
 
   if (!isOpen || !card) return null;
 
@@ -23,8 +31,16 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit }) => {
     Object.keys(stmtForm).forEach(k => formData.append(k, stmtForm[k]));
     if(stmtFile) formData.append('attachment', stmtFile);
     await api.post(`/api/cards/${card.id}/statements`, formData);
-    setShowAddStmtModal(false); onRefresh();
+    setShowAddStmtModal(false); 
+    onRefresh(); // Trigger parent refresh
   };
+
+  const handleDeleteStatement = async (stmtId) => {
+      if(confirm("Delete this statement?")) {
+          await api.delete(`/api/cards/statements/${stmtId}`);
+          onRefresh();
+      }
+  }
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -32,7 +48,8 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit }) => {
     formData.append('paid_amount', payForm.paid_amount);
     formData.append('payment_ref', payForm.payment_ref);
     await api.post(`/api/cards/statements/${selectedStmt.id}/pay`, formData);
-    setShowPayModal(false); onRefresh();
+    setShowPayModal(false); 
+    onRefresh();
   };
 
   return (
@@ -41,36 +58,36 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit }) => {
             <div className="flex justify-between p-4 border-b border-white/10">
                 <div className="flex items-center gap-3">
                     <h3 className="font-bold text-white">{card.name}</h3>
-                    <button onClick={onEdit} className="text-primary hover:text-white p-1 bg-white/5 rounded-full"><Pencil size={14}/></button>
+                    <div className="flex gap-1">
+                        <button onClick={onEdit} className="text-slate-300 hover:text-white p-1 bg-white/5 rounded"><Pencil size={14}/></button>
+                        <button onClick={onDelete} className="text-red-400 hover:text-red-300 p-1 bg-red-900/20 rounded"><Trash2 size={14}/></button>
+                    </div>
                 </div>
                 <button onClick={onClose} className="text-slate-400 hover:text-white">Close</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
-                {/* Professional 3D Flip */}
+                {/* 3D Flip Container */}
                 <div className="perspective-1000 w-full aspect-[1.58/1] cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
-                    <div className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
-                        
-                        {/* FRONT FACE */}
-                        <div className="absolute inset-0 backface-hidden">
+                    <div className="relative w-full h-full transition-transform duration-700 transform-style-3d" style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+                        {/* Front */}
+                        <div className="absolute inset-0 backface-hidden" style={{ backfaceVisibility: 'hidden' }}>
                             {card.front_image_path ? (
                                 <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" />
                             ) : (
                                 <VirtualCard card={card} isMasked={false} />
                             )}
                         </div>
-
-                        {/* BACK FACE */}
-                        <div className="absolute inset-0 backface-hidden rotate-y-180 h-full w-full bg-slate-900 rounded-2xl border border-white/20 shadow-2xl overflow-hidden relative">
+                        {/* Back */}
+                        <div className="absolute inset-0 backface-hidden" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
                              {card.back_image_path ? (
-                                <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover" />
+                                <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover rounded-2xl" />
                              ) : (
-                                // CSS Fallback for Back
-                                <div className="w-full h-full flex flex-col justify-center items-center">
-                                    <div className="w-full h-12 bg-black mt-6 absolute top-0"></div>
-                                    <div className="w-full px-8 mt-4 relative z-10">
-                                        <div className="w-full h-10 bg-white/90 flex items-center justify-end px-4">
-                                            <span className="font-mono text-xl tracking-widest text-black transform -skew-x-12">{card.cvv || '***'}</span>
+                                <div className="h-full w-full bg-slate-900 rounded-2xl border border-white/20 flex flex-col justify-center items-center relative">
+                                    <div className="w-full h-12 bg-black absolute top-6"></div>
+                                    <div className="w-full px-8 mt-12">
+                                        <div className="w-full h-10 bg-white flex items-center justify-end px-4">
+                                            <span className="font-mono text-xl tracking-widest text-black">{card.cvv || '***'}</span>
                                         </div>
                                         <div className="text-[10px] text-white/80 mt-1 text-right font-bold">CVV</div>
                                     </div>
@@ -81,7 +98,6 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit }) => {
                 </div>
                 <div className="text-center text-slate-400 text-sm flex items-center justify-center gap-2"><RotateCw size={14}/> Tap to flip</div>
                 
-                {/* Tabs */}
                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
                     <button onClick={() => setActiveTab('details')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'details' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Details</button>
                     <button onClick={() => setActiveTab('statements')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'statements' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Statements</button>
@@ -100,13 +116,16 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit }) => {
                     <div className="space-y-3">
                         <Button size="sm" className="w-full" onClick={()=>setShowAddStmtModal(true)}><Plus size={16}/> Record Statement</Button>
                         {card.statements?.slice().reverse().map(st => (
-                            <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5">
+                            <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group">
                                 <div className="flex justify-between items-start mb-2">
                                     <div><p className="font-bold text-white">{st.month}</p><p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p></div>
                                     <div className="text-right"><p className="font-bold text-white">₹{st.total_due.toLocaleString()}</p>{st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}</div>
                                 </div>
-                                {!st.is_paid && <Button size="sm" variant="secondary" className="w-full h-8 text-xs" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due}); setShowPayModal(true);}}>Mark Paid</Button>}
-                                {st.attachment_path && <button onClick={()=>window.open(`/uploads/${st.attachment_path}`,'_blank')} className="text-[10px] text-primary underline mt-2 flex items-center gap-1"><FileText size={10}/> View PDF</button>}
+                                <div className="flex gap-2 mt-2">
+                                    {!st.is_paid && <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due}); setShowPayModal(true);}}>Pay</Button>}
+                                    {st.attachment_path && <button onClick={()=>window.open(`/uploads/${st.attachment_path}`,'_blank')} className="text-xs text-primary bg-primary/10 px-2 rounded hover:bg-primary/20">PDF</button>}
+                                    <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-2 rounded hover:bg-red-900/20">Delete</button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -179,7 +198,15 @@ const Cards = () => {
     setEditId(card.id);
     setIsEditing(true);
     setShowAddModal(true);
-    setSelectedCard(null); // Close detail modal if open
+    setSelectedCard(null);
+  };
+
+  const handleDeleteClick = async (card) => {
+      if(confirm("Delete this card?")) {
+          await api.delete(`/api/cards/${card.id}`);
+          fetchCards();
+          setSelectedCard(null);
+      }
   };
 
   return (
@@ -193,15 +220,18 @@ const Cards = () => {
         {cards.map(card => (
             <div key={card.id} className="relative group">
                 <VirtualCard card={card} isMasked={true} onClick={() => setSelectedCard(card)} />
-                {/* Visible Edit Button on Tile */}
-                <button onClick={(e)=>{e.stopPropagation(); handleEditClick(card);}} className="absolute top-4 right-4 bg-black/40 p-2 rounded-full border border-white/10 hover:bg-primary text-white transition-colors z-20">
-                    <Pencil size={14} />
-                </button>
             </div>
         ))}
       </div>
 
-      <CardDetailModal card={selectedCard} isOpen={!!selectedCard} onClose={()=>setSelectedCard(null)} onRefresh={fetchCards} onEdit={() => handleEditClick(selectedCard)}/>
+      <CardDetailModal 
+        card={selectedCard} 
+        isOpen={!!selectedCard} 
+        onClose={()=>setSelectedCard(null)} 
+        onRefresh={fetchCards} 
+        onEdit={() => handleEditClick(selectedCard)}
+        onDelete={() => handleDeleteClick(selectedCard)}
+      />
 
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={isEditing ? "Edit Card" : "Add New Card"}>
          <form onSubmit={handleSubmit} className="space-y-4">
@@ -223,7 +253,9 @@ const Cards = () => {
              <div className="grid grid-cols-2 gap-4"><select className="bg-slate-900 border border-slate-700 rounded p-2 text-white" value={form.card_network} onChange={e=>setForm({...form, card_network: e.target.value})}><option>Visa</option><option>Mastercard</option><option>RuPay</option><option>Amex</option></select><select className="bg-slate-900 border border-slate-700 rounded p-2 text-white" value={form.card_type} onChange={e=>setForm({...form, card_type: e.target.value})}><option>Credit</option><option>Debit</option></select></div>
              <div className="flex gap-2 pt-2"><div onClick={()=>setForm({...form, color_theme: 'gradient-1'})} className="w-6 h-6 rounded-full bg-blue-900 border cursor-pointer"></div><div onClick={()=>setForm({...form, color_theme: 'gradient-3'})} className="w-6 h-6 rounded-full bg-red-900 border cursor-pointer"></div></div>
             <div className="grid grid-cols-2 gap-4 pt-2"><FileInput label="Front" onChange={e=>setFrontImg(e.target.files[0])} accept="image/*" /><FileInput label="Back" onChange={e=>setBackImg(e.target.files[0])} accept="image/*" /></div>
+            
             <Button type="submit" className="w-full" isLoading={loading}>{isEditing ? "Update" : "Save"}</Button>
+            {isEditing && <Button type="button" variant="danger" className="w-full mt-2" onClick={() => handleDeleteClick({id: editId})}>Delete Card</Button>}
          </form>
       </Modal>
     </div>

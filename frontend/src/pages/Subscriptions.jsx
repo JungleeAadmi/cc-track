@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Card, Button, Input } from '../components/ui';
+import { Button, Input, FileInput } from '../components/ui';
 import Modal from '../components/Modal';
 import { Plus, Repeat, Pencil, Trash2 } from 'lucide-react';
 
@@ -11,17 +11,25 @@ const Subscriptions = () => {
   const [editId, setEditId] = useState(null);
   
   const [form, setForm] = useState({ name: '', amount: '', frequency: 'Monthly', renewal_date: '' });
+  const [logo, setLogo] = useState(null);
 
   useEffect(() => { fetchSubs(); }, []);
   const fetchSubs = async () => { try { const res = await api.get('/api/subscriptions/'); setSubs(res.data); } catch(e) {} };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const formData = new FormData();
+    formData.append('name', form.name);
+    formData.append('amount', form.amount);
+    formData.append('frequency', form.frequency);
+    formData.append('renewal_date', form.renewal_date);
+    if(logo) formData.append('logo', logo);
+
     try {
-        if(isEditing) await api.put(`/api/subscriptions/${editId}`, form);
-        else await api.post('/api/subscriptions/', form);
+        if(isEditing) await api.put(`/api/subscriptions/${editId}`, formData);
+        else await api.post('/api/subscriptions/', formData);
         
-        setForm({ name: '', amount: '', frequency: 'Monthly', renewal_date: '' }); setShowModal(false); setIsEditing(false); setEditId(null);
+        setForm({ name: '', amount: '', frequency: 'Monthly', renewal_date: '' }); setLogo(null); setShowModal(false); setIsEditing(false); setEditId(null);
         fetchSubs();
     } catch(e) {}
   };
@@ -36,7 +44,7 @@ const Subscriptions = () => {
       setIsEditing(true); setEditId(s.id); setShowModal(true); 
   };
   
-  const handleDelete = async (id) => { if(confirm("Delete sub?")) { await api.delete(`/api/subscriptions/${id}`); fetchSubs(); } };
+  const handleDelete = async (id) => { if(confirm("Delete sub?")) { await api.delete(`/api/subscriptions/${id}`); fetchSubs(); setShowModal(false); } };
 
   return (
     <div className="space-y-6">
@@ -49,7 +57,11 @@ const Subscriptions = () => {
         {subs.map(sub => (
           <div key={sub.id} className="bg-surface border border-white/5 p-3 rounded-xl flex justify-between items-center hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-pink-500/10 rounded-lg text-pink-500"><Repeat size={18} /></div>
+              {sub.logo_path ? (
+                  <img src={`/uploads/${sub.logo_path}`} className="w-10 h-10 rounded-lg object-cover bg-white" />
+              ) : (
+                  <div className="p-2 bg-pink-500/10 rounded-lg text-pink-500"><Repeat size={18} /></div>
+              )}
               <div>
                   <p className="font-medium text-white">{sub.name}</p>
                   <p className="text-xs text-slate-500">{sub.frequency} • {sub.renewal_date ? `Renew: ${new Date(sub.renewal_date).toLocaleDateString()}` : 'No date'}</p>
@@ -69,7 +81,7 @@ const Subscriptions = () => {
 
       <Modal isOpen={showModal} onClose={()=>setShowModal(false)} title={isEditing ? "Edit Sub" : "New Sub"}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+          <Input label="Name (Netflix, Spotify)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
           <Input label="Cost" type="number" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required />
           <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -80,7 +92,9 @@ const Subscriptions = () => {
               </div>
               <Input label="Renewal Date" type="date" value={form.renewal_date} onChange={e => setForm({...form, renewal_date: e.target.value})} />
           </div>
+          <FileInput label="Service Logo" onChange={e=>setLogo(e.target.files[0])} accept="image/*" />
           <Button type="submit" className="w-full">{isEditing ? "Update" : "Add"}</Button>
+          {isEditing && <Button type="button" variant="danger" className="w-full mt-2" onClick={() => handleDelete(editId)}>Delete Subscription</Button>}
         </form>
       </Modal>
     </div>

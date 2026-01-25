@@ -164,6 +164,7 @@ class SubscriptionOut(BaseModel):
     active: bool
     frequency: str
     renewal_date: Optional[datetime]
+    logo_path: Optional[str]
     class Config: from_attributes = True
 
 class DashboardStats(BaseModel):

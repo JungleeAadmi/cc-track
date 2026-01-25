@@ -38,9 +38,9 @@ export const Button = ({ children, variant = "primary", className, isLoading, ..
   );
 };
 
-// --- Input (Fixed Height) ---
+// --- Input (Fluid Height) ---
 export const Input = React.forwardRef(({ label, className, error, ...props }, ref) => (
-  <div className="w-full">
+  <div className="w-full min-w-0">
     {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
     <input
       ref={ref}
@@ -57,7 +57,7 @@ export const Input = React.forwardRef(({ label, className, error, ...props }, re
 
 // --- File Input ---
 export const FileInput = ({ label, onChange, ...props }) => (
-  <div className="w-full">
+  <div className="w-full min-w-0">
      {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-black/40 hover:bg-slate-800/50 transition-colors group">
         <div className="flex flex-col items-center justify-center pt-5 pb-6">

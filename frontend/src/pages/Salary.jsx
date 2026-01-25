@@ -13,6 +13,7 @@ const Salary = () => {
   const [showCompModal, setShowCompModal] = useState(false);
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -82,6 +83,10 @@ const Salary = () => {
     catch(e) { alert("Failed"); } finally { setLoading(false); }
   };
 
+  const handleDeleteSlip = async (id) => {
+      if(confirm("Delete slip?")) { await api.delete(`/api/salary/slips/${id}`); fetchSalaries(selectedCompany.id); }
+  }
+
   return (
     <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
       <div className="flex-none">
@@ -119,7 +124,10 @@ const Salary = () => {
                         <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold text-xs">{slip.month.substring(0,3)}</div>
                         <div><p className="font-bold text-white">₹{slip.amount.toLocaleString()}</p><p className="text-xs text-slate-400">{slip.month} {slip.year}</p></div>
                     </div>
-                    {slip.attachment_path && <Button variant="ghost" size="sm" onClick={() => setPreviewFile(`/uploads/${slip.attachment_path}`)}>View</Button>}
+                    <div className="flex gap-2">
+                        {slip.attachment_path && <Button variant="ghost" size="sm" onClick={() => setPreviewFile(`/uploads/${slip.attachment_path}`)}>View</Button>}
+                        <button onClick={() => handleDeleteSlip(slip.id)} className="p-2 text-red-400 hover:bg-red-900/20 rounded"><Trash2 size={16}/></button>
+                    </div>
                 </div>
             ))}
          </div>
@@ -138,6 +146,7 @@ const Salary = () => {
               </div>
               <FileInput label="Company Logo" onChange={e=>setCompLogo(e.target.files[0])} accept="image/*"/>
               <Button type="submit" className="w-full" isLoading={loading}>{isEditing ? "Update" : "Save"}</Button>
+              {isEditing && <Button type="button" variant="danger" className="w-full mt-2" onClick={() => handleDelete(editId)}>Delete Company</Button>}
           </form>
       </Modal>
       
