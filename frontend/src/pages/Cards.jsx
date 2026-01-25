@@ -12,7 +12,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
   const [showAddStmtModal, setShowAddStmtModal] = useState(false);
   const [selectedStmt, setSelectedStmt] = useState(null);
   
-  // Statement Form: Separated Month and Year
+  // Statement Form
   const [stmtMonth, setStmtMonth] = useState('January');
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
   const [stmtForm, setStmtForm] = useState({ generated_date: '', due_date: '', total_due: '', min_due: '' });
@@ -72,7 +72,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
-                {/* Simplified Tap-to-Swap Logic */}
+                {/* Image Flip Logic */}
                 <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={handleFlip}>
                     {!showBackSide ? (
                         // Front View

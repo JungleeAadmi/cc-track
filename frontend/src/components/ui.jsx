@@ -39,7 +39,7 @@ export const Button = ({ children, variant = "primary", className, isLoading, ..
   );
 };
 
-// --- Input (Fixed Height & Geometric Alignment) ---
+// --- Input (Fixed Layout) ---
 export const Input = React.forwardRef(({ label, className, error, type = "text", ...props }, ref) => (
   <div className="w-full min-w-0">
     {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
@@ -48,8 +48,8 @@ export const Input = React.forwardRef(({ label, className, error, type = "text",
       type={type}
       className={cn(
         "w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all",
-        // Removed specific padding hacks for date, relying on h-12 and flex centering implicit in browsers
-        type === "date" && "appearance-none", 
+        // Force appearance to fix mobile date input sizing
+        type === "date" && "appearance-none min-h-[48px]",
         error && "border-red-500 focus:ring-red-500/50",
         className
       )}
@@ -73,7 +73,7 @@ export const FileInput = ({ label, onChange, ...props }) => (
   </div>
 );
 
-// --- Money Display Helper (Privacy Aware) ---
+// --- Money Display Helper ---
 export const Money = ({ amount, prefix = "₹" }) => {
     const { isPrivacyMode } = usePrivacy();
     if (isPrivacyMode) return <span className="tracking-widest">****</span>;
