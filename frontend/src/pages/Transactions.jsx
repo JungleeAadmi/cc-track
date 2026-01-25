@@ -2,13 +2,32 @@ import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Button, Input, FileInput } from '../components/ui';
 import Modal from '../components/Modal';
-import { Plus, CreditCard, Banknote, Paperclip } from 'lucide-react';
+import useLongPress from '../hooks/useLongPress';
+import { Plus, CreditCard, Banknote, Paperclip, Search } from 'lucide-react';
+import FilePreviewModal from '../components/FilePreviewModal';
+
+const ActionMenu = ({ isOpen, onClose, onDelete, onEdit }) => {
+    if(!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4 bg-black/60" onClick={onClose}>
+            <div className="bg-surface w-full max-w-sm rounded-xl border border-white/10 overflow-hidden" onClick={e=>e.stopPropagation()}>
+                <button onClick={onEdit} className="w-full p-4 text-left text-white hover:bg-white/5 border-b border-white/5">Edit Transaction</button>
+                <button onClick={onDelete} className="w-full p-4 text-left text-red-400 hover:bg-red-500/10 border-b border-white/5">Delete Transaction</button>
+                <button onClick={onClose} className="w-full p-4 text-center text-slate-500 hover:bg-white/5">Cancel</button>
+            </div>
+        </div>
+    );
+};
 
 const Transactions = () => {
   const [txs, setTxs] = useState([]);
   const [cards, setCards] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  const [actionTx, setActionTx] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Form State
   const initialForm = {
@@ -19,18 +38,11 @@ const Transactions = () => {
   const [form, setForm] = useState(initialForm);
   const [attachment, setAttachment] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 15000); // Auto-refresh
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
-        const [tRes, cRes] = await Promise.all([
-            api.get('/api/transactions/'),
-            api.get('/api/cards/')
-        ]);
+        const [tRes, cRes] = await Promise.all([api.get('/api/transactions/'), api.get('/api/cards/')]);
         setTxs(tRes.data);
         setCards(cRes.data);
     } catch(e) {}
@@ -44,27 +56,48 @@ const Transactions = () => {
     if(attachment) formData.append('attachment', attachment);
 
     try {
-        await api.post('/api/transactions/', formData);
-        setShowModal(false);
-        setForm(initialForm);
-        setAttachment(null);
+        if(isEditing) await api.put(`/api/transactions/${actionTx.id}`, formData);
+        else await api.post('/api/transactions/', formData);
+        
+        setShowModal(false); setForm(initialForm); setAttachment(null); setIsEditing(false); setActionTx(null);
         fetchData();
-    } catch(e) { alert("Failed to add transaction"); }
-    finally { setLoading(false); }
+    } catch(e) { alert("Failed"); } finally { setLoading(false); }
   };
+
+  const handleEdit = () => {
+      setForm({
+          ...initialForm,
+          description: actionTx.description,
+          amount: actionTx.amount,
+          type: actionTx.type,
+          card_id: actionTx.card_id || '',
+          merchant_location: actionTx.merchant_location || '',
+          payment_mode: actionTx.payment_mode,
+          is_emi: actionTx.is_emi,
+          emi_months: actionTx.emi_months || '3',
+          date_str: actionTx.date.split('T')[0]
+      });
+      setIsEditing(true); setShowModal(true); setActionTx(null);
+  };
+
+  const handleDelete = async () => { if(confirm("Delete transaction?")) { await api.delete(`/api/transactions/${actionTx.id}`); fetchData(); setActionTx(null); } };
+
+  const longPressProps = useLongPress(
+    (e) => { const t = txs.find(i => i.id == e.target.closest('[data-tx-id]')?.dataset.txId); if(t) setActionTx(t); },
+    () => {}, 
+    { delay: 800 }
+  );
 
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Transactions</h2>
-        <Button onClick={() => setShowModal(true)} className="rounded-full w-10 h-10 p-0 flex items-center justify-center">
-          <Plus size={24} />
-        </Button>
+        <Button onClick={() => {setIsEditing(false); setForm(initialForm); setShowModal(true)}} className="rounded-full w-10 h-10 p-0 flex items-center justify-center"><Plus size={24}/></Button>
       </div>
 
       <div className="space-y-3">
         {txs.map(tx => (
-            <div key={tx.id} className="bg-surface border border-white/5 p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
+            <div key={tx.id} data-tx-id={tx.id} {...longPressProps} className="bg-surface border border-white/5 p-4 rounded-xl flex justify-between items-center relative overflow-hidden group select-none touch-manipulation">
                 <div className="flex items-center gap-3 relative z-10">
                     <div className={`p-2 rounded-lg ${tx.type === 'credit' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                         {tx.card_id ? <CreditCard size={20}/> : <Banknote size={20}/>}
@@ -76,47 +109,41 @@ const Transactions = () => {
                         </p>
                     </div>
                 </div>
-                
                 <div className="text-right relative z-10">
                     <p className={`font-bold ${tx.type === 'credit' ? 'text-green-400' : 'text-white'}`}>
                         {tx.type === 'credit' ? '+' : '-'} ₹{tx.amount.toLocaleString()}
                     </p>
                     {tx.attachment_path && (
-                        <button onClick={() => window.open(`/uploads/${tx.attachment_path}`, '_blank')} className="text-[10px] text-primary hover:underline flex items-center justify-end gap-1 mt-1">
+                        <button onClick={(e) => {e.stopPropagation(); setPreviewFile(`/uploads/${tx.attachment_path}`)}} className="text-[10px] text-primary hover:underline flex items-center justify-end gap-1 mt-1">
                             <Paperclip size={10}/> Receipt
                         </button>
                     )}
                 </div>
-                
-                {/* Hover Effect */}
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
         ))}
       </div>
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Transaction">
+      <ActionMenu isOpen={!!actionTx} onClose={()=>setActionTx(null)} onDelete={handleDelete} onEdit={handleEdit} />
+      <FilePreviewModal isOpen={!!previewFile} fileUrl={previewFile} onClose={()=>setPreviewFile(null)} title="Receipt" />
+
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={isEditing ? "Edit Transaction" : "New Transaction"}>
         <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex gap-2 p-1 bg-slate-900 rounded-lg">
                 <button type="button" onClick={() => setForm({...form, type: 'expense'})} className={`flex-1 py-2 text-sm rounded-md transition-colors ${form.type === 'expense' ? 'bg-red-600 text-white' : 'text-slate-400'}`}>Expense</button>
                 <button type="button" onClick={() => setForm({...form, type: 'credit'})} className={`flex-1 py-2 text-sm rounded-md transition-colors ${form.type === 'credit' ? 'bg-green-600 text-white' : 'text-slate-400'}`}>Credit</button>
             </div>
-
             <Input label="Amount" type="number" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} required autoFocus />
             <Input label="Description" value={form.description} onChange={e=>setForm({...form, description: e.target.value})} required />
             <Input label="Merchant / Location" placeholder="e.g. Amazon, Starbucks" value={form.merchant_location} onChange={e=>setForm({...form, merchant_location: e.target.value})} />
-            
             <div className="grid grid-cols-2 gap-4">
                 <Input label="Date" type="date" value={form.date_str} onChange={e=>setForm({...form, date_str: e.target.value})} required />
                 <div className="space-y-1">
                     <label className="text-xs text-slate-400">Payment Mode</label>
                     <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white" value={form.payment_mode} onChange={e=>setForm({...form, payment_mode: e.target.value})}>
-                        <option value="online">Online</option>
-                        <option value="swipe">Swipe (POS)</option>
-                        <option value="cash">Cash</option>
+                        <option value="online">Online</option><option value="swipe">Swipe (POS)</option><option value="cash">Cash</option>
                     </select>
                 </div>
             </div>
-
             {form.payment_mode !== 'cash' && (
                 <div className="space-y-1">
                     <label className="text-xs text-slate-400">Card (Optional)</label>
@@ -126,26 +153,18 @@ const Transactions = () => {
                     </select>
                 </div>
             )}
-
             {form.payment_mode !== 'cash' && form.type === 'expense' && (
                  <div className="flex items-center gap-3 p-3 border border-white/10 rounded-lg">
                     <input type="checkbox" checked={form.is_emi} onChange={e=>setForm({...form, is_emi: e.target.checked})} className="w-5 h-5"/>
                     <label className="text-sm">Convert to EMI</label>
-                    {form.is_emi && (
-                        <select className="ml-auto bg-slate-900 border border-slate-700 rounded p-1 text-sm" value={form.emi_months} onChange={e=>setForm({...form, emi_months: e.target.value})}>
-                            {[3,6,9,12,18,24].map(m => <option key={m} value={m}>{m} Months</option>)}
-                        </select>
-                    )}
+                    {form.is_emi && <select className="ml-auto bg-slate-900 border border-slate-700 rounded p-1 text-sm" value={form.emi_months} onChange={e=>setForm({...form, emi_months: e.target.value})}>{[3,6,9,12,18,24].map(m => <option key={m} value={m}>{m} Months</option>)}</select>}
                  </div>
             )}
-
             <FileInput label="Receipt / Screenshot" onChange={e=>setAttachment(e.target.files[0])} accept="image/*,.pdf" />
-            
-            <Button type="submit" className="w-full" isLoading={loading}>Save Transaction</Button>
+            <Button type="submit" className="w-full" isLoading={loading}>{isEditing ? "Update" : "Save"}</Button>
         </form>
       </Modal>
     </div>
   );
 };
-
 export default Transactions;
