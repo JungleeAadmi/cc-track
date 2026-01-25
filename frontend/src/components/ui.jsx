@@ -39,7 +39,7 @@ export const Button = ({ children, variant = "primary", className, isLoading, ..
   );
 };
 
-// --- Input (Fixed Height & Alignment) ---
+// --- Input (Fixed Height & Geometric Alignment) ---
 export const Input = React.forwardRef(({ label, className, error, type = "text", ...props }, ref) => (
   <div className="w-full min-w-0">
     {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
@@ -47,9 +47,9 @@ export const Input = React.forwardRef(({ label, className, error, type = "text",
       ref={ref}
       type={type}
       className={cn(
-        "w-full h-11 bg-black/40 border border-slate-700 rounded-xl px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all",
-        // Specific fix for Date inputs to align text vertically and prevent crookedness
-        type === "date" && "flex items-center pt-3", 
+        "w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all",
+        // Removed specific padding hacks for date, relying on h-12 and flex centering implicit in browsers
+        type === "date" && "appearance-none", 
         error && "border-red-500 focus:ring-red-500/50",
         className
       )}

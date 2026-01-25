@@ -6,14 +6,18 @@ import VirtualCard from '../components/VirtualCard';
 import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2 } from 'lucide-react';
 
 const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete }) => {
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [showBackSide, setShowBackSide] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [showPayModal, setShowPayModal] = useState(false);
   const [showAddStmtModal, setShowAddStmtModal] = useState(false);
   const [selectedStmt, setSelectedStmt] = useState(null);
   
-  const [stmtForm, setStmtForm] = useState({ month: '', generated_date: '', due_date: '', total_due: '', min_due: '' });
+  // Statement Form: Separated Month and Year
+  const [stmtMonth, setStmtMonth] = useState('January');
+  const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
+  const [stmtForm, setStmtForm] = useState({ generated_date: '', due_date: '', total_due: '', min_due: '' });
   const [stmtFile, setStmtFile] = useState(null);
+  
   const [payForm, setPayForm] = useState({ paid_amount: '', payment_ref: '' });
 
   if (!isOpen || !card) return null;
@@ -21,10 +25,14 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
   const handleAddStatement = async (e) => {
     e.preventDefault();
     const formData = new FormData();
+    const fullMonth = `${stmtMonth} ${stmtYear}`;
+    formData.append('month', fullMonth);
     Object.keys(stmtForm).forEach(k => formData.append(k, stmtForm[k]));
     if(stmtFile) formData.append('attachment', stmtFile);
+    
     await api.post(`/api/cards/${card.id}/statements`, formData);
-    setShowAddStmtModal(false); onRefresh();
+    setShowAddStmtModal(false); 
+    onRefresh();
   };
 
   const handleDeleteStatement = async (stmtId) => {
@@ -43,6 +51,12 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
     setShowPayModal(false); onRefresh();
   };
 
+  const handleFlip = () => {
+      setShowBackSide(!showBackSide);
+  };
+
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
         <div className="w-full max-w-lg h-[90vh] flex flex-col relative bg-surface border border-white/10 rounded-2xl overflow-hidden">
@@ -58,37 +72,39 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
-                {/* 3D Flip Container */}
-                <div className="perspective-1000 w-full aspect-[1.58/1] cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
-                    <div className="relative w-full h-full transition-transform duration-700 transform-style-3d" style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-                        {/* Front */}
-                        <div className="absolute inset-0 backface-hidden" style={{ backfaceVisibility: 'hidden' }}>
-                            {card.front_image_path ? (
-                                <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" />
-                            ) : (
-                                <VirtualCard card={card} isMasked={false} />
-                            )}
-                        </div>
-                        {/* Back */}
-                        <div className="absolute inset-0 backface-hidden" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                             {card.back_image_path ? (
-                                <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover rounded-2xl" />
-                             ) : (
-                                <div className="h-full w-full bg-slate-900 rounded-2xl border border-white/20 flex flex-col justify-center items-center relative">
-                                    <div className="w-full h-12 bg-black mt-6 absolute top-0"></div>
-                                    <div className="w-full px-8 mt-12">
-                                        <div className="w-full h-10 bg-white flex items-center justify-end px-4">
-                                            <span className="font-mono text-xl tracking-widest text-black">{card.cvv || '***'}</span>
-                                        </div>
-                                        <div className="text-[10px] text-white/80 mt-1 text-right font-bold">CVV</div>
+                {/* Simplified Tap-to-Swap Logic */}
+                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={handleFlip}>
+                    {!showBackSide ? (
+                        // Front View
+                        card.front_image_path ? (
+                            <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Card Front" />
+                        ) : (
+                            <VirtualCard card={card} isMasked={false} />
+                        )
+                    ) : (
+                        // Back View
+                        card.back_image_path ? (
+                            <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Card Back" />
+                        ) : (
+                            <div className="w-full h-full bg-slate-900 rounded-2xl border border-white/20 flex flex-col justify-center items-center relative">
+                                <div className="w-full h-12 bg-black mt-6 absolute top-0"></div>
+                                <div className="w-full px-8 mt-12">
+                                    <div className="w-full h-10 bg-white flex items-center justify-end px-4">
+                                        <span className="font-mono text-xl tracking-widest text-black">{card.cvv || '***'}</span>
                                     </div>
+                                    <div className="text-[10px] text-white/80 mt-1 text-right font-bold">CVV</div>
                                 </div>
-                             )}
-                        </div>
+                                <p className="mt-8 text-slate-500 text-sm">No Back Image Uploaded</p>
+                            </div>
+                        )
+                    )}
+                    {/* Visual Hint */}
+                    <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded-full backdrop-blur text-white/70 text-xs flex items-center gap-1">
+                        <RotateCw size={12}/> {showBackSide ? "Show Front" : "Show Back"}
                     </div>
                 </div>
-                <div className="text-center text-slate-400 text-sm flex items-center justify-center gap-2"><RotateCw size={14}/> Tap to flip</div>
                 
+                {/* Tabs */}
                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
                     <button onClick={() => setActiveTab('details')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'details' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Details</button>
                     <button onClick={() => setActiveTab('statements')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'statements' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Statements</button>
@@ -126,12 +142,23 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                 <div className="absolute inset-0 bg-surface z-20 p-4 overflow-y-auto">
                      <h3 className="font-bold mb-4">Add Statement</h3>
                      <form onSubmit={handleAddStatement} className="space-y-3">
-                         <Input label="Month" placeholder="e.g. Jan 2024" value={stmtForm.month} onChange={e=>setStmtForm({...stmtForm, month: e.target.value})} required/>
+                         <div className="grid grid-cols-2 gap-4">
+                             <div className="space-y-1">
+                                 <label className="text-xs font-semibold text-slate-400 uppercase">Month</label>
+                                 <select className="w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={stmtMonth} onChange={e=>setStmtMonth(e.target.value)}>
+                                     {months.map(m=><option key={m}>{m}</option>)}
+                                 </select>
+                             </div>
+                             <div className="space-y-1">
+                                 <label className="text-xs font-semibold text-slate-400 uppercase">Year</label>
+                                 <input type="number" className="w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={stmtYear} onChange={e=>setStmtYear(e.target.value)} />
+                             </div>
+                         </div>
                          <Input label="Generated" type="date" value={stmtForm.generated_date} onChange={e=>setStmtForm({...stmtForm, generated_date: e.target.value})} required/>
                          <Input label="Due Date" type="date" value={stmtForm.due_date} onChange={e=>setStmtForm({...stmtForm, due_date: e.target.value})} required/>
                          <Input label="Total Due" type="number" value={stmtForm.total_due} onChange={e=>setStmtForm({...stmtForm, total_due: e.target.value})} required/>
                          <Input label="Min Due" type="number" value={stmtForm.min_due} onChange={e=>setStmtForm({...stmtForm, min_due: e.target.value})}/>
-                         <FileInput label="PDF" onChange={e=>setStmtFile(e.target.files[0])}/>
+                         <FileInput label="Statement PDF" onChange={e=>setStmtFile(e.target.files[0])}/>
                          <div className="flex gap-2"><Button type="submit" className="flex-1">Save</Button><Button type="button" variant="ghost" className="flex-1" onClick={()=>setShowAddStmtModal(false)}>Cancel</Button></div>
                      </form>
                 </div>

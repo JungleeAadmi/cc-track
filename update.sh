@@ -17,6 +17,14 @@ fi
 
 echo "--- 🚀 Updating CC-Track [Dir: $PROJECT_DIR] ---"
 
+# 0. BACKUP DATABASE (Critical Safety Step)
+if [ -f "$PROJECT_DIR/backend/cc_track.db" ]; then
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="$PROJECT_DIR/backend/cc_track.db.bak_$TIMESTAMP"
+    echo "--- 💾 Backing up Database to $BACKUP_FILE ---"
+    cp "$PROJECT_DIR/backend/cc_track.db" "$BACKUP_FILE"
+fi
+
 # 1. System & Nginx Limits
 apt-get update && apt-get upgrade -y
 apt-get install -y build-essential python3-dev libffi-dev git nginx
@@ -25,6 +33,7 @@ systemctl restart nginx
 
 # 2. Pull Code
 cd "$PROJECT_DIR"
+git reset --hard # Reset local changes to tracked files (DB is untracked, so it's safe)
 git pull origin main
 chown -R "$REAL_USER:$REAL_USER" "$PROJECT_DIR"
 
@@ -46,4 +55,4 @@ cd ..
 # 5. Restart
 if systemctl list-units --full -all | grep -Fq "cc-track.service"; then systemctl restart cc-track; fi
 
-echo "--- ✅ Update Complete! ---"
+echo "--- ✅ Update Complete! Database backed up. ---"
