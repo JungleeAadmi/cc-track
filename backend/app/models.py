@@ -46,7 +46,8 @@ class CardStatement(Base):
     paid_amount = Column(Float, default=0.0)
     paid_date = Column(DateTime, nullable=True)
     payment_ref = Column(String, nullable=True)
-    attachment_path = Column(String, nullable=True)
+    attachment_path = Column(String, nullable=True) # Statement PDF
+    payment_proof_path = Column(String, nullable=True) # New: Payment Screenshot
     card = relationship("Card", back_populates="statements")
 
 class Company(Base):
@@ -114,5 +115,5 @@ class Subscription(Base):
     active = Column(Boolean, default=True)
     renewal_date = Column(DateTime, nullable=True)
     frequency = Column(String, default="Monthly")
-    logo_path = Column(String, nullable=True) # New Field
+    logo_path = Column(String, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))

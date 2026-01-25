@@ -3,7 +3,8 @@ import api from '../api';
 import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import VirtualCard from '../components/VirtualCard';
-import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2 } from 'lucide-react';
+import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2, Calendar, FileCheck } from 'lucide-react';
+import FilePreviewModal from '../components/FilePreviewModal';
 
 const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete }) => {
   const [showBackSide, setShowBackSide] = useState(false);
@@ -11,12 +12,17 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
   const [showPayModal, setShowPayModal] = useState(false);
   const [showAddStmtModal, setShowAddStmtModal] = useState(false);
   const [selectedStmt, setSelectedStmt] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
   
+  // Statement Form
   const [stmtMonth, setStmtMonth] = useState('January');
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
   const [stmtForm, setStmtForm] = useState({ generated_date: '', due_date: '', total_due: '', min_due: '' });
   const [stmtFile, setStmtFile] = useState(null);
-  const [payForm, setPayForm] = useState({ paid_amount: '', payment_ref: '' });
+  
+  // Pay Form (Updated)
+  const [payForm, setPayForm] = useState({ paid_amount: '', payment_ref: '', paid_date: '' });
+  const [payProof, setPayProof] = useState(null);
 
   if (!isOpen || !card) return null;
 
@@ -27,17 +33,9 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
     formData.append('month', fullMonth);
     Object.keys(stmtForm).forEach(k => formData.append(k, stmtForm[k]));
     if(stmtFile) formData.append('attachment', stmtFile);
+    
     await api.post(`/api/cards/${card.id}/statements`, formData);
     setShowAddStmtModal(false); onRefresh();
-  };
-
-  const handlePay = async (e) => {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.append('paid_amount', payForm.paid_amount);
-    formData.append('payment_ref', payForm.payment_ref);
-    await api.post(`/api/cards/statements/${selectedStmt.id}/pay`, formData);
-    setShowPayModal(false); onRefresh();
   };
 
   const handleDeleteStatement = async (stmtId) => {
@@ -47,6 +45,19 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
       }
   }
 
+  const handlePay = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('paid_amount', payForm.paid_amount);
+    formData.append('payment_ref', payForm.payment_ref);
+    formData.append('paid_date', payForm.paid_date);
+    if(payProof) formData.append('proof', payProof);
+
+    await api.post(`/api/cards/statements/${selectedStmt.id}/pay`, formData);
+    setShowPayModal(false); onRefresh();
+  };
+
+  const handleFlip = () => { setShowBackSide(!showBackSide); };
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   return (
@@ -65,7 +76,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
                 {/* Swap Logic for Card Image */}
-                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={() => setShowBackSide(!showBackSide)}>
+                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={handleFlip}>
                     {!showBackSide ? (
                         card.front_image_path ? (
                             <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Front" />
@@ -93,6 +104,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                     </div>
                 </div>
                 
+                {/* Tabs */}
                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
                     <button onClick={() => setActiveTab('details')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'details' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Details</button>
                     <button onClick={() => setActiveTab('statements')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'statements' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Statements</button>
@@ -113,12 +125,19 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                         {card.statements?.slice().reverse().map(st => (
                             <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group">
                                 <div className="flex justify-between items-start mb-2">
-                                    <div><p className="font-bold text-white">{st.month}</p><p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p></div>
-                                    <div className="text-right"><p className="font-bold text-white"><Money amount={st.total_due}/></p>{st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}</div>
+                                    <div>
+                                        <p className="font-bold text-white">{st.month}</p>
+                                        <p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-white"><Money amount={st.total_due}/></p>
+                                        {st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}
+                                    </div>
                                 </div>
                                 <div className="flex gap-2 mt-2">
-                                    {!st.is_paid && <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due}); setShowPayModal(true);}}>Pay</Button>}
-                                    {st.attachment_path && <button onClick={()=>window.open(`/uploads/${st.attachment_path}`,'_blank')} className="text-xs text-primary bg-primary/10 px-2 rounded hover:bg-primary/20">PDF</button>}
+                                    {!st.is_paid && <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due, paid_date: new Date().toISOString().split('T')[0]}); setShowPayModal(true);}}>Pay</Button>}
+                                    {st.attachment_path && <button onClick={()=>setPreviewFile(`/uploads/${st.attachment_path}`)} className="text-xs text-primary bg-primary/10 px-2 rounded hover:bg-primary/20 flex items-center gap-1"><FileText size={10}/> PDF</button>}
+                                    {st.payment_proof_path && <button onClick={()=>setPreviewFile(`/uploads/${st.payment_proof_path}`)} className="text-xs text-green-400 bg-green-900/10 px-2 rounded hover:bg-green-900/20 flex items-center gap-1"><FileCheck size={10}/> Proof</button>}
                                     <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-2 rounded hover:bg-red-900/20">Delete</button>
                                 </div>
                             </div>
@@ -126,6 +145,9 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                     </div>
                 )}
             </div>
+            
+            <FilePreviewModal isOpen={!!previewFile} fileUrl={previewFile} onClose={()=>setPreviewFile(null)} />
+
              {showAddStmtModal && (
                 <div className="absolute inset-0 bg-surface z-20 p-4 overflow-y-auto">
                      <h3 className="font-bold mb-4">Add Statement</h3>
@@ -155,8 +177,10 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                 <div className="absolute inset-0 bg-surface z-20 p-4 flex flex-col justify-center">
                     <h3 className="font-bold mb-4">Record Payment</h3>
                     <form onSubmit={handlePay} className="space-y-4">
-                        <Input label="Amount" type="number" value={payForm.paid_amount} onChange={e=>setPayForm({...payForm, paid_amount: e.target.value})}/>
+                        <Input label="Amount Paid" type="number" value={payForm.paid_amount} onChange={e=>setPayForm({...payForm, paid_amount: e.target.value})}/>
+                        <Input label="Payment Date" type="date" value={payForm.paid_date} onChange={e=>setPayForm({...payForm, paid_date: e.target.value})} required/>
                         <Input label="Ref #" value={payForm.payment_ref} onChange={e=>setPayForm({...payForm, payment_ref: e.target.value})}/>
+                        <FileInput label="Payment Proof" onChange={e=>setPayProof(e.target.files[0])} accept="image/*" />
                         <div className="flex gap-2"><Button type="submit" className="flex-1">Confirm</Button><Button type="button" variant="ghost" className="flex-1" onClick={()=>setShowPayModal(false)}>Cancel</Button></div>
                     </form>
                 </div>

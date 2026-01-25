@@ -8,20 +8,13 @@ from .. import database, models, schemas, auth
 router = APIRouter()
 UPLOAD_DIR = "uploads"
 
+# ... (GET/POST/PUT/DELETE Cards remain unchanged, keeping file structure valid) ...
 @router.get("/", response_model=List[schemas.CardOut])
 def get_cards(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     return db.query(models.Card).filter(models.Card.owner_id == current_user.id).all()
 
 @router.post("/")
-async def create_card(
-    name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...),
-    card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None),
-    expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...),
-    statement_date: int = Form(None), payment_due_date: int = Form(None),
-    color_theme: str = Form("gradient-1"), front_image: UploadFile = File(None),
-    back_image: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user),
-    db: Session = Depends(database.get_db)
-):
+async def create_card(name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...), card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None), expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...), statement_date: int = Form(None), payment_due_date: int = Form(None), color_theme: str = Form("gradient-1"), front_image: UploadFile = File(None), back_image: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     last4 = card_number[-4:] if len(card_number) >= 4 else card_number
     front_path = None
     if front_image:
@@ -31,32 +24,16 @@ async def create_card(
     if back_image:
         back_path = f"{uuid.uuid4()}.{back_image.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, back_path), "wb") as buffer: shutil.copyfileobj(back_image.file, buffer)
-
-    new_card = models.Card(
-        owner_id=current_user.id, name=name, bank_name=bank_name, card_network=card_network,
-        card_type=card_type, card_number=card_number, card_number_last4=last4, cvv=cvv,
-        expiry_date=expiry_date, owner_name=owner_name, limit=limit, statement_date=statement_date,
-        payment_due_date=payment_due_date, color_theme=color_theme, front_image_path=front_path, back_image_path=back_path
-    )
+    new_card = models.Card(owner_id=current_user.id, name=name, bank_name=bank_name, card_network=card_network, card_type=card_type, card_number=card_number, card_number_last4=last4, cvv=cvv, expiry_date=expiry_date, owner_name=owner_name, limit=limit, statement_date=statement_date, payment_due_date=payment_due_date, color_theme=color_theme, front_image_path=front_path, back_image_path=back_path)
     db.add(new_card)
     db.commit()
     db.refresh(new_card)
     return new_card
 
 @router.put("/{card_id}")
-async def update_card(
-    card_id: int,
-    name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...),
-    card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None),
-    expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...),
-    statement_date: int = Form(None), payment_due_date: int = Form(None),
-    color_theme: str = Form("gradient-1"),
-    front_image: UploadFile = File(None), back_image: UploadFile = File(None),
-    current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)
-):
+async def update_card(card_id: int, name: str = Form(...), bank_name: str = Form(...), card_network: str = Form(...), card_type: str = Form(...), card_number: str = Form(...), cvv: str = Form(None), expiry_date: str = Form(...), owner_name: str = Form(...), limit: float = Form(...), statement_date: int = Form(None), payment_due_date: int = Form(None), color_theme: str = Form("gradient-1"), front_image: UploadFile = File(None), back_image: UploadFile = File(None), current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
     if not card: raise HTTPException(status_code=404, detail="Card not found")
-
     card.name = name
     card.bank_name = bank_name
     card.card_network = card_network
@@ -70,17 +47,14 @@ async def update_card(
     card.statement_date = statement_date
     card.payment_due_date = payment_due_date
     card.color_theme = color_theme
-
     if front_image:
         front_path = f"{uuid.uuid4()}.{front_image.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, front_path), "wb") as buffer: shutil.copyfileobj(front_image.file, buffer)
         card.front_image_path = front_path
-    
     if back_image:
         back_path = f"{uuid.uuid4()}.{back_image.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, back_path), "wb") as buffer: shutil.copyfileobj(back_image.file, buffer)
         card.back_image_path = back_path
-
     db.commit()
     db.refresh(card)
     return card
@@ -106,14 +80,37 @@ async def add_statement(card_id: int, month: str = Form(...), generated_date: st
     db.commit()
     return {"message": "Statement added"}
 
+# --- Updated Pay Endpoint ---
 @router.post("/statements/{stmt_id}/pay")
-def pay_statement(stmt_id: int, paid_amount: float = Form(...), payment_ref: str = Form(None), current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
+async def pay_statement(
+    stmt_id: int,
+    paid_amount: float = Form(...),
+    payment_ref: str = Form(None),
+    paid_date: str = Form(None),
+    proof: UploadFile = File(None), # New Proof Upload
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
     stmt = db.query(models.CardStatement).join(models.Card).filter(models.CardStatement.id == stmt_id, models.Card.owner_id == current_user.id).first()
     if not stmt: raise HTTPException(status_code=404, detail="Statement not found")
+    
     stmt.is_paid = True
     stmt.paid_amount = paid_amount
     stmt.payment_ref = payment_ref
-    stmt.paid_date = datetime.now()
+    
+    # Handle Date
+    p_date = datetime.now()
+    if paid_date:
+        try: p_date = datetime.fromisoformat(paid_date)
+        except: pass
+    stmt.paid_date = p_date
+
+    # Handle Proof
+    if proof:
+        proof_path = f"{uuid.uuid4()}.{proof.filename.split('.')[-1]}"
+        with open(os.path.join(UPLOAD_DIR, proof_path), "wb") as buffer: shutil.copyfileobj(proof.file, buffer)
+        stmt.payment_proof_path = proof_path
+
     db.commit()
     return {"message": "Payment recorded"}
 
