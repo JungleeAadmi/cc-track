@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import shutil, os, uuid, json
+from datetime import datetime
+import shutil, os, uuid
 from .. import database, models, schemas, auth
 
 router = APIRouter()
@@ -12,6 +13,7 @@ def get_cards(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    # Eager load statements to avoid N+1 queries
     return db.query(models.Card).filter(models.Card.owner_id == current_user.id).all()
 
 @router.post("/")
@@ -20,7 +22,7 @@ async def create_card(
     bank_name: str = Form(...),
     card_network: str = Form(...),
     card_type: str = Form(...),
-    card_number_last4: str = Form(...),
+    card_number: str = Form(...), # Full Number
     cvv: str = Form(None),
     expiry_date: str = Form(...),
     owner_name: str = Form(...),
@@ -33,6 +35,9 @@ async def create_card(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    # Calculate last 4 digits
+    last4 = card_number[-4:] if len(card_number) >= 4 else card_number
+
     # Handle Images
     front_path = None
     if front_image:
@@ -52,7 +57,8 @@ async def create_card(
         bank_name=bank_name,
         card_network=card_network,
         card_type=card_type,
-        card_number_last4=card_number_last4,
+        card_number=card_number,
+        card_number_last4=last4,
         cvv=cvv,
         expiry_date=expiry_date,
         owner_name=owner_name,
@@ -78,7 +84,68 @@ def delete_card(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     
-    # Optional: Delete images from disk here
     db.delete(card)
     db.commit()
     return {"message": "Card deleted"}
+
+# --- Statement Endpoints ---
+
+@router.post("/{card_id}/statements")
+async def add_statement(
+    card_id: int,
+    month: str = Form(...),
+    generated_date: str = Form(...),
+    due_date: str = Form(...),
+    total_due: float = Form(...),
+    min_due: float = Form(0.0),
+    attachment: UploadFile = File(None),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    card = db.query(models.Card).filter(models.Card.id == card_id, models.Card.owner_id == current_user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+        
+    file_path = None
+    if attachment:
+        file_path = f"{uuid.uuid4()}.{attachment.filename.split('.')[-1]}"
+        with open(os.path.join(UPLOAD_DIR, file_path), "wb") as buffer:
+            shutil.copyfileobj(attachment.file, buffer)
+            
+    stmt = models.CardStatement(
+        card_id=card.id,
+        month=month,
+        generated_date=datetime.fromisoformat(generated_date),
+        due_date=datetime.fromisoformat(due_date),
+        total_due=total_due,
+        min_due=min_due,
+        attachment_path=file_path
+    )
+    db.add(stmt)
+    db.commit()
+    return {"message": "Statement added"}
+
+@router.post("/statements/{stmt_id}/pay")
+def pay_statement(
+    stmt_id: int,
+    paid_amount: float = Form(...),
+    payment_ref: str = Form(None),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    # Join with Card to check ownership
+    stmt = db.query(models.CardStatement).join(models.Card).filter(
+        models.CardStatement.id == stmt_id,
+        models.Card.owner_id == current_user.id
+    ).first()
+    
+    if not stmt:
+        raise HTTPException(status_code=404, detail="Statement not found")
+        
+    stmt.is_paid = True
+    stmt.paid_amount = paid_amount
+    stmt.payment_ref = payment_ref
+    stmt.paid_date = datetime.now()
+    
+    db.commit()
+    return {"message": "Payment recorded"}

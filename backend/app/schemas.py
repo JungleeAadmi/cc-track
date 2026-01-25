@@ -2,11 +2,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
-# --- Common ---
 class SimpleResponse(BaseModel):
     message: str
 
-# --- Auth ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -26,13 +24,29 @@ class UserSettings(BaseModel):
     ntfy_url: Optional[str] = None
     ntfy_topic: Optional[str] = None
 
+# --- Statements ---
+class StatementOut(BaseModel):
+    id: int
+    month: str
+    generated_date: datetime
+    due_date: datetime
+    total_due: float
+    min_due: float
+    is_paid: bool
+    paid_amount: float
+    paid_date: Optional[datetime]
+    payment_ref: Optional[str]
+    attachment_path: Optional[str]
+    class Config:
+        from_attributes = True
+
 # --- Cards ---
 class CardCreate(BaseModel):
     name: str
     bank_name: str
     card_network: str
     card_type: str
-    card_number_last4: str
+    card_number: str # Full number
     cvv: Optional[str] = None
     expiry_date: str
     owner_name: str
@@ -47,14 +61,18 @@ class CardOut(BaseModel):
     bank_name: str
     card_network: str
     card_type: str
+    card_number: str # Full number
     card_number_last4: str
     cvv: Optional[str]
     expiry_date: str
     owner_name: str
     limit: float
+    statement_date: Optional[int]
+    payment_due_date: Optional[int]
     front_image_path: Optional[str]
     back_image_path: Optional[str]
     color_theme: str
+    statements: List[StatementOut] = []
     class Config:
         from_attributes = True
 
@@ -75,7 +93,6 @@ class CompanyOut(BaseModel):
     class Config:
         from_attributes = True
 
-# Added missing class
 class SalaryCreate(BaseModel):
     amount: float
     month: str

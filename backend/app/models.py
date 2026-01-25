@@ -17,39 +17,59 @@ class Card(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     
-    # Basic Info
-    name = Column(String, index=True) # e.g. "HDFC Regalia"
-    bank_name = Column(String)        # e.g. "HDFC"
-    card_network = Column(String)     # Visa, Mastercard, RuPay, Amex
-    card_type = Column(String)        # Credit, Debit, Forex
+    name = Column(String, index=True)
+    bank_name = Column(String)
+    card_network = Column(String)
+    card_type = Column(String)
     
-    # Details (Stored as string, simple masking for display)
-    card_number_last4 = Column(String) 
-    cvv = Column(String, nullable=True) # Stored raw per user request (User-Hosted)
-    expiry_date = Column(String) # MM/YY
+    # NEW: Full Card Number
+    card_number = Column(String) 
+    card_number_last4 = Column(String) # Kept for quick search/legacy
+    
+    cvv = Column(String, nullable=True)
+    expiry_date = Column(String)
     owner_name = Column(String)
-    
-    # Financials
     limit = Column(Float, default=0.0)
-    statement_date = Column(Integer, nullable=True) # Day of month
-    payment_due_date = Column(Integer, nullable=True) # Day of month
+    statement_date = Column(Integer, nullable=True)
+    payment_due_date = Column(Integer, nullable=True)
     
-    # Visuals
-    color_theme = Column(String, default="gradient-1") # For virtual card CSS
+    color_theme = Column(String, default="gradient-1")
     front_image_path = Column(String, nullable=True)
     back_image_path = Column(String, nullable=True)
+    
+    statements = relationship("CardStatement", back_populates="card", cascade="all, delete-orphan")
+
+# NEW: Statement Tracking
+class CardStatement(Base):
+    __tablename__ = "card_statements"
+    id = Column(Integer, primary_key=True, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id"))
+    
+    month = Column(String) # "January 2024"
+    generated_date = Column(DateTime)
+    due_date = Column(DateTime)
+    
+    total_due = Column(Float)
+    min_due = Column(Float, default=0.0)
+    
+    is_paid = Column(Boolean, default=False)
+    paid_amount = Column(Float, default=0.0)
+    paid_date = Column(DateTime, nullable=True)
+    payment_ref = Column(String, nullable=True)
+    
+    attachment_path = Column(String, nullable=True) # Statement PDF
+    
+    card = relationship("Card", back_populates="statements")
 
 class Company(Base):
     __tablename__ = "companies"
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
-    
     name = Column(String)
     logo_path = Column(String, nullable=True)
     joining_date = Column(DateTime)
     relieving_date = Column(DateTime, nullable=True)
     is_current = Column(Boolean, default=False)
-    
     salaries = relationship("Salary", back_populates="company", cascade="all, delete-orphan")
 
 class Salary(Base):
@@ -57,34 +77,26 @@ class Salary(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     company_id = Column(Integer, ForeignKey("companies.id"))
-    
     amount = Column(Float)
-    month = Column(String) # "January"
-    year = Column(Integer) # 2024
-    attachment_path = Column(String, nullable=True) # PDF/Image
+    month = Column(String)
+    year = Column(Integer)
+    attachment_path = Column(String, nullable=True)
     date_added = Column(DateTime, default=datetime.now)
-    
     company = relationship("Company", back_populates="salaries")
 
 class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
-    card_id = Column(Integer, ForeignKey("cards.id"), nullable=True) # Optional link to card
-    
+    card_id = Column(Integer, ForeignKey("cards.id"), nullable=True)
     description = Column(String)
     amount = Column(Float)
     date = Column(DateTime, default=datetime.now)
-    merchant_location = Column(String, nullable=True) # "Where it was spent"
-    
-    # Types
-    type = Column(String) # "expense" or "credit"
-    payment_mode = Column(String, default="online") # online, swipe, cash
-    
-    # EMI Logic
+    merchant_location = Column(String, nullable=True)
+    type = Column(String)
+    payment_mode = Column(String, default="online")
     is_emi = Column(Boolean, default=False)
-    emi_months = Column(Integer, nullable=True) # 3, 6, 9, 12...
-    
+    emi_months = Column(Integer, nullable=True)
     attachment_path = Column(String, nullable=True)
 
 class Lending(Base):
