@@ -8,7 +8,6 @@ from .. import database, models, schemas, auth
 router = APIRouter()
 UPLOAD_DIR = "uploads"
 
-# --- Company Management ---
 @router.get("/companies", response_model=List[schemas.CompanyOut])
 def get_companies(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     comps = db.query(models.Company).filter(models.Company.owner_id == current_user.id).order_by(models.Company.joining_date.desc()).all()
@@ -39,7 +38,6 @@ async def add_company(
     db.add(new_comp)
     db.commit()
     db.refresh(new_comp)
-    # Calculate initial total
     c_dict = new_comp.__dict__.copy()
     c_dict['total_earned'] = 0.0
     return c_dict
@@ -66,7 +64,6 @@ async def update_company(
     
     db.commit()
     db.refresh(comp)
-    # Recalculate for response
     total = sum(s.amount for s in comp.salaries)
     c_dict = comp.__dict__.copy()
     c_dict['total_earned'] = total
@@ -80,7 +77,6 @@ def delete_company(company_id: int, current_user: models.User = Depends(auth.get
     db.commit()
     return {"message": "Deleted"}
 
-# --- Salary Management ---
 @router.get("/slips/{company_id}", response_model=List[schemas.SalaryOut])
 def get_salaries(company_id: int, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     comp = db.query(models.Company).filter(models.Company.id == company_id, models.Company.owner_id == current_user.id).first()

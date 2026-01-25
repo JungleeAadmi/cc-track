@@ -10,7 +10,6 @@ UPLOAD_DIR = "uploads"
 
 @router.get("/", response_model=List[schemas.CardOut])
 def get_cards(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
-    # Eager load statements
     return db.query(models.Card).filter(models.Card.owner_id == current_user.id).all()
 
 @router.post("/")

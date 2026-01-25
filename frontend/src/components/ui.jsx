@@ -1,6 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -38,14 +39,17 @@ export const Button = ({ children, variant = "primary", className, isLoading, ..
   );
 };
 
-// --- Input (Fluid Height) ---
-export const Input = React.forwardRef(({ label, className, error, ...props }, ref) => (
+// --- Input (Fixed Height & Alignment) ---
+export const Input = React.forwardRef(({ label, className, error, type = "text", ...props }, ref) => (
   <div className="w-full min-w-0">
     {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
     <input
       ref={ref}
+      type={type}
       className={cn(
         "w-full h-11 bg-black/40 border border-slate-700 rounded-xl px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all",
+        // Specific fix for Date inputs to align text vertically and prevent crookedness
+        type === "date" && "flex items-center pt-3", 
         error && "border-red-500 focus:ring-red-500/50",
         className
       )}
@@ -67,4 +71,11 @@ export const FileInput = ({ label, onChange, ...props }) => (
         <input type="file" className="hidden" onChange={onChange} {...props} />
     </label>
   </div>
-)
+);
+
+// --- Money Display Helper (Privacy Aware) ---
+export const Money = ({ amount, prefix = "₹" }) => {
+    const { isPrivacyMode } = usePrivacy();
+    if (isPrivacyMode) return <span className="tracking-widest">****</span>;
+    return <span>{prefix}{parseFloat(amount || 0).toLocaleString()}</span>;
+};
