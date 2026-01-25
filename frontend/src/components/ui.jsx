@@ -7,14 +7,12 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-// --- Card ---
 export const Card = ({ children, className }) => (
   <div className={cn("bg-surface border border-slate-800 rounded-xl p-4 shadow-sm", className)}>
     {children}
   </div>
 );
 
-// --- Button ---
 export const Button = ({ children, variant = "primary", className, isLoading, ...props }) => {
   const variants = {
     primary: "bg-primary hover:bg-red-700 text-white shadow-lg shadow-red-900/20",
@@ -22,13 +20,11 @@ export const Button = ({ children, variant = "primary", className, isLoading, ..
     danger: "bg-red-600 hover:bg-red-700 text-white",
     ghost: "bg-transparent hover:bg-slate-800 text-slate-400 hover:text-white"
   };
-
   return (
     <button 
       className={cn(
         "px-4 py-2.5 rounded-xl font-medium transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed",
-        variants[variant],
-        className
+        variants[variant], className
       )}
       disabled={isLoading || props.disabled}
       {...props}
@@ -39,7 +35,6 @@ export const Button = ({ children, variant = "primary", className, isLoading, ..
   );
 };
 
-// --- Input (Fixed Layout) ---
 export const Input = React.forwardRef(({ label, className, error, type = "text", ...props }, ref) => (
   <div className="w-full min-w-0">
     {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
@@ -48,8 +43,8 @@ export const Input = React.forwardRef(({ label, className, error, type = "text",
       type={type}
       className={cn(
         "w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all",
-        // Force appearance to fix mobile date input sizing
-        type === "date" && "appearance-none min-h-[48px]",
+        // Force consistent appearance for dates
+        type === "date" && "appearance-none", 
         error && "border-red-500 focus:ring-red-500/50",
         className
       )}
@@ -59,7 +54,6 @@ export const Input = React.forwardRef(({ label, className, error, type = "text",
   </div>
 ));
 
-// --- File Input ---
 export const FileInput = ({ label, onChange, ...props }) => (
   <div className="w-full min-w-0">
      {label && <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>}
@@ -73,7 +67,6 @@ export const FileInput = ({ label, onChange, ...props }) => (
   </div>
 );
 
-// --- Money Display Helper ---
 export const Money = ({ amount, prefix = "₹" }) => {
     const { isPrivacyMode } = usePrivacy();
     if (isPrivacyMode) return <span className="tracking-widest">****</span>;

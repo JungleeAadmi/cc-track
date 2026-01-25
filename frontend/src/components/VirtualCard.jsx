@@ -17,6 +17,7 @@ const VirtualCard = ({ card, onClick, isMasked = false }) => {
   const formatCardNumber = (num) => {
     if(!num) return '•••• •••• •••• ••••';
     if(isMasked) {
+        // Show only last 4, mask rest with stars
         return `•••• •••• •••• ${num.slice(-4)}`;
     }
     return num.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
