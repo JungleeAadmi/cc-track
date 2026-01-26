@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Button, Input, FileInput } from '../components/ui';
+import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import { Plus, Eye, Pencil, Trash2 } from 'lucide-react';
 import FilePreviewModal from '../components/FilePreviewModal';
@@ -27,7 +27,7 @@ const Lending = () => {
   useEffect(() => { fetchLendings(); }, []);
   const fetchLendings = async () => { try { const res = await api.get('/api/lending/'); setLendings(res.data); } catch(e) {} };
 
-  // LIVE SYNC: Fix for modal showing stale data after update
+  // LIVE SYNC
   useEffect(() => {
       if (selectedLending) {
           const updatedLending = lendings.find(l => l.id === selectedLending.id);
@@ -120,7 +120,7 @@ const Lending = () => {
                 
                 <div className="flex justify-between items-center mt-2">
                   <div className="text-xs text-slate-400">
-                      Pending: <span className="text-red-400 font-bold">₹{l.pending_amount.toLocaleString()}</span>
+                      Pending: <span className="text-red-400 font-bold"><Money amount={l.pending_amount}/></span>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" onClick={() => {setSelectedLending(l); setShowProofModal(true)}} className="p-2"><Eye size={18} /></Button>
@@ -159,7 +159,7 @@ const Lending = () => {
                 {selectedLending?.returns.filter(r => r.amount > 0).map(r => (
                     <div key={r.id} className="p-3 bg-black/40 rounded flex justify-between items-center">
                          <div>
-                             <span className="font-bold block">₹{r.amount}</span>
+                             <span className="font-bold block"><Money amount={r.amount}/></span>
                              <span className="text-xs text-slate-500">{new Date(r.return_date).toLocaleDateString()}</span>
                          </div>
                          {r.proof_image_path && <span onClick={()=>setPreviewFile(`/uploads/${r.proof_image_path}`)} className="text-primary text-xs underline cursor-pointer">View Proof</span>}

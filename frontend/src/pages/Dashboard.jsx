@@ -1,23 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Card } from '../components/ui';
-import { CreditCard, ArrowRightLeft, Banknote, Repeat, Wallet } from 'lucide-react';
+import { CreditCard, ArrowRightLeft, Banknote, Repeat, Wallet, Loader2 } from 'lucide-react';
+import { Money } from '../components/ui';
 
 const StatCard = ({ icon: Icon, label, value, colorClass }) => (
-  <Card className="flex items-center gap-4 hover:bg-slate-800/50 transition-colors">
+  <div className="bg-surface border border-slate-800 rounded-xl p-4 shadow-sm flex items-center gap-4 hover:bg-slate-800/50 transition-colors">
     <div className={`p-3 rounded-xl ${colorClass} bg-opacity-10`}>
       <Icon className={colorClass.replace('text-', '')} size={24} /> 
     </div>
     <div>
       <p className="text-slate-400 text-sm font-medium">{label}</p>
-      <p className="text-2xl font-bold text-white">{value}</p>
+      <div className="text-2xl font-bold text-white">{value}</div>
     </div>
-  </Card>
+  </div>
 );
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -25,7 +27,8 @@ const Dashboard = () => {
         const res = await api.get('/api/dashboard/');
         setStats(res.data);
       } catch (err) {
-        console.error("Failed to load dashboard", err);
+        console.error("Dashboard Load Error", err);
+        setError("Failed to load data. Is backend running?");
       } finally {
         setLoading(false);
       }
@@ -33,12 +36,13 @@ const Dashboard = () => {
     fetchStats();
   }, []);
 
-  if (loading) return <div className="animate-pulse space-y-4">{/* Pulse Skeletons */}</div>;
-  if (!stats) return <div className="text-center text-red-400">Failed to load data</div>;
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" size={32}/></div>;
+  if (error) return <div className="text-center text-red-400 p-4 border border-red-900/30 rounded-xl bg-red-900/10">{error}</div>;
+  if (!stats) return null;
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Dashboard</h2>
+      <h2 className="text-2xl font-bold text-white">Dashboard</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard 
@@ -62,19 +66,19 @@ const Dashboard = () => {
          <StatCard 
           icon={Banknote} 
           label="Pending Returns" 
-          value={`₹${stats.pending_lending_amount}`} 
+          value={<Money amount={stats.pending_lending_amount}/>} 
           colorClass="text-red-500 bg-red-500/10" 
         />
         <StatCard 
           icon={Repeat} 
           label="Monthly Subs" 
-          value={`₹${stats.monthly_subs}`} 
+          value={<Money amount={stats.monthly_subs}/>} 
           colorClass="text-pink-500 bg-pink-500/10" 
         />
         <StatCard 
           icon={Wallet} 
           label="Last Salary" 
-          value={`₹${stats.last_salary}`} 
+          value={<Money amount={stats.last_salary}/>} 
           colorClass="text-green-500 bg-green-500/10" 
         />
       </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Button, Input, FileInput } from '../components/ui';
+import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import { Plus, CreditCard, Banknote, Paperclip, Pencil, Trash2 } from 'lucide-react';
 import FilePreviewModal from '../components/FilePreviewModal';
@@ -74,7 +74,7 @@ const Transactions = () => {
 
       <div className="space-y-3">
         {txs.map(tx => (
-            <div key={tx.id} className="bg-surface border border-white/5 p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
+            <div key={tx.id} className="bg-surface border border-white/5 p-4 rounded-xl flex justify-between items-center relative overflow-hidden group select-none touch-manipulation">
                 <div className="flex items-center gap-3 relative z-10">
                     <div className={`p-2 rounded-lg ${tx.type === 'credit' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                         {tx.card_id ? <CreditCard size={20}/> : <Banknote size={20}/>}
@@ -90,7 +90,7 @@ const Transactions = () => {
                 <div className="flex items-center gap-4 relative z-10">
                     <div className="text-right">
                         <p className={`font-bold ${tx.type === 'credit' ? 'text-green-400' : 'text-white'}`}>
-                            {tx.type === 'credit' ? '+' : '-'} ₹{tx.amount.toLocaleString()}
+                            {tx.type === 'credit' ? '+' : '-'} <Money amount={tx.amount}/>
                         </p>
                         {tx.attachment_path && (
                             <button onClick={(e) => {e.stopPropagation(); setPreviewFile(`/uploads/${tx.attachment_path}`)}} className="text-[10px] text-primary hover:underline flex items-center justify-end gap-1 mt-1">
@@ -122,7 +122,7 @@ const Transactions = () => {
                 <Input label="Date" type="date" value={form.date_str} onChange={e=>setForm({...form, date_str: e.target.value})} required />
                 <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-400 uppercase">Payment Mode</label>
-                    <select className="w-full h-11 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={form.payment_mode} onChange={e=>setForm({...form, payment_mode: e.target.value})}>
+                    <select className="w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={form.payment_mode} onChange={e=>setForm({...form, payment_mode: e.target.value})}>
                         <option value="online">Online</option>
                         <option value="swipe">Swipe (POS)</option>
                         <option value="cash">Cash</option>
@@ -132,7 +132,7 @@ const Transactions = () => {
             {form.payment_mode !== 'cash' && (
                 <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-400 uppercase">Card (Optional)</label>
-                    <select className="w-full h-11 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={form.card_id} onChange={e=>setForm({...form, card_id: e.target.value})}>
+                    <select className="w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={form.card_id} onChange={e=>setForm({...form, card_id: e.target.value})}>
                         <option value="">Select a Card...</option>
                         {cards.map(c => <option key={c.id} value={c.id}>{c.name} ({c.card_number_last4})</option>)}
                     </select>

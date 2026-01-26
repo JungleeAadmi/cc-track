@@ -25,12 +25,13 @@ def get_dashboard_stats(
         
         lendings = db.query(models.Lending).filter(models.Lending.owner_id == current_user.id, models.Lending.is_settled == False).all()
         pending_total = 0.0
-        for l in lendings:
-            returned = sum(r.amount for r in l.returns)
-            pending_total += (l.total_amount - returned)
+        if lendings:
+            for l in lendings:
+                returned = sum(r.amount for r in l.returns)
+                pending_total += (l.total_amount - returned)
             
         subs = db.query(models.Subscription).filter(models.Subscription.owner_id == current_user.id, models.Subscription.active == True).all()
-        monthly_subs = sum(s.amount for s in subs)
+        monthly_subs = sum(s.amount for s in subs) if subs else 0.0
         
         last_salary_entry = db.query(models.Salary).filter(models.Salary.owner_id == current_user.id).order_by(models.Salary.date_added.desc()).first()
         last_salary = last_salary_entry.amount if last_salary_entry else 0.0

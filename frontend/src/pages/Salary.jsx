@@ -34,6 +34,16 @@ const Salary = () => {
     } catch(e) {}
   };
 
+  // LIVE SYNC: If companies list updates, ensure selectedCompany is refreshed (e.g. new total earned)
+  useEffect(() => {
+      if (selectedCompany) {
+          const updatedComp = companies.find(c => c.id === selectedCompany.id);
+          if (updatedComp && JSON.stringify(updatedComp) !== JSON.stringify(selectedCompany)) {
+              setSelectedCompany(updatedComp);
+          }
+      }
+  }, [companies]);
+
   const fetchSalaries = async (compId) => {
     try { const res = await api.get(`/api/salary/slips/${compId}`); setSalaries(res.data); } catch(e) {}
   };
