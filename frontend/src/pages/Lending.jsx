@@ -27,6 +27,16 @@ const Lending = () => {
   useEffect(() => { fetchLendings(); }, []);
   const fetchLendings = async () => { try { const res = await api.get('/api/lending/'); setLendings(res.data); } catch(e) {} };
 
+  // LIVE SYNC: Fix for modal showing stale data after update
+  useEffect(() => {
+      if (selectedLending) {
+          const updatedLending = lendings.find(l => l.id === selectedLending.id);
+          if (updatedLending && JSON.stringify(updatedLending) !== JSON.stringify(selectedLending)) {
+              setSelectedLending(updatedLending);
+          }
+      }
+  }, [lendings]);
+
   const handleSubmitLending = async (e) => {
     e.preventDefault();
     setLoading(true);

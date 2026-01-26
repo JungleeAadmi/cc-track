@@ -3,7 +3,7 @@ import api from '../api';
 import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import VirtualCard from '../components/VirtualCard';
-import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2, Calendar, FileCheck } from 'lucide-react';
+import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2 } from 'lucide-react';
 import FilePreviewModal from '../components/FilePreviewModal';
 
 const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete }) => {
@@ -14,13 +14,11 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
   const [selectedStmt, setSelectedStmt] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   
-  // Statement Form
   const [stmtMonth, setStmtMonth] = useState('January');
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
   const [stmtForm, setStmtForm] = useState({ generated_date: '', due_date: '', total_due: '', min_due: '' });
   const [stmtFile, setStmtFile] = useState(null);
   
-  // Pay Form (Updated)
   const [payForm, setPayForm] = useState({ paid_amount: '', payment_ref: '', paid_date: '' });
   const [payProof, setPayProof] = useState(null);
 
@@ -35,7 +33,8 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
     if(stmtFile) formData.append('attachment', stmtFile);
     
     await api.post(`/api/cards/${card.id}/statements`, formData);
-    setShowAddStmtModal(false); onRefresh();
+    setShowAddStmtModal(false); 
+    onRefresh();
   };
 
   const handleDeleteStatement = async (stmtId) => {
@@ -137,7 +136,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                                 <div className="flex gap-2 mt-2">
                                     {!st.is_paid && <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due, paid_date: new Date().toISOString().split('T')[0]}); setShowPayModal(true);}}>Pay</Button>}
                                     {st.attachment_path && <button onClick={()=>setPreviewFile(`/uploads/${st.attachment_path}`)} className="text-xs text-primary bg-primary/10 px-2 rounded hover:bg-primary/20 flex items-center gap-1"><FileText size={10}/> PDF</button>}
-                                    {st.payment_proof_path && <button onClick={()=>setPreviewFile(`/uploads/${st.payment_proof_path}`)} className="text-xs text-green-400 bg-green-900/10 px-2 rounded hover:bg-green-900/20 flex items-center gap-1"><FileCheck size={10}/> Proof</button>}
+                                    {st.payment_proof_path && <button onClick={()=>setPreviewFile(`/uploads/${st.payment_proof_path}`)} className="text-xs text-green-400 bg-green-900/10 px-2 rounded hover:bg-green-900/20 flex items-center gap-1"><CheckCircle size={10}/> Proof</button>}
                                     <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-2 rounded hover:bg-red-900/20">Delete</button>
                                 </div>
                             </div>
@@ -205,6 +204,19 @@ const Cards = () => {
 
   useEffect(() => { fetchCards(); }, []);
   const fetchCards = async () => { try { const res = await api.get('/api/cards/'); setCards(res.data); } catch (e) {} };
+
+  // LIVE SYNC FIX: Keep selected card in sync with backend data updates
+  useEffect(() => {
+      if (selectedCard) {
+          const updatedCard = cards.find(c => c.id === selectedCard.id);
+          if (updatedCard) {
+              // Only update if data actually changed to avoid render loops
+              if(JSON.stringify(updatedCard) !== JSON.stringify(selectedCard)) {
+                  setSelectedCard(updatedCard);
+              }
+          }
+      }
+  }, [cards]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
