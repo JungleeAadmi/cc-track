@@ -8,7 +8,7 @@ from .. import database, models, schemas, auth
 router = APIRouter()
 UPLOAD_DIR = "uploads"
 
-# ... (GET/POST/PUT/DELETE Cards remain unchanged, keeping file structure valid) ...
+# ... (GET/POST/PUT/DELETE Cards) ...
 @router.get("/", response_model=List[schemas.CardOut])
 def get_cards(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     return db.query(models.Card).filter(models.Card.owner_id == current_user.id).all()
@@ -80,32 +80,28 @@ async def add_statement(card_id: int, month: str = Form(...), generated_date: st
     db.commit()
     return {"message": "Statement added"}
 
-# --- Updated Pay Endpoint ---
 @router.post("/statements/{stmt_id}/pay")
 async def pay_statement(
     stmt_id: int,
     paid_amount: float = Form(...),
     payment_ref: str = Form(None),
     paid_date: str = Form(None),
-    proof: UploadFile = File(None), # New Proof Upload
+    proof: UploadFile = File(None),
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     stmt = db.query(models.CardStatement).join(models.Card).filter(models.CardStatement.id == stmt_id, models.Card.owner_id == current_user.id).first()
     if not stmt: raise HTTPException(status_code=404, detail="Statement not found")
-    
     stmt.is_paid = True
     stmt.paid_amount = paid_amount
     stmt.payment_ref = payment_ref
     
-    # Handle Date
-    p_date = datetime.now()
     if paid_date:
-        try: p_date = datetime.fromisoformat(paid_date)
+        try: stmt.paid_date = datetime.fromisoformat(paid_date)
         except: pass
-    stmt.paid_date = p_date
+    else:
+        stmt.paid_date = datetime.now()
 
-    # Handle Proof
     if proof:
         proof_path = f"{uuid.uuid4()}.{proof.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, proof_path), "wb") as buffer: shutil.copyfileobj(proof.file, buffer)

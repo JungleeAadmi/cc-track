@@ -3,16 +3,17 @@ import api from '../api';
 import { Button, Input, FileInput, Money } from '../components/ui';
 import Modal from '../components/Modal';
 import VirtualCard from '../components/VirtualCard';
-import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2 } from 'lucide-react';
+import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2, FileCheck } from 'lucide-react';
 import FilePreviewModal from '../components/FilePreviewModal';
 
 const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete }) => {
-  const [showBackSide, setShowBackSide] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [showPayModal, setShowPayModal] = useState(false);
   const [showAddStmtModal, setShowAddStmtModal] = useState(false);
   const [selectedStmt, setSelectedStmt] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState('');
   
   const [stmtMonth, setStmtMonth] = useState('January');
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
@@ -53,6 +54,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
     setShowPayModal(false); onRefresh();
   };
 
+  const handleFlip = () => { setShowBackSide(!showBackSide); };
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   return (
@@ -69,14 +71,34 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                 <button onClick={onClose} className="text-slate-400 hover:text-white">Close</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Swap Logic for Card Image */}
-                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={() => setShowBackSide(!showBackSide)}>
-                    {!showBackSide ? (
-                        card.front_image_path ? <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Front" /> : <VirtualCard card={card} isMasked={false} />
+                
+                {/* Card Flip Image */}
+                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={() => setIsFlipped(!isFlipped)}>
+                    {!isFlipped ? (
+                        card.front_image_path ? (
+                            <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Front" />
+                        ) : (
+                            <VirtualCard card={card} isMasked={false} />
+                        )
                     ) : (
-                        card.back_image_path ? <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Back" /> : <div className="w-full h-full bg-slate-900 rounded-2xl border border-white/20 flex flex-col justify-center items-center"><span className="text-slate-500 text-sm">No Back Image</span></div>
+                        card.back_image_path ? (
+                            <img src={`/uploads/${card.back_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Back" />
+                        ) : (
+                            <div className="w-full h-full bg-slate-900 rounded-2xl border border-white/20 flex flex-col justify-center items-center relative">
+                                <div className="w-full h-12 bg-black mt-6 absolute top-0"></div>
+                                <div className="w-full px-8 mt-12">
+                                    <div className="w-full h-10 bg-white flex items-center justify-end px-4">
+                                        <span className="font-mono text-xl tracking-widest text-black">{card.cvv || '***'}</span>
+                                    </div>
+                                    <div className="text-[10px] text-white/80 mt-1 text-right font-bold">CVV</div>
+                                </div>
+                                <p className="mt-8 text-slate-500 text-sm">No Back Image</p>
+                            </div>
+                        )
                     )}
-                    <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded-full backdrop-blur text-white/70 text-xs flex items-center gap-1"><RotateCw size={12}/> {showBackSide ? "Show Front" : "Show Back"}</div>
+                    <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded-full backdrop-blur text-white/70 text-xs flex items-center gap-1">
+                        <RotateCw size={12}/> {isFlipped ? "Show Front" : "Show Back"}
+                    </div>
                 </div>
                 
                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
@@ -99,13 +121,41 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                         {card.statements?.slice().reverse().map(st => (
                             <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group">
                                 <div className="flex justify-between items-start mb-2">
-                                    <div><p className="font-bold text-white">{st.month}</p><p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p></div>
-                                    <div className="text-right"><p className="font-bold text-white"><Money amount={st.total_due}/></p>{st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}</div>
+                                    <div>
+                                        <p className="font-bold text-white">{st.month}</p>
+                                        <p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-white"><Money amount={st.total_due}/></p>
+                                        {st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}
+                                    </div>
                                 </div>
-                                <div className="flex gap-2 mt-2">
-                                    {!st.is_paid && <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due, paid_date: new Date().toISOString().split('T')[0]}); setShowPayModal(true);}}>Pay</Button>}
-                                    {st.attachment_path && <button onClick={()=>setPreviewFile(`/uploads/${st.attachment_path}`)} className="text-xs text-primary bg-primary/10 px-2 rounded hover:bg-primary/20 flex items-center gap-1"><FileText size={10}/> PDF</button>}
-                                    <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-2 rounded hover:bg-red-900/20">Delete</button>
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                    {!st.is_paid ? (
+                                        <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due, paid_date: new Date().toISOString().split('T')[0]}); setShowPayModal(true);}}>Pay Bill</Button>
+                                    ) : (
+                                        // View Proof Button
+                                        st.payment_proof_path && (
+                                            <button 
+                                                onClick={() => { setPreviewFile(`/uploads/${st.payment_proof_path}`); setPreviewTitle(`Payment Proof - ${st.month}`); }} 
+                                                className="text-xs text-green-400 bg-green-900/10 px-3 py-1 rounded hover:bg-green-900/20 flex items-center gap-1 border border-green-900/30"
+                                            >
+                                                <FileCheck size={12}/> View Proof
+                                            </button>
+                                        )
+                                    )}
+                                    
+                                    {/* View Statement Button */}
+                                    {st.attachment_path && (
+                                        <button 
+                                            onClick={() => { setPreviewFile(`/uploads/${st.attachment_path}`); setPreviewTitle(`Statement - ${st.month}`); }} 
+                                            className="text-xs text-primary bg-primary/10 px-3 py-1 rounded hover:bg-primary/20 flex items-center gap-1 border border-primary/30"
+                                        >
+                                            <FileText size={12}/> Statement
+                                        </button>
+                                    )}
+                                    
+                                    <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-3 py-1 rounded hover:bg-red-900/20 border border-red-900/30 ml-auto">Delete</button>
                                 </div>
                             </div>
                         ))}
@@ -113,7 +163,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                 )}
             </div>
             
-            <FilePreviewModal isOpen={!!previewFile} fileUrl={previewFile} onClose={()=>setPreviewFile(null)} />
+            <FilePreviewModal isOpen={!!previewFile} fileUrl={previewFile} title={previewTitle} onClose={()=>setPreviewFile(null)} />
 
              {showAddStmtModal && (
                 <div className="absolute inset-0 bg-surface z-20 p-4 overflow-y-auto">
@@ -122,7 +172,9 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                          <div className="grid grid-cols-2 gap-4">
                              <div className="space-y-1">
                                  <label className="text-xs font-semibold text-slate-400 uppercase">Month</label>
-                                 <select className="w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={stmtMonth} onChange={e=>setStmtMonth(e.target.value)}>{months.map(m=><option key={m}>{m}</option>)}</select>
+                                 <select className="w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-white" value={stmtMonth} onChange={e=>setStmtMonth(e.target.value)}>
+                                     {months.map(m=><option key={m}>{m}</option>)}
+                                 </select>
                              </div>
                              <div className="space-y-1">
                                  <label className="text-xs font-semibold text-slate-400 uppercase">Year</label>
@@ -133,7 +185,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                          <Input label="Due Date" type="date" value={stmtForm.due_date} onChange={e=>setStmtForm({...stmtForm, due_date: e.target.value})} required/>
                          <Input label="Total Due" type="number" value={stmtForm.total_due} onChange={e=>setStmtForm({...stmtForm, total_due: e.target.value})} required/>
                          <Input label="Min Due" type="number" value={stmtForm.min_due} onChange={e=>setStmtForm({...stmtForm, min_due: e.target.value})}/>
-                         <FileInput label="Statement PDF" onChange={e=>setStmtFile(e.target.files[0])}/>
+                         <FileInput label="Statement PDF" onChange={e=>setStmtFile(e.target.files[0])} accept=".pdf,image/*"/>
                          <div className="flex gap-2"><Button type="submit" className="flex-1">Save</Button><Button type="button" variant="ghost" className="flex-1" onClick={()=>setShowAddStmtModal(false)}>Cancel</Button></div>
                      </form>
                 </div>
@@ -145,7 +197,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                         <Input label="Amount Paid" type="number" value={payForm.paid_amount} onChange={e=>setPayForm({...payForm, paid_amount: e.target.value})}/>
                         <Input label="Payment Date" type="date" value={payForm.paid_date} onChange={e=>setPayForm({...payForm, paid_date: e.target.value})} required/>
                         <Input label="Ref #" value={payForm.payment_ref} onChange={e=>setPayForm({...payForm, payment_ref: e.target.value})}/>
-                        <FileInput label="Proof" onChange={e=>setPayProof(e.target.files[0])}/>
+                        <FileInput label="Payment Proof" onChange={e=>setPayProof(e.target.files[0])} accept="image/*,.pdf" />
                         <div className="flex gap-2"><Button type="submit" className="flex-1">Confirm</Button><Button type="button" variant="ghost" className="flex-1" onClick={()=>setShowPayModal(false)}>Cancel</Button></div>
                     </form>
                 </div>
@@ -169,8 +221,8 @@ const Cards = () => {
 
   useEffect(() => { fetchCards(); }, []);
   const fetchCards = async () => { try { const res = await api.get('/api/cards/'); setCards(res.data); } catch (e) {} };
-  
-  // LIVE SYNC FIX: Keep selected card in sync with backend data updates
+
+  // Sync open modal with backend data
   useEffect(() => {
       if (selectedCard) {
           const updatedCard = cards.find(c => c.id === selectedCard.id);
@@ -191,7 +243,7 @@ const Cards = () => {
       else await api.post('/api/cards/', formData);
       setShowAddModal(false); setForm(initialForm); setFrontImg(null); setBackImg(null); setIsEditing(false); setEditId(null);
       fetchCards();
-    } catch (err) { alert("Failed. Check inputs."); } 
+    } catch (err) { alert("Failed. Check inputs/size."); } 
     finally { setLoading(false); }
   };
 
