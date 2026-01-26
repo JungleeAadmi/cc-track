@@ -46,11 +46,11 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
   const handlePay = async (e) => {
     e.preventDefault();
     const formData = new FormData();
-    formData.append('paid_amount', payForm.paid_amount);
-    formData.append('payment_ref', payForm.payment_ref);
-    formData.append('paid_date', payForm.paid_date);
+    formData.append('amount', payForm.paid_amount);
+    formData.append('reference', payForm.payment_ref);
+    formData.append('date', payForm.paid_date);
     if(payProof) formData.append('proof', payProof);
-    await api.post(`/api/cards/statements/${selectedStmt.id}/pay`, formData);
+    await api.post(`/api/cards/statements/${selectedStmt.id}/payments`, formData);
     setShowPayModal(false); onRefresh();
   };
 
@@ -72,6 +72,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
+                {/* Swap Logic for Card Image */}
                 <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={handleFlip}>
                     {!showBackSide ? (
                         card.front_image_path ? (
@@ -100,6 +101,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                     </div>
                 </div>
                 
+                {/* Tabs */}
                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
                     <button onClick={() => setActiveTab('details')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'details' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Details</button>
                     <button onClick={() => setActiveTab('statements')} className={`flex-1 py-2 text-sm rounded-md transition-colors ${activeTab === 'statements' ? 'bg-white/10 text-white' : 'text-slate-500'}`}>Statements</button>
@@ -117,46 +119,66 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                 ) : (
                     <div className="space-y-3">
                         <Button size="sm" className="w-full" onClick={()=>setShowAddStmtModal(true)}><Plus size={16}/> Record Statement</Button>
-                        {card.statements?.slice().reverse().map(st => (
-                            <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <p className="font-bold text-white">{st.month}</p>
-                                        <p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p>
+                        {card.statements?.slice().reverse().map(st => {
+                            const percent = Math.min((st.paid_amount / st.total_due) * 100, 100);
+                            return (
+                                <div key={st.id} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <p className="font-bold text-white">{st.month}</p>
+                                            <p className="text-xs text-slate-400">Due: {new Date(st.due_date).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-white"><Money amount={st.total_due}/></p>
+                                            {st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Due: <Money amount={st.total_due - st.paid_amount}/></span>}
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-white"><Money amount={st.total_due}/></p>
-                                        {st.is_paid ? <span className="text-[10px] text-green-400 flex items-center gap-1 justify-end"><CheckCircle size={10}/> Paid</span> : <span className="text-[10px] text-red-400">Unpaid</span>}
+                                    
+                                    {/* Progress Bar */}
+                                    <div className="w-full h-1.5 bg-white/5 rounded-full mb-3 overflow-hidden">
+                                        <div className={`h-full ${st.is_paid ? 'bg-green-500' : 'bg-primary'}`} style={{width: `${percent}%`}}></div>
                                     </div>
-                                </div>
-                                <div className="flex gap-2 mt-2 flex-wrap">
-                                    {!st.is_paid ? (
-                                        <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due, paid_date: new Date().toISOString().split('T')[0]}); setShowPayModal(true);}}>Pay Bill</Button>
-                                    ) : (
-                                        // View Proof Button
-                                        st.payment_proof_path && (
+
+                                    {/* Action Buttons Row */}
+                                    <div className="flex gap-2 mt-2 flex-wrap items-center">
+                                        {/* 1. Pay Button (Only if not paid) */}
+                                        {!st.is_paid && (
+                                            <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={()=>{setSelectedStmt(st); setPayForm({...payForm, paid_amount: st.total_due, paid_date: new Date().toISOString().split('T')[0]}); setShowPayModal(true);}}>
+                                                Pay Bill
+                                            </Button>
+                                        )}
+
+                                        {/* 2. Statement PDF (If uploaded) */}
+                                        {st.attachment_path && (
                                             <button 
-                                                onClick={() => { setPreviewFile(`/uploads/${st.payment_proof_path}`); setPreviewTitle(`Payment Proof - ${st.month}`); }} 
-                                                className="text-xs text-green-400 bg-green-900/10 px-3 py-1 rounded hover:bg-green-900/20 flex items-center gap-1 border border-green-900/30"
+                                                onClick={() => { setPreviewFile(`/uploads/${st.attachment_path}`); setPreviewTitle(`Statement: ${st.month}`); }} 
+                                                className="text-xs text-blue-400 bg-blue-900/10 px-3 py-1.5 rounded border border-blue-900/30 flex items-center gap-1 hover:bg-blue-900/20 transition-colors"
                                             >
-                                                <FileCheck size={12}/> Proof
+                                                <FileText size={12}/> View Bill
                                             </button>
-                                        )
-                                    )}
-                                    
-                                    {st.attachment_path && (
-                                        <button 
-                                            onClick={() => { setPreviewFile(`/uploads/${st.attachment_path}`); setPreviewTitle(`Statement - ${st.month}`); }} 
-                                            className="text-xs text-primary bg-primary/10 px-3 py-1 rounded hover:bg-primary/20 flex items-center gap-1 border border-primary/30"
-                                        >
-                                            <FileText size={12}/> Statement
+                                        )}
+
+                                        {/* 3. Payment Proofs (Loop through all payments) */}
+                                        {st.payments?.map(p => (
+                                            p.proof_path && (
+                                                <button 
+                                                    key={p.id}
+                                                    onClick={() => { setPreviewFile(`/uploads/${p.proof_path}`); setPreviewTitle(`Proof: ${p.amount}`); }} 
+                                                    className="text-xs text-green-400 bg-green-900/10 px-3 py-1.5 rounded border border-green-900/30 flex items-center gap-1 hover:bg-green-900/20 transition-colors"
+                                                >
+                                                    <FileCheck size={12}/> Proof
+                                                </button>
+                                            )
+                                        ))}
+
+                                        {/* 4. Delete */}
+                                        <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-3 py-1.5 rounded hover:bg-red-900/20 border border-red-900/30 ml-auto">
+                                            <Trash2 size={12}/>
                                         </button>
-                                    )}
-                                    
-                                    <button onClick={()=>handleDeleteStatement(st.id)} className="text-xs text-red-400 bg-red-900/10 px-3 py-1 rounded hover:bg-red-900/20 border border-red-900/30 ml-auto">Delete</button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -220,7 +242,7 @@ const Cards = () => {
   useEffect(() => { fetchCards(); }, []);
   const fetchCards = async () => { try { const res = await api.get('/api/cards/'); setCards(res.data); } catch (e) {} };
   
-  // LIVE SYNC: Keep open modal in sync
+  // LIVE SYNC FIX
   useEffect(() => {
       if (selectedCard) {
           const updatedCard = cards.find(c => c.id === selectedCard.id);
@@ -241,7 +263,7 @@ const Cards = () => {
       else await api.post('/api/cards/', formData);
       setShowAddModal(false); setForm(initialForm); setFrontImg(null); setBackImg(null); setIsEditing(false); setEditId(null);
       fetchCards();
-    } catch (err) { alert("Failed. Check inputs."); } 
+    } catch (err) { alert("Failed. Check inputs/size."); } 
     finally { setLoading(false); }
   };
 

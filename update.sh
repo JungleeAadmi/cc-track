@@ -28,13 +28,11 @@ BACKUP_DIR="/tmp/cc_track_backup_$(date +%s)"
 mkdir -p "$BACKUP_DIR"
 echo "--- 💾 Backing up User Data to $BACKUP_DIR ---"
 
-# 2a. Backup DB
 if [ -f "$PROJECT_DIR/backend/cc_track.db" ]; then
     cp "$PROJECT_DIR/backend/cc_track.db" "$BACKUP_DIR/cc_track.db"
     echo "Database backed up."
 fi
 
-# 2b. Backup Uploads
 if [ -d "$PROJECT_DIR/backend/uploads" ]; then
     cp -r "$PROJECT_DIR/backend/uploads" "$BACKUP_DIR/uploads"
     echo "Uploads backed up."
@@ -70,12 +68,12 @@ fi
 
 mkdir -p "$PROJECT_DIR/backend/uploads"
 if [ -d "$BACKUP_DIR/uploads" ]; then
-    # Use copy -a with /. to safely copy contents including hidden, works even if empty
-    cp -a "$BACKUP_DIR/uploads/." "$PROJECT_DIR/backend/uploads/"
-    echo "Uploads restored."
+    if [ "$(ls -A $BACKUP_DIR/uploads)" ]; then
+        cp -a "$BACKUP_DIR/uploads/." "$PROJECT_DIR/backend/uploads/"
+        echo "Uploads restored."
+    fi
 fi
 
-# Fix ownership
 chown -R "$REAL_USER:$REAL_USER" "$PROJECT_DIR/backend"
 
 # 7. Restart

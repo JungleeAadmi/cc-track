@@ -31,16 +31,11 @@ const FilePreviewModal = ({ fileUrl, isOpen, onClose, title }) => {
             </div>
 
             {/* Content Area */}
-            {/* FIX: Removed flex-center for PDFs so they fill height properly */}
             <div className={`flex-1 bg-black/20 overflow-hidden ${isImage ? 'flex items-center justify-center' : ''} p-4`}>
                 {isImage ? (
                     <img src={fileUrl} alt="Preview" className="max-w-full max-h-full object-contain rounded shadow-lg" />
                 ) : isPDF ? (
-                    <iframe 
-                        src={fileUrl} 
-                        className="w-full h-full border-none rounded bg-white shadow-md" 
-                        title="PDF Preview"
-                    ></iframe>
+                    <iframe src={fileUrl} className="w-full h-full border-none rounded bg-white shadow-md" title="PDF Preview"></iframe>
                 ) : (
                     <div className="flex h-full items-center justify-center">
                         <div className="text-center p-8 bg-surface rounded-xl border border-white/10">

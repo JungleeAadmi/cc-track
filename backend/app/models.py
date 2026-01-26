@@ -43,12 +43,24 @@ class CardStatement(Base):
     total_due = Column(Float)
     min_due = Column(Float, default=0.0)
     is_paid = Column(Boolean, default=False)
-    paid_amount = Column(Float, default=0.0)
-    paid_date = Column(DateTime, nullable=True)
-    payment_ref = Column(String, nullable=True)
+    paid_amount = Column(Float, default=0.0) # Calculated Sum
+    paid_date = Column(DateTime, nullable=True) # Last payment date
+    payment_ref = Column(String, nullable=True) # Legacy field
     attachment_path = Column(String, nullable=True) # Statement PDF
-    payment_proof_path = Column(String, nullable=True) # New: Payment Screenshot
+    payment_proof_path = Column(String, nullable=True) # Legacy field
+    
     card = relationship("Card", back_populates="statements")
+    payments = relationship("StatementPayment", back_populates="statement", cascade="all, delete-orphan")
+
+class StatementPayment(Base):
+    __tablename__ = "statement_payments"
+    id = Column(Integer, primary_key=True, index=True)
+    statement_id = Column(Integer, ForeignKey("card_statements.id"))
+    amount = Column(Float)
+    date = Column(DateTime, default=datetime.now)
+    reference = Column(String, nullable=True)
+    proof_path = Column(String, nullable=True)
+    statement = relationship("CardStatement", back_populates="payments")
 
 class Company(Base):
     __tablename__ = "companies"

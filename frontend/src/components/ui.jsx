@@ -43,7 +43,6 @@ export const Input = React.forwardRef(({ label, className, error, type = "text",
       type={type}
       className={cn(
         "w-full h-12 bg-black/40 border border-slate-700 rounded-xl px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all",
-        // Force appearance to fix mobile date input sizing
         type === "date" && "appearance-none", 
         error && "border-red-500 focus:ring-red-500/50",
         className

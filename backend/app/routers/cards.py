@@ -80,32 +80,46 @@ async def add_statement(card_id: int, month: str = Form(...), generated_date: st
     db.commit()
     return {"message": "Statement added"}
 
-@router.post("/statements/{stmt_id}/pay")
-async def pay_statement(
+# --- Payment Logic ---
+@router.post("/statements/{stmt_id}/payments")
+async def add_payment(
     stmt_id: int,
-    paid_amount: float = Form(...),
-    payment_ref: str = Form(None),
-    paid_date: str = Form(None),
+    amount: float = Form(...),
+    reference: str = Form(None),
+    date: str = Form(None),
     proof: UploadFile = File(None),
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     stmt = db.query(models.CardStatement).join(models.Card).filter(models.CardStatement.id == stmt_id, models.Card.owner_id == current_user.id).first()
     if not stmt: raise HTTPException(status_code=404, detail="Statement not found")
-    stmt.is_paid = True
-    stmt.paid_amount = paid_amount
-    stmt.payment_ref = payment_ref
     
-    if paid_date:
-        try: stmt.paid_date = datetime.fromisoformat(paid_date)
-        except: pass
-    else:
-        stmt.paid_date = datetime.now()
-
+    proof_path = None
     if proof:
         proof_path = f"{uuid.uuid4()}.{proof.filename.split('.')[-1]}"
         with open(os.path.join(UPLOAD_DIR, proof_path), "wb") as buffer: shutil.copyfileobj(proof.file, buffer)
-        stmt.payment_proof_path = proof_path
+
+    p_date = datetime.now()
+    if date:
+        try: p_date = datetime.fromisoformat(date)
+        except: pass
+
+    payment = models.StatementPayment(
+        statement_id=stmt.id,
+        amount=amount,
+        reference=reference,
+        date=p_date,
+        proof_path=proof_path
+    )
+    db.add(payment)
+    
+    # Recalculate totals
+    total_paid = sum(p.amount for p in stmt.payments) + amount
+    stmt.paid_amount = total_paid
+    if stmt.paid_amount >= stmt.total_due:
+        stmt.is_paid = True
+    else:
+        stmt.is_paid = False
 
     db.commit()
     return {"message": "Payment recorded"}

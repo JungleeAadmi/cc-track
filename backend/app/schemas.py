@@ -24,6 +24,15 @@ class UserSettings(BaseModel):
     ntfy_url: Optional[str] = None
     ntfy_topic: Optional[str] = None
 
+# --- Statements & Payments ---
+class StatementPaymentOut(BaseModel):
+    id: int
+    amount: float
+    date: datetime
+    reference: Optional[str]
+    proof_path: Optional[str]
+    class Config: from_attributes = True
+
 class StatementOut(BaseModel):
     id: int
     month: str
@@ -36,6 +45,7 @@ class StatementOut(BaseModel):
     paid_date: Optional[datetime]
     payment_ref: Optional[str]
     attachment_path: Optional[str]
+    payments: List[StatementPaymentOut] = [] 
     class Config: from_attributes = True
 
 class CardCreate(BaseModel):
