@@ -7,7 +7,7 @@ import { Plus, RotateCw, CheckCircle, FileText, Pencil, Trash2, FileCheck } from
 import FilePreviewModal from '../components/FilePreviewModal';
 
 const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete }) => {
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [showBackSide, setShowBackSide] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [showPayModal, setShowPayModal] = useState(false);
   const [showAddStmtModal, setShowAddStmtModal] = useState(false);
@@ -72,9 +72,8 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
-                {/* Card Flip Image */}
-                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={() => setIsFlipped(!isFlipped)}>
-                    {!isFlipped ? (
+                <div className="w-full aspect-[1.58/1] cursor-pointer group relative" onClick={handleFlip}>
+                    {!showBackSide ? (
                         card.front_image_path ? (
                             <img src={`/uploads/${card.front_image_path}`} className="w-full h-full object-cover rounded-2xl border border-white/10" alt="Front" />
                         ) : (
@@ -97,7 +96,7 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                         )
                     )}
                     <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded-full backdrop-blur text-white/70 text-xs flex items-center gap-1">
-                        <RotateCw size={12}/> {isFlipped ? "Show Front" : "Show Back"}
+                        <RotateCw size={12}/> {showBackSide ? "Show Front" : "Show Back"}
                     </div>
                 </div>
                 
@@ -140,12 +139,11 @@ const CardDetailModal = ({ card, isOpen, onClose, onRefresh, onEdit, onDelete })
                                                 onClick={() => { setPreviewFile(`/uploads/${st.payment_proof_path}`); setPreviewTitle(`Payment Proof - ${st.month}`); }} 
                                                 className="text-xs text-green-400 bg-green-900/10 px-3 py-1 rounded hover:bg-green-900/20 flex items-center gap-1 border border-green-900/30"
                                             >
-                                                <FileCheck size={12}/> View Proof
+                                                <FileCheck size={12}/> Proof
                                             </button>
                                         )
                                     )}
                                     
-                                    {/* View Statement Button */}
                                     {st.attachment_path && (
                                         <button 
                                             onClick={() => { setPreviewFile(`/uploads/${st.attachment_path}`); setPreviewTitle(`Statement - ${st.month}`); }} 
@@ -221,8 +219,8 @@ const Cards = () => {
 
   useEffect(() => { fetchCards(); }, []);
   const fetchCards = async () => { try { const res = await api.get('/api/cards/'); setCards(res.data); } catch (e) {} };
-
-  // Sync open modal with backend data
+  
+  // LIVE SYNC: Keep open modal in sync
   useEffect(() => {
       if (selectedCard) {
           const updatedCard = cards.find(c => c.id === selectedCard.id);
@@ -243,7 +241,7 @@ const Cards = () => {
       else await api.post('/api/cards/', formData);
       setShowAddModal(false); setForm(initialForm); setFrontImg(null); setBackImg(null); setIsEditing(false); setEditId(null);
       fetchCards();
-    } catch (err) { alert("Failed. Check inputs/size."); } 
+    } catch (err) { alert("Failed. Check inputs."); } 
     finally { setLoading(false); }
   };
 
